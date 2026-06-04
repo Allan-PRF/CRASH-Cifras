@@ -1,0 +1,16 @@
+{
+  "name": "@crash-cifras/shared",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./chord-schema": "./chord-schema.js",
+    "./constants": "./constants.js",
+    "./versiculos-prompt": "./versiculos-prompt.js",
+    "./versiculos-config": "./versiculos-config.js",
+    "./validate-youtube-url": "./validateYoutubeUrl.js",
+    "./referral": "./referral.js"
+  }
+}

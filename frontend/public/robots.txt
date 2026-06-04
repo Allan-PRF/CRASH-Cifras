@@ -1,0 +1,41 @@
+User-agent: *
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /financeiro/
+Disallow: /perfil/
+Disallow: /configuracoes/
+Disallow: /assinatura/
+Disallow: /conta/
+Disallow: /historico/
+Disallow: /playlist/
+Disallow: /importar/
+Disallow: /ministro/
+Disallow: /musica/
+Disallow: /teleprompter/
+Disallow: /acesso-negado
+Disallow: /rastreio-bot
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: Manus
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /

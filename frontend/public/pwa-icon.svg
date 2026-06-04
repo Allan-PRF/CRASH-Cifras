@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#09090b"/>
+  <path fill="#7c3aed" d="M256 88 368 200v112L256 424 144 312V200L256 88Z"/>
+  <path fill="#ede9fe" d="M256 168 304 216v80l-48 48-48-48v-80l48-48Z"/>
+  <text x="256" y="468" text-anchor="middle" fill="#a1a1aa" font-family="system-ui,sans-serif" font-size="40" font-weight="700">CRASH</text>
+</svg>

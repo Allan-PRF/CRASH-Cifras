@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+
+:root {
+  --crash-fundo: #000000;
+  --crash-fundo-card: #111111;
+  --crash-fundo-rodape: #0d0d0d;
+  --crash-letra: #ffffff;
+  --crash-cifra: #f97316;
+  --crash-grau: #67e8f9;
+  --crash-texto-sec: #9ca3af;
+  --crash-borda: #1f2937;
+  --crash-primario: #f97316;
+  --crash-iniciar: #22c55e;
+  --crash-versiculo-texto: #e5e7eb;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    min-height: 100svh;
+    background: var(--crash-fundo-card);
+    color: var(--crash-letra);
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+}
