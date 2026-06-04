@@ -3,9 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "workspaces": [
-    "shared",
     "frontend",
-    "backend"
+    "backend",
+    "shared"
   ],
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"npm run dev -w frontend\" \"npm run dev -w backend\"",
