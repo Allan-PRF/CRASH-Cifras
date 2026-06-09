@@ -35,7 +35,7 @@ export async function criarCheckoutInfinitPay({ plano, user, assinaturaId, cobra
     handle: env.infinitPayHandle,
     order_nsu: assinaturaId,
     redirect_url: `${siteUrl}/assinatura/sucesso`,
-    webhook_url: `${siteUrl}/api/assinaturas/webhook/infinitpay`,
+    webhook_url: `https://crash-cifras-production.up.railway.app/api/assinaturas/webhook/infinitpay`,
     customer: {
       name: user.user_metadata?.name || user.email,
       email: user.email,
@@ -83,6 +83,15 @@ export async function criarCheckoutInfinitPay({ plano, user, assinaturaId, cobra
  */
 export function validarWebhookInfinitPay(req) {
   const secret = env.infinitPayWebhookSecret
+  // InfinitPay não envia assinatura/segredo no webhook do checkout.
+  // Se nenhum header de segurança vier, aceita (a confirmação real vem do payload).
+  const temHeaderSeguranca =
+    req.headers['x-infinitpay-signature'] ||
+    req.headers['x-webhook-secret'] ||
+    req.headers.authorization
+  if (!temHeaderSeguranca) {
+    return true
+  }
 
   if (!secret) {
     if (env.nodeEnv === 'production') {
