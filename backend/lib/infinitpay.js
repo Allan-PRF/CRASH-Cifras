@@ -128,3 +128,56 @@ export function validarWebhookInfinitPay(req) {
 
   return false
 }
+
+const INFINITPAY_PAYMENT_CHECK_URL =
+  'https://api.checkout.infinitepay.io/payment_check'
+
+/**
+ * Confirma pagamento na InfinitePay (PIX ou cartão) — não confiar só no webhook.
+ * @see https://docs.infinitepay.io/checkout/payment-check
+ */
+export async function verificarPagamentoInfinitPay({ orderNsu, transactionNsu, slug }) {
+  if (!env.infinitPayHandle) {
+    throw new Error('Configure INFINITPAY_HANDLE no backend')
+  }
+
+  const body = {
+    handle: env.infinitPayHandle,
+    order_nsu: orderNsu,
+    transaction_nsu: transactionNsu,
+    slug,
+  }
+
+  console.log('[InfinitPay] payment_check chamado:', JSON.stringify(body))
+
+  const response = await fetch(INFINITPAY_PAYMENT_CHECK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    console.error(
+      '[InfinitPay] payment_check erro HTTP:',
+      response.status,
+      JSON.stringify(data, null, 2),
+    )
+    throw new Error(data?.message || data?.error || 'payment_check recusou a consulta')
+  }
+
+  console.log(
+    '[InfinitPay] payment_check resultado:',
+    JSON.stringify({
+      success: data.success,
+      paid: data.paid,
+      amount: data.amount,
+      paid_amount: data.paid_amount,
+      installments: data.installments,
+      capture_method: data.capture_method,
+    }),
+  )
+
+  return data
+}

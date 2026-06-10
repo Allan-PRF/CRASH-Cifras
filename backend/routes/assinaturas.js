@@ -3,6 +3,7 @@ import {
   criarCheckoutInfinitPay,
   getPlanoAssinatura,
   validarWebhookInfinitPay,
+  verificarPagamentoInfinitPay,
 } from '../lib/infinitpay.js'
 import { rateLimiters } from '../middleware/security.js'
 import { aplicarMesBonusRenovacao, processarConversaoIndicacao } from '../lib/referrals.js'
@@ -68,6 +69,58 @@ async function ativarAssinatura({ supabase, assinaturaId, providerReference, pay
   })
 
   return assinatura
+}
+
+async function processarWebhookPagamentoInfinitPay({ orderNsu, transactionNsu, slug, payload }) {
+  const supabase = getSupabaseAdmin()
+  const assinaturaId = orderNsu
+  const providerRef = transactionNsu || slug
+
+  console.log('[WEBHOOK] Iniciando payment_check para assinatura:', assinaturaId)
+
+  let check
+  try {
+    check = await verificarPagamentoInfinitPay({
+      orderNsu,
+      transactionNsu,
+      slug,
+    })
+  } catch (err) {
+    console.error('[WEBHOOK] payment_check falhou:', err.message)
+    throw err
+  }
+
+  if (check.paid === true) {
+    console.log('[WEBHOOK] payment_check paid=true — ativando assinatura:', assinaturaId)
+    await ativarAssinatura({
+      supabase,
+      assinaturaId,
+      providerReference: providerRef,
+      payload: { ...payload, payment_check: check },
+    })
+    console.log('[WEBHOOK] Ativação concluída para assinatura:', assinaturaId)
+    return
+  }
+
+  console.log('[WEBHOOK] payment_check paid=false — plano NÃO ativado:', assinaturaId)
+
+  const { data: assinatura, error } = await supabase
+    .from('assinaturas')
+    .select('*')
+    .eq('id', assinaturaId)
+    .single()
+
+  if (error) throw error
+
+  await supabase.from('pagamentos_assinatura').insert({
+    assinatura_id: assinaturaId,
+    user_id: assinatura.user_id,
+    plano: assinatura.plano,
+    provider_reference: providerRef,
+    status: 'nao_confirmado',
+    valor_centavos: assinatura.valor_centavos,
+    payload: { ...payload, payment_check: check },
+  })
 }
 
 assinaturasRouter.get('/atual', requireAuth, async (req, res, next) => {
@@ -187,61 +240,40 @@ assinaturasRouter.post('/checkout', rateLimiters.payment, requireAuth, async (re
   }
 })
 
-assinaturasRouter.post('/webhook/infinitpay', async (req, res, next) => {
-  try {
-    if (!validarWebhookInfinitPay(req)) {
-      return res.status(401).json({ error: 'Webhook não autorizado' })
-    }
-
-    const payload = req.body || {}
-    console.log('[WEBHOOK] InfinitPay payload:', JSON.stringify(payload, null, 2))
-
-    const assinaturaIdPreview =
-      payload.order_nsu ||
-      payload.external_reference ||
-      payload.metadata?.assinatura_id ||
-      payload.assinatura_id
-
-    if (!assinaturaIdPreview) {
-      return res.status(202).json({ ok: true, ignored: 'missing_assinatura_id' })
-    }
-    const status = String(payload.status || payload.payment_status || '').toLowerCase()
-    const assinaturaId = assinaturaIdPreview
-    const providerRef =
-      payload.transaction_nsu || payload.invoice_slug || payload.slug ||
-      payload.id || payload.reference || payload.transaction_id
-
-    const supabase = getSupabaseAdmin()
-    const paidStatuses = new Set(['paid', 'approved', 'authorized', 'completed', 'pago'])
-    if (paidStatuses.has(status)) {
-      await ativarAssinatura({
-        supabase,
-        assinaturaId,
-        providerReference: providerRef,
-        payload,
-      })
-    } else {
-      const { data: assinatura, error } = await supabase
-        .from('assinaturas')
-        .select('*')
-        .eq('id', assinaturaId)
-        .single()
-
-      if (error) throw error
-
-      await supabase.from('pagamentos_assinatura').insert({
-        assinatura_id: assinaturaId,
-        user_id: assinatura.user_id,
-        plano: assinatura.plano,
-        provider_reference: providerRef,
-        status: status || 'webhook_recebido',
-        valor_centavos: assinatura.valor_centavos,
-        payload,
-      })
-    }
-
-    res.json({ ok: true })
-  } catch (err) {
-    next(err)
+assinaturasRouter.post('/webhook/infinitpay', (req, res) => {
+  if (!validarWebhookInfinitPay(req)) {
+    return res.status(401).json({ error: 'Webhook não autorizado' })
   }
+
+  const payload = req.body || {}
+  console.log('[WEBHOOK] InfinitPay recebido:', JSON.stringify(payload, null, 2))
+
+  const orderNsu =
+    payload.order_nsu ||
+    payload.external_reference ||
+    payload.metadata?.assinatura_id ||
+    payload.assinatura_id
+
+  const transactionNsu = payload.transaction_nsu || payload.transaction_id
+  const slug = payload.invoice_slug || payload.slug
+
+  if (!orderNsu || !transactionNsu || !slug) {
+    console.log('[WEBHOOK] Ignorado — faltam order_nsu, transaction_nsu ou slug:', {
+      orderNsu: Boolean(orderNsu),
+      transactionNsu: Boolean(transactionNsu),
+      slug: Boolean(slug),
+    })
+    return res.status(200).json({ ok: true, ignored: 'missing_payment_fields' })
+  }
+
+  res.status(200).json({ ok: true, received: true })
+
+  void processarWebhookPagamentoInfinitPay({
+    orderNsu,
+    transactionNsu,
+    slug,
+    payload,
+  }).catch((err) => {
+    console.error('[WEBHOOK] Erro no processamento assíncrono:', err.message)
+  })
 })
