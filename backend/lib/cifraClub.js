@@ -44,6 +44,18 @@ function logDebug(...args) {
   console.log(LOG_PREFIX, ...args)
 }
 
+/** Logs temporários de diagnóstico (Railway) — remover após identificar falha de busca. */
+function logDiag(...args) {
+  console.log(`${LOG_PREFIX}[diag]`, ...args)
+}
+
+function htmlPareceHomepageGenerica(html) {
+  return (
+    /Cifra Club - Seu site de cifras/i.test(html || '') &&
+    !/cifra de/i.test(html || '')
+  )
+}
+
 const PALAVRAS_IGNORAR_BUSCA = [
   'ao vivo',
   'aovivo',
@@ -275,6 +287,30 @@ export function validarTituloCifraClub({
     aceito ? 'aceito' : 'rejeitado',
   )
 
+  if (!aceito) {
+    logDiag('validação rejeitou candidato', {
+      url: pathParaLog(url),
+      tituloEsperado: tituloEsp,
+      tituloEncontrado,
+      tituloDaUrl: daUrl.titulo,
+      simTitulo,
+      artistaEsperado: artistaEsp || '(vazio)',
+      artistaEncontrado,
+      artistaDaUrl: daUrl.artista,
+      simArtista,
+      similarityFinal: similarity,
+      minimo: MIN_TITULO_SIMILARITY_CC,
+      formula: 'similarity = titulo*0.75 + artista*0.25',
+    })
+  } else {
+    logDiag('validação aceitou candidato', {
+      url: pathParaLog(url),
+      similarity,
+      simTitulo,
+      simArtista,
+    })
+  }
+
   return {
     aceito,
     similarity,
@@ -313,8 +349,12 @@ function pontuarLinkBusca(artistSlug, songSlug, tituloSlug, variantesArtista) {
 async function buscarUrlsViaBuscaHtml(query) {
   if (!query?.trim()) return []
   const url = `${CC_BASE}/busca/?q=${encodeURIComponent(query.trim())}`
+  logDiag('busca HTML — request', { query: query.trim(), url })
   const html = await fetchHtml(url)
-  if (!html) return []
+  if (!html) {
+    logDiag('busca HTML — sem HTML', { query: query.trim(), url })
+    return []
+  }
 
   const paths = new Set()
   const re = /href="(\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*)\/?"/gi
@@ -332,7 +372,18 @@ async function buscarUrlsViaBuscaHtml(query) {
     paths.add(path)
   }
 
-  return [...paths].map((p) => `${CC_BASE}${p}/`)
+  const urls = [...paths].map((p) => `${CC_BASE}${p}/`)
+  logDiag('busca HTML — resultado', {
+    query: query.trim(),
+    url,
+    htmlChars: html.length,
+    pareceHomepage: htmlPareceHomepageGenerica(html),
+    pathsEncontrados: paths.size,
+    amostraPaths: [...paths].slice(0, 10),
+    amostraUrls: urls.slice(0, 5).map((u) => pathParaLog(u)),
+  })
+
+  return urls
 }
 
 async function tentativasViaApi(titulo, artista) {
@@ -348,8 +399,19 @@ async function tentativasViaApi(titulo, artista) {
 
   for (const query of queries) {
     const apiUrl = `${CC_BASE}/api/v1/songs/search?q=${encodeURIComponent(query)}&limit=12`
-    const data = await fetchJson(apiUrl)
-    if (!Array.isArray(data) || data.length === 0) continue
+    logDiag('API busca — request', { query, apiUrl })
+    const { data, status, ok } = await fetchJson(apiUrl)
+    if (!ok || !Array.isArray(data) || data.length === 0) {
+      logDiag('API busca — sem resultados', {
+        query,
+        apiUrl,
+        httpStatus: status,
+        ok,
+        isArray: Array.isArray(data),
+        count: Array.isArray(data) ? data.length : 0,
+      })
+      continue
+    }
 
     const ranked = data
       .map((song) => {
@@ -357,15 +419,31 @@ async function tentativasViaApi(titulo, artista) {
           song.artist?.url || song.artist_url || slugifyBusca(song.artist?.name || song.artist)
         const songSlug = song.url || song.song_url || slugifyBusca(song.name || song.song)
         if (!artistSlug || !songSlug) return null
+        const score = pontuarLinkBusca(artistSlug, songSlug, tituloSlug, artistaVariants)
         return {
           url: `${CC_BASE}/${artistSlug}/${songSlug}/`,
-          score: pontuarLinkBusca(artistSlug, songSlug, tituloSlug, artistaVariants),
+          score,
           metadados: metadadosDaBuscaApi(song),
           origem: 'api',
+          nomeApi: song.name || song.song || '',
+          artistaApi: song.artist?.name || song.artist || '',
         }
       })
       .filter(Boolean)
       .sort((a, b) => b.score - a.score)
+
+    logDiag('API busca — resultados', {
+      query,
+      httpStatus: status,
+      count: data.length,
+      ranked: ranked.slice(0, 8).map((item) => ({
+        url: pathParaLog(item.url),
+        score: item.score,
+        nome: item.nomeApi,
+        artista: item.artistaApi,
+        aceitoScore: item.score >= 0,
+      })),
+    })
 
     for (const item of ranked) {
       if (item.score < 0) continue
@@ -427,6 +505,23 @@ async function montarTentativasBusca(titulo, artista) {
   }
 
   lista.sort((a, b) => b.score - a.score)
+
+  logDiag('tentativas montadas (ordenadas por score)', {
+    titulo,
+    artista,
+    tituloSlug,
+    artistaSlugs: artistaVariants,
+    urlDireta: artistaVariants[0] && tituloSlug
+      ? `${CC_BASE}/${artistaVariants[0]}/${tituloSlug}/`
+      : null,
+    total: lista.length,
+    top15: lista.slice(0, 15).map((t) => ({
+      url: pathParaLog(t.url),
+      origem: t.origem,
+      score: t.score,
+    })),
+  })
+
   return lista
 }
 
@@ -1240,11 +1335,28 @@ async function fetchJson(url) {
   try {
     const res = await fetch(url, { headers: FETCH_HEADERS, signal: controller.signal })
     clearTimeout(timeout)
-    if (!res.ok) return null
-    return res.json()
-  } catch {
+    const ct = res.headers.get('content-type') || ''
+    if (!res.ok) {
+      logDiag('fetchJson HTTP erro', { url, status: res.status, contentType: ct })
+      return { data: null, status: res.status, ok: false }
+    }
+    if (!ct.includes('json')) {
+      const peek = (await res.text()).slice(0, 120)
+      logDiag('fetchJson resposta não-JSON', { url, status: res.status, contentType: ct, peek })
+      return { data: null, status: res.status, ok: false }
+    }
+    const data = await res.json()
+    logDiag('fetchJson OK', {
+      url,
+      status: res.status,
+      isArray: Array.isArray(data),
+      count: Array.isArray(data) ? data.length : null,
+    })
+    return { data, status: res.status, ok: true }
+  } catch (err) {
     clearTimeout(timeout)
-    return null
+    logDiag('fetchJson exceção', { url, erro: err?.message || String(err) })
+    return { data: null, status: 0, ok: false }
   }
 }
 
@@ -1254,10 +1366,23 @@ async function fetchHtml(url) {
   try {
     const res = await fetch(url, { headers: FETCH_HEADERS, signal: controller.signal })
     clearTimeout(timeout)
-    if (!res.ok) return null
-    return res.text()
-  } catch {
+    if (!res.ok) {
+      logDiag('fetchHtml HTTP erro', { url, status: res.status })
+      return null
+    }
+    const text = await res.text()
+    logDiag('fetchHtml OK', {
+      url,
+      status: res.status,
+      htmlChars: text.length,
+      pareceHomepage: htmlPareceHomepageGenerica(text),
+      temCifraCnt: /cifra_cnt|id=["']cifra_cnt["']/i.test(text),
+      titleTag: text.match(/<title>([^<]+)<\/title>/i)?.[1]?.trim() || null,
+    })
+    return text
+  } catch (err) {
     clearTimeout(timeout)
+    logDiag('fetchHtml exceção', { url, erro: err?.message || String(err) })
     return null
   }
 }
@@ -1297,17 +1422,41 @@ async function resolverDestinoCifraClub(titulo, artista) {
     const html = await fetchHtml(tentativa.url)
     if (!html) {
       logDebug('resultado: não encontrou (fetch falhou)')
+      logDiag('tentativa descartada', {
+        n,
+        url: pathParaLog(tentativa.url),
+        origem: tentativa.origem,
+        score: tentativa.score,
+        motivo: 'fetch falhou',
+      })
       continue
     }
 
     if (!paginaTemCifra(html)) {
       logDebug('resultado: não encontrou (página sem cifra)')
+      logDiag('tentativa descartada', {
+        n,
+        url: pathParaLog(tentativa.url),
+        origem: tentativa.origem,
+        score: tentativa.score,
+        motivo: 'paginaTemCifra=false',
+        htmlChars: html.length,
+        pareceHomepage: htmlPareceHomepageGenerica(html),
+      })
       continue
     }
 
     const parsed = extrairCifraDoHtml(html)
     if (!parsed?.secoes?.length) {
       logDebug('resultado: não encontrou (cifra não extraída)')
+      logDiag('tentativa descartada', {
+        n,
+        url: pathParaLog(tentativa.url),
+        origem: tentativa.origem,
+        score: tentativa.score,
+        motivo: 'extrairCifraDoHtml sem seções',
+        htmlChars: html.length,
+      })
       continue
     }
 
@@ -1344,6 +1493,13 @@ async function resolverDestinoCifraClub(titulo, artista) {
   }
 
   logDebug('resultado: não encontrou em nenhuma tentativa')
+  logDiag('busca esgotada sem match', {
+    titulo,
+    artista,
+    tentativasTestadas: n,
+    tituloSlug: slugifyBusca(titulo),
+    artistaSlugs: variantesSlugArtista(artista),
+  })
   return null
 }
 
@@ -1357,8 +1513,28 @@ export async function buscarCifraNoCifraClub({ titulo, artista }) {
 
   logDebug('--- início busca ---', { titulo, artista })
 
+  const tituloSlug = slugifyBusca(titulo)
+  const artistaSlugs = variantesSlugArtista(artista)
+  logDiag('entrada buscarCifraNoCifraClub', {
+    titulo,
+    artista,
+    tituloSlug,
+    artistaSlugs,
+    urlDiretaProvavel:
+      artistaSlugs[0] && tituloSlug
+        ? `${CC_BASE}/${artistaSlugs[0]}/${tituloSlug}/`
+        : null,
+    estrategias: [
+      '1) API /api/v1/songs/search (3 queries)',
+      '2) URL direta /artista/musica (slug)',
+      '3) URL invertida /musica/artista',
+      '4) scraping /busca/?q= (HTML)',
+    ],
+  })
+
   const destino = await resolverDestinoCifraClub(titulo, artista)
   if (!destino?.parsed?.secoes?.length) {
+    logDiag('buscarCifraNoCifraClub retornando null', { titulo, artista })
     return null
   }
 

@@ -12,10 +12,12 @@ import { versiculosRouter } from './versiculos.js'
 import { youtubeRouter } from './youtube.js'
 import { referralsRouter } from './referrals.js'
 import { novidadesRouter } from './novidades.js'
+import { debugRouter } from './debug.js'
 
 export const apiRouter = Router()
 
 apiRouter.use('/health', healthRouter)
+apiRouter.use('/debug', debugRouter)
 apiRouter.use('/security', securityRouter)
 apiRouter.use('/upload', rateLimiters.upload, uploadRouter)
 apiRouter.use('/assinaturas', assinaturasRouter)
