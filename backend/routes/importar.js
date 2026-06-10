@@ -66,8 +66,62 @@ function formatDuration(seconds) {
 
 const LOG_IMPORT = '[importar]'
 
+const METADADOS_YOUTUBE_TIMEOUT_MS = 15_000
+
+const MENSAGEM_PRECISA_NOME_MANUAL =
+  'Não conseguimos ler o título do YouTube automaticamente. Digite o nome da música e o artista.'
+
+const MENSAGEM_FALLBACK_FALHOU =
+  'Não encontramos essa música automaticamente. Você pode tentar outro link ou cadastrar a cifra manualmente.'
+
+export class ImportNeedsInputError extends Error {
+  constructor(message, job) {
+    super(message)
+    this.name = 'ImportNeedsInputError'
+    this.job = job
+  }
+}
+
+export class ImportFriendlyError extends Error {
+  constructor(message, job = null) {
+    super(message)
+    this.name = 'ImportFriendlyError'
+    this.job = job
+  }
+}
+
 function logImport(...args) {
   console.log(LOG_IMPORT, ...args)
+}
+
+function isYoutubeBotOrBlockError(err) {
+  const msg = String(err?.message || err || '').toLowerCase()
+  return (
+    msg.includes('sign in to confirm') ||
+    msg.includes("you're not a bot") ||
+    msg.includes('not a bot') ||
+    msg.includes('cookies-from-browser') ||
+    msg.includes('cookies') ||
+    msg.includes('bot') ||
+    msg.includes('http error 403') ||
+    msg.includes('unable to download')
+  )
+}
+
+function metadadosManuaisValidos(titulo, artista) {
+  return String(titulo || '').trim().length >= 2 && String(artista || '').trim().length >= 2
+}
+
+function buildMetadadosFromManual({ titulo, artista, youtubeUrl }) {
+  const t = String(titulo).trim()
+  const a = String(artista).trim()
+  return {
+    titulo: t,
+    artista: a,
+    tituloYoutube: `${t} - ${a}`,
+    duracao: null,
+    fonteMetadados: 'manual',
+  }
 }
 
 function slugifyBusca(text) {
@@ -240,6 +294,178 @@ async function obterMetadadosYoutube(youtubeUrl) {
     artista: parsed.artista,
     tituloYoutube: parsed.tituloYoutube,
     duracao: data.duration || null,
+    fonteMetadados: 'youtube',
+  }
+}
+
+async function tentarMetadadosYoutubeComTimeout(youtubeUrl, timeoutMs = METADADOS_YOUTUBE_TIMEOUT_MS) {
+  logImport(`metadados YouTube: tentando (timeout ${timeoutMs}ms)...`)
+  try {
+    const metadados = await Promise.race([
+      obterMetadadosYoutube(youtubeUrl),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('timeout metadados YouTube')), timeoutMs)
+      }),
+    ])
+    logImport('metadados YouTube: sucesso', {
+      titulo: metadados.titulo,
+      artista: metadados.artista,
+    })
+    return { ok: true, metadados }
+  } catch (err) {
+    logImport('metadados YouTube: falhou —', err.message)
+    return { ok: false, error: err }
+  }
+}
+
+async function resolverMetadadosImportacao({ youtubeUrl, tituloManual, artistaManual }) {
+  if (metadadosManuaisValidos(tituloManual, artistaManual)) {
+    const metadados = buildMetadadosFromManual({
+      titulo: tituloManual,
+      artista: artistaManual,
+      youtubeUrl,
+    })
+    logImport('metadados: usando nome/artista informados pelo usuário', {
+      titulo: metadados.titulo,
+      artista: metadados.artista,
+    })
+    return { ok: true, metadados }
+  }
+
+  const tentativa = await tentarMetadadosYoutubeComTimeout(youtubeUrl)
+  if (tentativa.ok) {
+    return { ok: true, metadados: tentativa.metadados }
+  }
+
+  logImport('metadados: precisa_nome_manual (yt-dlp bloqueado ou indisponível)')
+  return { ok: false, needsInput: true }
+}
+
+async function buscarCifraClubComRetry(titulo, artista) {
+  logImport('Cifra Club: buscando', { titulo, artista })
+
+  let estruturado = await buscarCifraNoCifraClub({ titulo, artista })
+
+  if (!estruturado?.secoes?.length) {
+    logImport('Cifra Club: vazio — retry invertendo titulo/artista', {
+      titulo: artista,
+      artista: titulo,
+    })
+    estruturado = await buscarCifraNoCifraClub({
+      titulo: artista,
+      artista: titulo,
+    })
+  }
+
+  const encontrou = Boolean(estruturado?.secoes?.length)
+  logImport('Cifra Club: resultado', {
+    encontrou,
+    secoes: estruturado?.secoes?.length ?? 0,
+    url: estruturado?.url ?? null,
+    tom: estruturado?.tom ?? null,
+    bpm: estruturado?.bpm ?? null,
+  })
+
+  return { estruturado, encontrou }
+}
+
+function montarEstruturadoCifraClub(estruturado, metadados) {
+  const tomBrutoCc = estruturado?.tom ?? estruturado?.tom_original ?? null
+  return {
+    ...estruturado,
+    titulo: estruturado.titulo || metadados.titulo,
+    artista: estruturado.artista || metadados.artista,
+    secoes: deduplicarSecoesImport(estruturado.secoes),
+    ...(tomBrutoCc ? { tom: tomBrutoCc, tom_original: tomBrutoCc } : {}),
+  }
+}
+
+async function executarFallbackAudioWhisperGpt(supabase, { job, youtubeUrl, ministroId, metadados }) {
+  logImport('fallback áudio: iniciando (CC não encontrou a cifra)')
+  const tempDir = await mkdtemp(join(tmpdir(), 'crash-cifras-'))
+  const audioPath = join(tempDir, 'audio.mp3')
+
+  try {
+    await updateJob(supabase, job.id, {
+      etapa: 'Baixando áudio com yt-dlp (fallback)',
+      progresso: 50,
+    })
+
+    await baixarAudioYoutube(youtubeUrl, audioPath)
+    logImport('fallback áudio: download concluído')
+
+    await updateJob(supabase, job.id, {
+      etapa: 'Detectando BPM do áudio',
+      progresso: 58,
+    })
+
+    const bpmDetectado = await detectBpmFromAudioFile(audioPath)
+    logImport('fallback áudio: BPM detectado', { bpmDetectado })
+
+    await updateJob(supabase, job.id, {
+      etapa: 'Transcrevendo com OpenAI Whisper',
+      progresso: 68,
+    })
+
+    const transcricao = await transcreverComWhisper(audioPath)
+    const transcricaoOk = String(transcricao || '').trim().length > 20
+    logImport('fallback áudio: Whisper', {
+      caracteres: String(transcricao || '').length,
+      ok: transcricaoOk,
+    })
+
+    let estruturado = null
+
+    if (!transcricaoOk) {
+      logImport('fallback áudio: Whisper sem texto suficiente — seções mínimas')
+    } else {
+      await updateJob(supabase, job.id, {
+        etapa: 'Organizando letra (Whisper) e acordes com IA',
+        progresso: 80,
+      })
+      estruturado = await identificarSecoesComOpenAI({
+        transcricao,
+        metadados,
+        somenteTranscricao: true,
+      })
+      logImport('fallback áudio: GPT retornou', {
+        secoes: estruturado?.secoes?.length ?? 0,
+        tom: estruturado?.tom ?? null,
+        bpm: estruturado?.bpm ?? null,
+      })
+    }
+
+    const bpmGpt =
+      !bpmDetectado
+        ? (estruturado?.bpm ?? null) ?? (await estimarBpmComOpenAI(metadados))
+        : null
+
+    const tomGpt = estruturado?.tom ?? estruturado?.tom_original ?? null
+
+    logImport('fonte final: fallback gpt/whisper')
+
+    return normalizarResultadoImportacao({
+      estruturado,
+      metadados,
+      transcricao,
+      youtubeUrl,
+      ministroId,
+      bpmCifraClub: null,
+      bpmAudio: bpmDetectado,
+      bpmGpt,
+      tomCifraClub: null,
+      tomAudio: null,
+      tomGpt,
+      fonteCifraClub: false,
+    })
+  } catch (err) {
+    if (isYoutubeBotOrBlockError(err)) {
+      logImport('fallback áudio: YouTube bloqueou download —', err.message)
+      throw new ImportFriendlyError(MENSAGEM_FALLBACK_FALHOU)
+    }
+    throw err
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => null)
   }
 }
 
@@ -724,187 +950,155 @@ function normalizarResultadoImportacao({
   }
 }
 
-async function executarPipelineYoutube(supabase, { job, youtubeUrl, ministroId }) {
+async function executarPipelineYoutube(
+  supabase,
+  { job, youtubeUrl, ministroId, tituloManual = null, artistaManual = null },
+) {
   await supabase
     .from('import_jobs')
     .update({ status: 'processing', etapa: 'Lendo metadados do YouTube', progresso: 15 })
     .eq('id', job.id)
 
-  const tempDir = await mkdtemp(join(tmpdir(), 'crash-cifras-'))
-  const audioPath = join(tempDir, 'audio.mp3')
-
   try {
-    const metadados = await obterMetadadosYoutube(youtubeUrl)
-    await updateJob(supabase, job.id, {
-      etapa: 'Baixando áudio com yt-dlp',
-      progresso: 35,
+    const metaResolvido = await resolverMetadadosImportacao({
+      youtubeUrl,
+      tituloManual,
+      artistaManual,
     })
 
-    await baixarAudioYoutube(youtubeUrl, audioPath)
-    await updateJob(supabase, job.id, {
-      etapa: 'Detectando BPM do áudio',
-      progresso: 45,
-    })
+    if (!metaResolvido.ok) {
+      await updateJob(supabase, job.id, {
+        status: 'needs_input',
+        etapa: 'Informe nome e artista da música',
+        progresso: 20,
+        erro: null,
+      })
+      return { type: 'needs_input', message: MENSAGEM_PRECISA_NOME_MANUAL }
+    }
 
-    let bpmDetectado = await detectBpmFromAudioFile(audioPath)
+    const metadados = metaResolvido.metadados
 
-    await updateJob(supabase, job.id, {
-      etapa: 'Transcrevendo com OpenAI Whisper',
-      progresso: 60,
-    })
-
-    const transcricao = await transcreverComWhisper(audioPath)
     await updateJob(supabase, job.id, {
       etapa: 'Buscando cifra no Cifra Club',
-      progresso: 72,
+      progresso: 40,
     })
 
-    logImport('--- busca Cifra Club (antes do GPT) ---', {
-      titulo: metadados.titulo,
-      artista: metadados.artista,
-      tituloYoutube: metadados.tituloYoutube,
-    })
+    const { estruturado: ccBruto, encontrou: fonteCifraClub } =
+      await buscarCifraClubComRetry(metadados.titulo, metadados.artista)
 
-    let estruturado = await buscarCifraNoCifraClub({
-      titulo: metadados.titulo,
-      artista: metadados.artista,
-    })
-
-    if (!estruturado?.secoes?.length) {
-      logImport('Cifra Club vazio — retry invertendo titulo/artista', {
-        titulo: metadados.artista,
-        artista: metadados.titulo,
-      })
-      estruturado = await buscarCifraNoCifraClub({
-        titulo: metadados.artista,
-        artista: metadados.titulo,
-      })
-    }
-
-    let fonteCifraClub = Boolean(estruturado?.secoes?.length)
-    const transcricaoOk = String(transcricao || '').trim().length > 20
-
-    if (!fonteCifraClub) {
-      logImport(
-        'Cifra Club: nenhuma cifra válida (não encontrada ou título rejeitado). Próximo: Whisper + GPT.',
-      )
-    }
-
-    const bpmCifraClub = fonteCifraClub ? (estruturado?.bpm ?? null) : null
-    const tomBrutoCc = fonteCifraClub
-      ? (estruturado?.tom ?? estruturado?.tom_original ?? null)
-      : null
-    // Valor bruto do CC → normalizado só em resolverTomImport (evita perder tom antes da prioridade)
-    const tomCifraClub = fonteCifraClub ? tomBrutoCc : null
-    const tomAudio = null
-
-    logImport('tom Cifra Club (bruto, antes de resolverTomImport):', {
-      fonteCifraClub,
-      tomBrutoCc,
-      tomAudio,
-    })
-
-    logImport('resultado Cifra Club:', {
-      encontrou: fonteCifraClub,
-      url: estruturado?.url ?? null,
-      secoes: estruturado?.secoes?.length ?? 0,
-      tomBruto: tomBrutoCc,
-      bpmBruto: estruturado?.bpm ?? null,
-      bpmCifraClubNormalizado: bpmCifraClub,
-      proximaEtapa: fonteCifraClub ? 'usar CC (sem GPT para cifras/tom)' : 'GPT identificarSecoes',
-    })
-
-    if (!fonteCifraClub) {
-      if (!transcricaoOk) {
-        logImport(
-          'Whisper sem texto suficiente — seções mínimas a partir da transcrição bruta',
-        )
-        estruturado = null
-      } else {
-        logImport(
-          'Letra: somente Whisper | Acordes/tom: GPT (sem letra de outra música)',
-        )
-        await updateJob(supabase, job.id, {
-          etapa: 'Organizando letra (Whisper) e acordes com IA',
-          progresso: 80,
-        })
-        estruturado = await identificarSecoesComOpenAI({
-          transcricao,
-          metadados,
-          somenteTranscricao: true,
-        })
-        logImport('GPT (Whisper+acordes) retornou:', {
-          secoes: estruturado?.secoes?.length ?? 0,
-          tom: estruturado?.tom ?? estruturado?.tom_original ?? null,
-          bpm: estruturado?.bpm ?? null,
-        })
-      }
-    } else {
+    if (fonteCifraClub) {
+      logImport('fonte: cifraclub — sem download de áudio')
       await updateJob(supabase, job.id, {
         etapa: 'Cifras, tom e BPM do Cifra Club',
         progresso: 85,
       })
-      estruturado = {
-        ...estruturado,
-        titulo: estruturado.titulo || metadados.titulo,
-        artista: estruturado.artista || metadados.artista,
-        secoes: deduplicarSecoesImport(estruturado.secoes),
-        ...(tomBrutoCc ? { tom: tomBrutoCc, tom_original: tomBrutoCc } : {}),
-      }
+
+      const estruturado = montarEstruturadoCifraClub(ccBruto, metadados)
+      const bpmCifraClub = estruturado?.bpm ?? null
+      const tomBrutoCc = estruturado?.tom ?? estruturado?.tom_original ?? null
+      const tomCifraClub = tomBrutoCc
+
+      logImport('--- resolução final tom/BPM (cifraclub) ---', {
+        fonteCifraClub: true,
+        tomCifraClub,
+        bpmCifraClub,
+        bpmAudio: null,
+        bpmGpt: null,
+      })
+      logImport('importação: caminho feliz concluído — fonte cifraclub')
+
+      const data = normalizarResultadoImportacao({
+        estruturado,
+        metadados,
+        transcricao: null,
+        youtubeUrl,
+        ministroId,
+        bpmCifraClub,
+        bpmAudio: null,
+        bpmGpt: null,
+        tomCifraClub,
+        tomAudio: null,
+        tomGpt: null,
+        fonteCifraClub: true,
+      })
+
+      return { type: 'success', data }
     }
 
-    const bpmGpt =
-      !bpmCifraClub && !bpmDetectado
-        ? (estruturado?.bpm ?? null) ?? (await estimarBpmComOpenAI(metadados))
-        : null
+    logImport('Cifra Club: não encontrou — iniciando fallback áudio+Whisper+GPT')
 
-    // GPT só entra no tom se o Cifra Club não forneceu (nunca competir com CC)
-    const tomGpt = fonteCifraClub
-      ? null
-      : (estruturado?.tom ?? estruturado?.tom_original ?? null)
-
-    logImport('--- resolução final tom/BPM ---', {
-      fonteCifraClub,
-      tomCifraClub,
-      tomAudio,
-      tomGpt,
-      bpmCifraClub,
-      bpmAudio: bpmDetectado,
-      bpmGpt,
-    })
-
-    logImport('fonte final:', fonteCifraClub ? 'cifraclub' : 'gpt')
-
-    return normalizarResultadoImportacao({
-      estruturado,
-      metadados,
-      transcricao,
-      youtubeUrl,
-      ministroId,
-      bpmCifraClub,
-      bpmAudio: bpmDetectado,
-      bpmGpt,
-      tomCifraClub,
-      tomAudio,
-      tomGpt,
-      fonteCifraClub,
-    })
+    try {
+      const data = await executarFallbackAudioWhisperGpt(supabase, {
+        job,
+        youtubeUrl,
+        ministroId,
+        metadados,
+      })
+      return { type: 'success', data }
+    } catch (err) {
+      if (err instanceof ImportFriendlyError) {
+        await updateJob(supabase, job.id, {
+          status: 'failed',
+          etapa: 'Importação não concluída',
+          erro: err.message,
+          progresso: 100,
+        })
+        return { type: 'failed', message: err.message }
+      }
+      throw err
+    }
   } catch (err) {
+    const mensagem = isYoutubeBotOrBlockError(err)
+      ? MENSAGEM_FALLBACK_FALHOU
+      : err.message
+
     await updateJob(supabase, job.id, {
       status: 'failed',
       etapa: 'Falha na importação',
-      erro: err.message,
+      erro: mensagem,
       progresso: 100,
     }).catch(() => null)
+
+    if (isYoutubeBotOrBlockError(err)) {
+      return { type: 'failed', message: MENSAGEM_FALLBACK_FALHOU }
+    }
     throw err
-  } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => null)
   }
 }
 
-async function importarYoutubeReal(supabase, { job, userId, youtubeUrl, ministroId, musicaId = null }) {
+async function importarYoutubeReal(
+  supabase,
+  { job, userId, youtubeUrl, ministroId, musicaId = null, tituloManual = null, artistaManual = null },
+) {
   try {
-    const result = await executarPipelineYoutube(supabase, { job, youtubeUrl, ministroId })
+    const pipeline = await executarPipelineYoutube(supabase, {
+      job,
+      youtubeUrl,
+      ministroId,
+      tituloManual,
+      artistaManual,
+    })
+
+    if (pipeline.type === 'needs_input') {
+      const { data: jobRow, error: jobErr } = await supabase
+        .from('import_jobs')
+        .select('*')
+        .eq('id', job.id)
+        .single()
+      if (jobErr) throw jobErr
+      throw new ImportNeedsInputError(pipeline.message, jobRow)
+    }
+
+    if (pipeline.type === 'failed') {
+      const { data: jobRow } = await supabase
+        .from('import_jobs')
+        .select('*')
+        .eq('id', job.id)
+        .maybeSingle()
+      throw new ImportFriendlyError(pipeline.message, jobRow)
+    }
+
+    const result = pipeline.data
 
     let musica
 
@@ -1007,8 +1201,38 @@ async function importarYoutubeReal(supabase, { job, userId, youtubeUrl, ministro
   }
 }
 
-async function importarYoutubePreview(supabase, { job, youtubeUrl, ministroId }) {
-  const preview = await executarPipelineYoutube(supabase, { job, youtubeUrl, ministroId })
+async function importarYoutubePreview(
+  supabase,
+  { job, youtubeUrl, ministroId, tituloManual = null, artistaManual = null },
+) {
+  const pipeline = await executarPipelineYoutube(supabase, {
+    job,
+    youtubeUrl,
+    ministroId,
+    tituloManual,
+    artistaManual,
+  })
+
+  if (pipeline.type === 'needs_input') {
+    const { data: jobRow, error: jobErr } = await supabase
+      .from('import_jobs')
+      .select('*')
+      .eq('id', job.id)
+      .single()
+    if (jobErr) throw jobErr
+    throw new ImportNeedsInputError(pipeline.message, jobRow)
+  }
+
+  if (pipeline.type === 'failed') {
+    const { data: jobRow } = await supabase
+      .from('import_jobs')
+      .select('*')
+      .eq('id', job.id)
+      .maybeSingle()
+    throw new ImportFriendlyError(pipeline.message, jobRow)
+  }
+
+  const preview = pipeline.data
 
   const { data: completed, error: jobError } = await supabase
     .from('import_jobs')
@@ -1040,15 +1264,18 @@ importarRouter.get('/youtube/search', requireAuth, async (req, res, next) => {
 })
 
 importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
+  let canonicalUrl = null
   try {
-    const { youtubeUrl: rawUrl, ministroId, preview, musicaId } = req.body ?? {}
+    const { youtubeUrl: rawUrl, ministroId, preview, musicaId, titulo, artista } = req.body ?? {}
     const validation = validateYoutubeUrl(rawUrl)
 
     if (!validation.valid) {
       return res.status(400).json({ error: validation.error || 'Link inválido' })
     }
 
-    const canonicalUrl = `https://www.youtube.com/watch?v=${validation.videoId}`
+    canonicalUrl = `https://www.youtube.com/watch?v=${validation.videoId}`
+    const tituloManual = String(titulo || '').trim() || null
+    const artistaManual = String(artista || '').trim() || null
 
     const job = await createJob(req.supabase, {
       userId: req.user.id,
@@ -1062,6 +1289,8 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
           job,
           youtubeUrl: canonicalUrl,
           ministroId: ministroId || null,
+          tituloManual,
+          artistaManual,
         },
       )
       return res.status(201).json({ job: completed, preview: previewData })
@@ -1073,10 +1302,26 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
       youtubeUrl: canonicalUrl,
       ministroId,
       musicaId: musicaId || null,
+      tituloManual,
+      artistaManual,
     })
 
     res.status(201).json({ job: completed })
   } catch (err) {
+    if (err instanceof ImportNeedsInputError) {
+      return res.status(200).json({
+        precisa_nome_manual: true,
+        youtubeUrl: canonicalUrl || req.body?.youtubeUrl,
+        job: err.job,
+        message: err.message,
+      })
+    }
+    if (err instanceof ImportFriendlyError) {
+      return res.status(422).json({
+        error: err.message,
+        job: err.job,
+      })
+    }
     next(err)
   }
 })

@@ -30,6 +30,11 @@ export function Importar() {
   const [searching, setSearching] = useState(false)
   const [showDirectLink, setShowDirectLink] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [tituloManual, setTituloManual] = useState('')
+  const [artistaManual, setArtistaManual] = useState('')
+  const [needsManualInput, setNeedsManualInput] = useState(false)
+  const [pendingUrl, setPendingUrl] = useState('')
+  const [manualHint, setManualHint] = useState('')
   const [ministroId, setMinistroId] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
@@ -49,20 +54,63 @@ export function Importar() {
     return `https://www.youtube.com/watch?v=${result.videoId}`
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  async function runImport(url, { titulo = null, artista = null } = {}) {
     setError('')
-    setJob(null)
+    setNeedsManualInput(false)
+    setManualHint('')
     setSubmitting(true)
     try {
-      const safeUrl = assertValidYoutubeUrl(youtubeUrl)
-      const nextJob = await importarYoutube({ youtubeUrl: safeUrl, ministroId })
-      setJob(nextJob)
+      const safeUrl = assertValidYoutubeUrl(url)
+      const result = await importarYoutube({
+        youtubeUrl: safeUrl,
+        ministroId,
+        titulo,
+        artista,
+      })
+
+      if (result?.precisa_nome_manual) {
+        setPendingUrl(result.youtubeUrl || safeUrl)
+        setNeedsManualInput(true)
+        setManualHint(
+          result.message ||
+            'Não conseguimos ler o título do YouTube. Digite o nome da música e o artista.',
+        )
+        setJob(result.job || null)
+        return
+      }
+
+      setJob(result)
+      setNeedsManualInput(false)
+      setPendingUrl('')
     } catch (err) {
       setError(err.message)
+      if (err.job) setJob(err.job)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setJob(null)
+    await runImport(youtubeUrl, {
+      titulo: tituloManual || null,
+      artista: artistaManual || null,
+    })
+  }
+
+  async function handleManualRetry(event) {
+    event.preventDefault()
+    if (!pendingUrl) return
+    if (tituloManual.trim().length < 2 || artistaManual.trim().length < 2) {
+      setError('Informe o nome da música e o artista (mínimo 2 caracteres cada).')
+      return
+    }
+    setJob(null)
+    await runImport(pendingUrl, {
+      titulo: tituloManual.trim(),
+      artista: artistaManual.trim(),
+    })
   }
 
   async function executarBusca(termo) {
@@ -70,6 +118,7 @@ export function Importar() {
     if (termoSafe.length < 2) return
     setError('')
     setJob(null)
+    setNeedsManualInput(false)
     setSearching(true)
     try {
       const data = await buscarYoutube(termoSafe)
@@ -87,22 +136,9 @@ export function Importar() {
     await executarBusca(query)
   }
 
-  async function handleImport(youtubeUrlToImport) {
-    setError('')
+  async function handleImport(youtubeUrlToImport, { titulo = null, artista = null } = {}) {
     setJob(null)
-    setSubmitting(true)
-    try {
-      const safeUrl = assertValidYoutubeUrl(youtubeUrlToImport)
-      const nextJob = await importarYoutube({
-        youtubeUrl: safeUrl,
-        ministroId,
-      })
-      setJob(nextJob)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
+    await runImport(youtubeUrlToImport, { titulo, artista })
   }
 
   function handleVoiceSearch() {
@@ -253,7 +289,12 @@ export function Importar() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => handleImport(result.youtubeUrl)}
+                      onClick={() =>
+                        handleImport(result.youtubeUrl, {
+                          titulo: result.titulo,
+                          artista: result.canal,
+                        })
+                      }
                       disabled={submitting}
                       className={`mt-3 ${btnPrimaryClassName}`}
                     >
@@ -267,50 +308,92 @@ export function Importar() {
         </section>
       )}
 
-      {showDirectLink && (
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-xl border border-[var(--crash-borda)] bg-black/40 p-4"
-      >
-        <FormField label="Link do YouTube">
-          <input
-            type="url"
-            required
-            value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className={inputClassName}
-          />
-        </FormField>
-
-        <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
-          {submitting ? 'Importando…' : 'Importar do YouTube'}
-        </button>
-      </form>
+      {needsManualInput && (
+        <form
+          onSubmit={handleManualRetry}
+          className="space-y-4 rounded-xl border border-amber-700/40 bg-amber-950/20 p-4"
+        >
+          <p className="text-sm text-amber-200">{manualHint}</p>
+          <FormField label="Nome da música">
+            <input
+              type="text"
+              required
+              value={tituloManual}
+              onChange={(e) => setTituloManual(e.target.value)}
+              placeholder="Ex.: Me Leva Pra Casa"
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Artista">
+            <input
+              type="text"
+              required
+              value={artistaManual}
+              onChange={(e) => setArtistaManual(e.target.value)}
+              placeholder="Ex.: Israel Subira"
+              className={inputClassName}
+            />
+          </FormField>
+          <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
+            {submitting ? 'Buscando cifra…' : 'Continuar importação'}
+          </button>
+        </form>
       )}
 
-      {job && (
+      {showDirectLink && !needsManualInput && (
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl border border-[var(--crash-borda)] bg-black/40 p-4"
+        >
+          <FormField label="Link do YouTube">
+            <input
+              type="url"
+              required
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Nome da música (opcional)">
+            <input
+              type="text"
+              value={tituloManual}
+              onChange={(e) => setTituloManual(e.target.value)}
+              placeholder="Ajuda se o YouTube bloquear a leitura automática"
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Artista (opcional)">
+            <input
+              type="text"
+              value={artistaManual}
+              onChange={(e) => setArtistaManual(e.target.value)}
+              placeholder="Ex.: Israel Subira"
+              className={inputClassName}
+            />
+          </FormField>
+          <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
+            {submitting ? 'Importando…' : 'Importar do YouTube'}
+          </button>
+        </form>
+      )}
+
+      {job && job.status === 'completed' && job.musica_id && (
         <article className="rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
           <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-            ✅ Importação criada
+            ✅ Importação concluída
           </p>
           <p className="mt-2 text-sm text-white">
             Status: {job.status} · {job.etapa} · {job.progresso}%
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {job.musica_id && (
-              <>
-                <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
-                  Abrir música
-                </Link>
-                <Link
-                  to={`/musica/${job.musica_id}/editar`}
-                  className={btnSecondaryClassName}
-                >
-                  Editar cifra
-                </Link>
-              </>
-            )}
+            <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
+              Abrir música
+            </Link>
+            <Link to={`/musica/${job.musica_id}/editar`} className={btnSecondaryClassName}>
+              Editar cifra
+            </Link>
           </div>
         </article>
       )}

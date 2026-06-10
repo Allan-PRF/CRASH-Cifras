@@ -43,6 +43,9 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
   const [erroAdicionar, setErroAdicionar] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [ouvindo, setOuvindo] = useState(false)
+  const [manualPending, setManualPending] = useState(null)
+  const [tituloManual, setTituloManual] = useState('')
+  const [artistaManual, setArtistaManual] = useState('')
   const recognitionRef = useRef(null)
 
   const importando = searching || !!importingId || importingLink
@@ -168,22 +171,36 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     }
   }
 
-  async function importarEAdicionarNaPlaylist(youtubeUrl, tituloExibicao) {
-    const job = await importarYoutube({
+  async function importarEAdicionarNaPlaylist(
+    youtubeUrl,
+    { tituloExibicao = null, titulo = null, artista = null } = {},
+  ) {
+    const result = await importarYoutube({
       youtubeUrl,
       ministroId: ministroId || null,
+      titulo,
+      artista,
     })
 
-    if (!job?.musica_id) {
+    if (result?.precisa_nome_manual) {
+      return {
+        needsManual: true,
+        youtubeUrl: result.youtubeUrl || youtubeUrl,
+        tituloExibicao,
+        message: result.message,
+      }
+    }
+
+    if (!result?.musica_id) {
       throw new Error('A importação não gerou uma música. Tente novamente.')
     }
 
-    await addMusicaToPlaylist(playlistId, job.musica_id)
-    const titulo = tituloExibicao || job.titulo || 'Música'
-    setSucesso(`"${titulo}" importada e adicionada à playlist.`)
+    await addMusicaToPlaylist(playlistId, result.musica_id)
+    const tituloMsg = tituloExibicao || result.titulo || 'Música'
+    setSucesso(`"${tituloMsg}" importada e adicionada à playlist.`)
     onMusicaAdicionada?.()
     setTimeout(() => setSucesso(''), 5000)
-    return job
+    return result
   }
 
   async function handleAdicionar(result) {
@@ -192,9 +209,26 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     setImportingId(result.id || result.youtubeUrl)
     setErroAdicionar('')
     setSucesso('')
+    setManualPending(null)
 
     try {
-      await importarEAdicionarNaPlaylist(result.youtubeUrl, result.titulo)
+      const outcome = await importarEAdicionarNaPlaylist(result.youtubeUrl, {
+        tituloExibicao: result.titulo,
+        titulo: result.titulo,
+        artista: result.canal,
+      })
+
+      if (outcome?.needsManual) {
+        setManualPending({
+          youtubeUrl: outcome.youtubeUrl,
+          tituloExibicao: outcome.tituloExibicao,
+          message: outcome.message,
+        })
+        setTituloManual(result.titulo || '')
+        setArtistaManual(result.canal || '')
+        return
+      }
+
       setResults((prev) =>
         prev.filter((r) => (r.id || r.youtubeUrl) !== (result.id || result.youtubeUrl)),
       )
@@ -217,13 +251,66 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     setImportingLink(true)
     setErroLink('')
     setSucesso('')
+    setManualPending(null)
 
     try {
       const youtubeUrl = canonicalYoutubeUrl(trimmed)
-      await importarEAdicionarNaPlaylist(youtubeUrl)
+      const outcome = await importarEAdicionarNaPlaylist(youtubeUrl, {
+        titulo: tituloManual || null,
+        artista: artistaManual || null,
+      })
+
+      if (outcome?.needsManual) {
+        setManualPending({
+          youtubeUrl: outcome.youtubeUrl,
+          message: outcome.message,
+        })
+        return
+      }
+
       setLinkUrl('')
+      setTituloManual('')
+      setArtistaManual('')
     } catch (err) {
       setErroLink(err.message || 'Erro ao importar. Tente novamente.')
+    } finally {
+      setImportingLink(false)
+    }
+  }
+
+  async function handleManualRetry(event) {
+    event.preventDefault()
+    if (!manualPending?.youtubeUrl) return
+    if (tituloManual.trim().length < 2 || artistaManual.trim().length < 2) {
+      setErroAdicionar('Informe o nome da música e o artista.')
+      return
+    }
+
+    setImportingLink(true)
+    setErroAdicionar('')
+
+    try {
+      const outcome = await importarEAdicionarNaPlaylist(manualPending.youtubeUrl, {
+        tituloExibicao: manualPending.tituloExibicao,
+        titulo: tituloManual.trim(),
+        artista: artistaManual.trim(),
+      })
+
+      if (outcome?.needsManual) {
+        setManualPending({
+          youtubeUrl: outcome.youtubeUrl,
+          tituloExibicao: manualPending.tituloExibicao,
+          message: outcome.message,
+        })
+        return
+      }
+
+      setManualPending(null)
+      setLinkUrl('')
+      setTituloManual('')
+      setArtistaManual('')
+    } catch (err) {
+      setErroAdicionar(err.message || 'Erro ao importar. Tente novamente.')
     } finally {
       setImportingLink(false)
     }
@@ -330,6 +417,41 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
           {searching ? 'Buscando…' : 'Buscar'}
         </button>
       </form>
+
+      {manualPending && (
+        <form
+          onSubmit={handleManualRetry}
+          className="mt-4 space-y-3 rounded-lg border border-amber-700/40 bg-amber-950/20 p-4"
+        >
+          <p className="text-sm text-amber-200">
+            {manualPending.message ||
+              'Não conseguimos ler o título do YouTube. Digite o nome da música e o artista.'}
+          </p>
+          <label className="block">
+            <span className="text-xs text-[var(--crash-texto-sec)]">Nome da música</span>
+            <input
+              type="text"
+              required
+              value={tituloManual}
+              onChange={(e) => setTituloManual(e.target.value)}
+              className={`${inputClassName} mt-1`}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-[var(--crash-texto-sec)]">Artista</span>
+            <input
+              type="text"
+              required
+              value={artistaManual}
+              onChange={(e) => setArtistaManual(e.target.value)}
+              className={`${inputClassName} mt-1`}
+            />
+          </label>
+          <button type="submit" disabled={importando} className={btnPrimaryClassName}>
+            {importingLink ? 'Buscando cifra…' : 'Continuar e adicionar à playlist'}
+          </button>
+        </form>
+      )}
 
       {erroBusca && (
         <p className="mt-3 text-sm text-red-400" role="alert">

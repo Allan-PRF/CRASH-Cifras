@@ -13,20 +13,54 @@ async function authHeaders() {
   return { Authorization: `Bearer ${session.access_token}` }
 }
 
-export async function importarYoutube({ youtubeUrl, ministroId, musicaId, preview = false }) {
+/**
+ * @returns {Promise<object>} job concluído, preview, ou `{ precisa_nome_manual: true, ... }`
+ */
+export async function importarYoutube({
+  youtubeUrl,
+  ministroId,
+  musicaId,
+  preview = false,
+  titulo = null,
+  artista = null,
+}) {
   const headers = await authHeaders()
-  const { data } = await api.post(
-    '/importar/youtube',
-    {
-      youtubeUrl,
-      ministroId: ministroId || null,
-      musicaId: musicaId || null,
-      preview,
-    },
-    { headers },
-  )
-  if (preview) return data.preview
-  return data.job
+  try {
+    const { data } = await api.post(
+      '/importar/youtube',
+      {
+        youtubeUrl,
+        ministroId: ministroId || null,
+        musicaId: musicaId || null,
+        preview,
+        titulo: titulo?.trim() || null,
+        artista: artista?.trim() || null,
+      },
+      { headers },
+    )
+
+    if (data.precisa_nome_manual) {
+      return {
+        precisa_nome_manual: true,
+        youtubeUrl: data.youtubeUrl,
+        job: data.job,
+        message: data.message,
+      }
+    }
+
+    if (preview) return data.preview
+    return data.job
+  } catch (error) {
+    const msg =
+      error.response?.data?.error ||
+      error.message ||
+      'Não foi possível importar esta música.'
+    const err = new Error(msg)
+    if (error.response?.data?.job) {
+      err.job = error.response.data.job
+    }
+    throw err
+  }
 }
 
 export async function buscarYoutube(query) {
