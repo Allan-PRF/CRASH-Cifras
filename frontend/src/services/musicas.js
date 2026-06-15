@@ -318,6 +318,7 @@ export async function updateMusica(id, fields) {
   }
   if (fields.intro !== undefined) update.intro = fields.intro
   if (fields.versiculoPrefs !== undefined) update.versiculo_prefs = fields.versiculoPrefs
+  if (fields.importStatus !== undefined) update.import_status = fields.importStatus
   const { data, error } = await supabase
     .from('musicas')
     .update(update)

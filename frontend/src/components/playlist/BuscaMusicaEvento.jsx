@@ -425,7 +425,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
         >
           <p className="text-sm text-amber-200">
             {manualPending.message ||
-              'Não conseguimos ler o título do YouTube. Digite o nome da música e o artista.'}
+              'Informe o nome da música e o artista para identificar na pasta.'}
           </p>
           <label className="block">
             <span className="text-xs text-[var(--crash-texto-sec)]">Nome da música</span>
@@ -448,7 +448,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
             />
           </label>
           <button type="submit" disabled={importando} className={btnPrimaryClassName}>
-            {importingLink ? 'Buscando cifra…' : 'Continuar e adicionar à playlist'}
+            {importingLink ? 'Salvando…' : 'Continuar e adicionar à playlist'}
           </button>
         </form>
       )}
@@ -473,7 +473,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
 
       {importando && (
         <p className="mt-3 text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
-          {importingLink ? 'Importando…' : searching ? 'Buscando…' : 'Processando…'}
+          {importingLink
+            ? 'Salvando o link do vídeo…'
+            : searching
+              ? 'Buscando…'
+              : 'Processando…'}
         </p>
       )}
 

@@ -36,7 +36,7 @@ function ProgressoImportacao({ job }) {
     <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-          {concluido ? 'Importação concluída' : 'Importando…'}
+          {concluido ? 'Vídeo salvo!' : 'Salvando vídeo…'}
         </p>
         <span className="text-xs text-white">{progresso}%</span>
       </div>
@@ -156,7 +156,7 @@ export function ImportarYoutubeModal({
 
   async function handleImport(url, { titulo = null, artista = null } = {}) {
     setError('')
-    setJob({ progresso: 5, etapa: 'Iniciando importação…', status: 'processing' })
+    setJob({ progresso: 5, etapa: 'Salvando link do vídeo…', status: 'processing' })
     setFase('importando')
     setSubmitting(true)
     try {
@@ -173,7 +173,7 @@ export function ImportarYoutubeModal({
         setPendingUrl(result.youtubeUrl || safeUrl)
         setManualHint(
           result.message ||
-            'Não conseguimos ler o título do YouTube. Digite o nome da música e o artista.',
+            'Informe o nome da música e o artista para identificar na pasta.',
         )
         setJob(result.job || null)
         setFase('manual')
@@ -286,10 +286,10 @@ export function ImportarYoutubeModal({
             </h2>
             <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
               {isReimport
-                ? 'Substitui cifra, tom e seções desta música. Os dados antigos serão removidos.'
+                ? 'Atualiza o link do vídeo. Cadastre ou revise a cifra na edição.'
                 : ministroNome
-                  ? `Salvando na pasta de ${ministroNome}.`
-                  : 'A música será importada para esta pasta.'}
+                  ? `Cole o link do YouTube. O vídeo será salvo na pasta de ${ministroNome} e você cadastra a cifra na edição.`
+                  : 'Cole o link do YouTube. O vídeo será salvo e você cadastra a cifra na edição.'}
             </p>
           </div>
           <button
@@ -424,7 +424,7 @@ export function ImportarYoutubeModal({
                     type="text"
                     value={tituloManual}
                     onChange={(e) => setTituloManual(e.target.value)}
-                    placeholder="Ajuda se o YouTube bloquear a leitura automática"
+                    placeholder="Opcional — nome exibido na pasta"
                     className={inputClassName}
                     disabled={submitting}
                   />
@@ -470,7 +470,7 @@ export function ImportarYoutubeModal({
               />
             </FormField>
             <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
-              {submitting ? 'Buscando cifra…' : 'Continuar importação'}
+              {submitting ? 'Salvando…' : 'Continuar importação'}
             </button>
           </form>
         )}
@@ -480,27 +480,28 @@ export function ImportarYoutubeModal({
         )}
 
         {fase === 'concluido' && job?.musica_id && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {isReimport ? (
-              <button type="button" onClick={handleContinuarNaPasta} className={btnPrimaryClassName}>
-                Atualizar cifra
+          <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
+            <p className="text-sm font-semibold text-[var(--crash-cifra)]">
+              Vídeo salvo! Agora cadastre a cifra.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/musica/${job.musica_id}/editar`} className={btnPrimaryClassName}>
+                Cadastrar cifra
+              </Link>
+              <button
+                type="button"
+                onClick={handleContinuarNaPasta}
+                className={btnSecondaryClassName}
+              >
+                Continuar na pasta
               </button>
-            ) : (
-              <>
-                <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
-                  Abrir música
-                </Link>
-                <button type="button" onClick={handleContinuarNaPasta} className={btnSecondaryClassName}>
-                  Continuar na pasta
-                </button>
-              </>
-            )}
+            </div>
           </div>
         )}
 
         {fase === 'importando' && (
           <p className="mt-3 text-xs text-[var(--crash-texto-sec)]">
-            Aguarde enquanto extraímos título, tom, BPM e cifras…
+            Salvando o link do vídeo na sua biblioteca…
           </p>
         )}
       </div>

@@ -73,7 +73,7 @@ export function Importar() {
         setNeedsManualInput(true)
         setManualHint(
           result.message ||
-            'Não conseguimos ler o título do YouTube. Digite o nome da música e o artista.',
+            'Informe o nome da música e o artista para identificar na pasta.',
         )
         setJob(result.job || null)
         return
@@ -192,7 +192,7 @@ export function Importar() {
         </button>
         <h1 className="text-2xl font-bold text-white">Importar música</h1>
         <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-          Busque no YouTube e importe direto para sua pasta de cifras.
+          Busque no YouTube ou cole o link. O vídeo será salvo e você cadastra a cifra na edição.
         </p>
       </header>
 
@@ -248,7 +248,7 @@ export function Importar() {
             disabled={searching || query.trim().length < 2}
             className={`flex-1 ${btnPrimaryClassName}`}
           >
-            {searching ? 'Buscando…' : 'Buscar via Áudio'}
+            {searching ? 'Buscando…' : 'Buscar'}
           </button>
           <button
             type="button"
@@ -335,7 +335,7 @@ export function Importar() {
             />
           </FormField>
           <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
-            {submitting ? 'Buscando cifra…' : 'Continuar importação'}
+            {submitting ? 'Salvando…' : 'Continuar importação'}
           </button>
         </form>
       )}
@@ -360,7 +360,7 @@ export function Importar() {
               type="text"
               value={tituloManual}
               onChange={(e) => setTituloManual(e.target.value)}
-              placeholder="Ajuda se o YouTube bloquear a leitura automática"
+              placeholder="Opcional — nome exibido na pasta"
               className={inputClassName}
             />
           </FormField>
@@ -379,20 +379,23 @@ export function Importar() {
         </form>
       )}
 
+      {submitting && !job?.musica_id && (
+        <p className="text-sm text-[var(--crash-texto-sec)]" role="status">
+          Salvando o link do vídeo na sua biblioteca…
+        </p>
+      )}
+
       {job && job.status === 'completed' && job.musica_id && (
         <article className="rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
           <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-            ✅ Importação concluída
-          </p>
-          <p className="mt-2 text-sm text-white">
-            Status: {job.status} · {job.etapa} · {job.progresso}%
+            Vídeo salvo! Agora cadastre a cifra.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
-              Abrir música
+            <Link to={`/musica/${job.musica_id}/editar`} className={btnPrimaryClassName}>
+              Cadastrar cifra
             </Link>
-            <Link to={`/musica/${job.musica_id}/editar`} className={btnSecondaryClassName}>
-              Editar cifra
+            <Link to={`/musica/${job.musica_id}`} className={btnSecondaryClassName}>
+              Ver música
             </Link>
           </div>
         </article>

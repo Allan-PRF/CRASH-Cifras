@@ -41,6 +41,20 @@ function musicasTemAcordes(secoes) {
   return secoes.some((sec) => secaoTemAcordes(sec.linhas))
 }
 
+function secaoTemConteudo(linhas) {
+  if (!linhas?.lines?.length) return false
+  return linhas.lines.some((line) => {
+    const n = normalizeChordLine(line)
+    const lyric = String(n.lyricLine ?? '').trim()
+    const temCifra = n.chords.length > 0 || Boolean(n.chordLine.trim())
+    return lyric.length > 0 || temCifra
+  })
+}
+
+function musicasTemSecaoPreenchida(secoes) {
+  return secoes.some((sec) => secaoTemConteudo(sec.linhas))
+}
+
 /** Seção CC "Intro" com cifra/letra — editada só via card Introdução (mãos). */
 function isSecaoIntroDuplicada(sec) {
   return sec?.slug === 'intro'
@@ -135,6 +149,9 @@ export function MusicaEditar() {
         bpm,
         intro: introToSave,
         versiculoPrefs: prefsSalvas,
+        ...(meta.import_status === 'pending' && musicasTemSecaoPreenchida(secoes)
+          ? { importStatus: 'ready' }
+          : {}),
       })
       console.log('[versiculos] prefs salvas em musicas.versiculo_prefs:', prefsSalvas)
       for (const secId of introSecaoIds) {
@@ -202,6 +219,24 @@ export function MusicaEditar() {
       <header>
         <h1 className="text-2xl font-bold text-white">Editar cifra</h1>
       </header>
+
+      {meta.import_status === 'pending' && (
+        <div
+          className="flex gap-3 rounded-xl border border-amber-600/35 bg-amber-950/25 p-4"
+          role="status"
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-lg text-amber-300"
+            aria-hidden
+          >
+            ℹ️
+          </span>
+          <p className="text-sm leading-relaxed text-amber-100/95">
+            Esta música ainda não tem cifra cadastrada. Preencha o tom, BPM e as seções
+            abaixo para usar no teleprompter.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 rounded-xl border-2 border-orange-500 p-4 sm:grid-cols-2">
         <FormField label="Título">
