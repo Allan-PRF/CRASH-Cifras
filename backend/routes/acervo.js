@@ -2,7 +2,9 @@ import { Router } from 'express'
 import { buildCifraSnapshot } from '@crash-cifras/shared/acervo'
 import { env } from '../config.js'
 import {
+  marcarAcervoProcessando,
   preencherMusicasAguardandoAcervo,
+  registrarFalhaMotor,
   registrarFeedbackSalvamento,
   registrarVersaoMotor,
 } from '../lib/acervo.js'
@@ -55,6 +57,44 @@ acervoRouter.get('/motor/fila', requireMotorSecret, async (req, res, next) => {
         jobs: jobs.filter((j) => j.acervo_musica_id === m.id),
       })),
     })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Worker marca música como em processamento ao iniciar.
+ * POST /api/acervo/motor/iniciar
+ */
+acervoRouter.post('/motor/iniciar', requireMotorSecret, async (req, res, next) => {
+  try {
+    const { acervo_musica_id } = req.body ?? {}
+    if (!acervo_musica_id) {
+      return res.status(400).json({ error: 'acervo_musica_id é obrigatório.' })
+    }
+    await marcarAcervoProcessando(acervo_musica_id)
+    res.json({ ok: true, acervo_musica_id, status: 'processing' })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Worker reporta falha — evita travar em processing.
+ * POST /api/acervo/motor/falha
+ */
+acervoRouter.post('/motor/falha', requireMotorSecret, async (req, res, next) => {
+  try {
+    const { acervo_musica_id, job_id, erro } = req.body ?? {}
+    if (!acervo_musica_id) {
+      return res.status(400).json({ error: 'acervo_musica_id é obrigatório.' })
+    }
+    const result = await registrarFalhaMotor({
+      acervoMusicaId: acervo_musica_id,
+      erro,
+      jobId: job_id || null,
+    })
+    res.json({ ok: true, ...result })
   } catch (err) {
     next(err)
   }

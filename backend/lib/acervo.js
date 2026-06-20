@@ -84,6 +84,7 @@ export async function marcarAcervoProcessando(acervoMusicaId) {
     .from('acervo_musicas')
     .update({ status: 'processing' })
     .eq('id', acervoMusicaId)
+    .in('status', ['pending', 'failed'])
   if (error) throw error
 }
 
@@ -244,6 +245,45 @@ export async function preencherMusicasAguardandoAcervo({
     ignoradas,
     jobsAguardando: jobs?.length ?? 0,
   }
+}
+
+/** Falha no motor — libera fila e marca cópias pessoais aguardando. */
+export async function registrarFalhaMotor({ acervoMusicaId, erro, jobId = null }) {
+  const db = admin()
+  const mensagem = String(erro || 'Falha no motor').slice(0, 500)
+
+  await db
+    .from('acervo_musicas')
+    .update({ status: 'failed' })
+    .eq('id', acervoMusicaId)
+
+  await db
+    .from('import_jobs')
+    .update({
+      status: 'failed',
+      erro: mensagem,
+      etapa: 'Falha na geração da cifra',
+      progresso: 0,
+    })
+    .eq('acervo_musica_id', acervoMusicaId)
+    .in('status', ['pending', 'processing'])
+
+  const { data: jobs } = await db
+    .from('import_jobs')
+    .select('musica_id')
+    .eq('acervo_musica_id', acervoMusicaId)
+    .not('musica_id', 'is', null)
+
+  const musicaIds = [...new Set((jobs || []).map((j) => j.musica_id).filter(Boolean))]
+  if (musicaIds.length) {
+    await db
+      .from('musicas')
+      .update({ import_status: 'failed' })
+      .in('id', musicaIds)
+      .in('import_status', ['pending', 'processing'])
+  }
+
+  return { acervoMusicaId, musicaIdsAtualizadas: musicaIds }
 }
 
 export async function recalcularVersaoTop(acervoMusicaId) {
