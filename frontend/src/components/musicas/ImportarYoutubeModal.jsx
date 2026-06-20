@@ -31,12 +31,17 @@ function assertValidYoutubeUrl(url) {
 function ProgressoImportacao({ job }) {
   const progresso = Math.min(100, Math.max(0, job?.progresso ?? 0))
   const concluido = job?.status === 'completed' || job?.status === 'done' || progresso >= 100
+  const aguardandoMotor = job?.status === 'processing'
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-          {concluido ? 'Vídeo salvo!' : 'Salvando vídeo…'}
+          {concluido
+            ? 'Pronto!'
+            : aguardandoMotor
+              ? 'Gerando cifra no acervo…'
+              : 'Salvando vídeo…'}
         </p>
         <span className="text-xs text-white">{progresso}%</span>
       </div>
@@ -184,6 +189,9 @@ export function ImportarYoutubeModal({
       if (result.status === 'failed') {
         setError(result.erro || 'Falha na importação.')
         setFase('form')
+      } else if (result.status === 'processing') {
+        setFase('importando')
+        setSubmitting(true)
       } else {
         setFase('concluido')
       }
@@ -479,15 +487,32 @@ export function ImportarYoutubeModal({
           <ProgressoImportacao job={job} />
         )}
 
-        {fase === 'concluido' && job?.musica_id && (
+        {fase === 'concluido' && job?.musica_id && (() => {
+          const cifraPronta =
+            job.etapa?.includes('Cifra do acervo') ||
+            job.etapa?.includes('Cifra gerada')
+          return (
           <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
             <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-              Vídeo salvo! Agora cadastre a cifra.
+              {cifraPronta
+                ? 'Cifra pronta! Abra a música ou revise na edição.'
+                : 'Vídeo salvo! Agora cadastre a cifra.'}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Link to={`/musica/${job.musica_id}/editar`} className={btnPrimaryClassName}>
-                Cadastrar cifra
-              </Link>
+              {cifraPronta ? (
+                <>
+                  <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
+                    Abrir música
+                  </Link>
+                  <Link to={`/musica/${job.musica_id}/editar`} className={btnSecondaryClassName}>
+                    Revisar cifra
+                  </Link>
+                </>
+              ) : (
+                <Link to={`/musica/${job.musica_id}/editar`} className={btnPrimaryClassName}>
+                  Cadastrar cifra
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleContinuarNaPasta}
@@ -497,11 +522,14 @@ export function ImportarYoutubeModal({
               </button>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {fase === 'importando' && (
           <p className="mt-3 text-xs text-[var(--crash-texto-sec)]">
-            Salvando o link do vídeo na sua biblioteca…
+            {job?.status === 'processing'
+              ? 'O motor está gerando a cifra. Isso pode levar alguns minutos…'
+              : 'Salvando o link do vídeo na sua biblioteca…'}
           </p>
         )}
       </div>

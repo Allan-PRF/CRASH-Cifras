@@ -13,6 +13,7 @@ import { youtubeRouter } from './youtube.js'
 import { referralsRouter } from './referrals.js'
 import { novidadesRouter } from './novidades.js'
 import { debugRouter } from './debug.js'
+import { acervoRouter } from './acervo.js'
 
 export const apiRouter = Router()
 
@@ -24,6 +25,7 @@ apiRouter.use('/assinaturas', assinaturasRouter)
 apiRouter.use('/chords', chordsRouter)
 apiRouter.use('/equipes', equipesRouter)
 apiRouter.use('/importar', rateLimiters.youtube, importarRouter)
+apiRouter.use('/acervo', acervoRouter)
 apiRouter.use('/youtube', rateLimiters.youtube, youtubeRouter)
 apiRouter.use('/trial', trialRouter)
 apiRouter.use('/versiculos', versiculosRouter)

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+import { InfoTooltip } from '../ui/InfoTooltip'
 
 const SWIPE_THRESHOLD = 48
 
@@ -108,6 +110,10 @@ export function CifraSecaoCarousel({
           role="tablist"
           aria-label="Seções da música"
         >
+          <InfoTooltip
+            text={FUNCIONALIDADE_TOOLTIPS.barraBlocos}
+            label="Sobre a barra de seções"
+          />
           {secoes.map((sec, i) => (
             <button
               key={sec.id || i}

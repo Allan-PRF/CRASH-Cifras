@@ -6,8 +6,10 @@ import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
 import { TonSelector } from '../components/cifra/TonSelector'
 import { PlanoGate } from '../components/assinatura/PlanoGate'
 import { GuiaTimbre } from '../components/timbre/GuiaTimbre'
+import { InfoTooltip } from '../components/ui/InfoTooltip'
 import { PageNav } from '../components/layout/PageNav'
 import { btnPrimaryClassName, btnSecondaryClassName } from '../components/ui/inputClasses'
+import { FUNCIONALIDADE_TOOLTIPS } from '../lib/funcionalidadeTooltips'
 import { musicaBreadcrumbItems } from '../lib/pageNavItems'
 import { useUserSettings } from '../hooks/useUserSettings'
 import { gerarGuiaTimbreLocal } from '../lib/timbreLocal'
@@ -19,6 +21,12 @@ import {
   salvarAnotacaoMusica,
 } from '../services/musicas'
 import { fetchTimbreByMusica, upsertTimbreMusica } from '../services/timbres'
+
+const TAB_TOOLTIPS = {
+  cifra: FUNCIONALIDADE_TOOLTIPS.cifras,
+  graus: FUNCIONALIDADE_TOOLTIPS.grausNashville,
+  timbre: FUNCIONALIDADE_TOOLTIPS.timbre,
+}
 
 const TABS = [
   { id: 'cifra', label: '🎵 Cifra' },
@@ -157,9 +165,13 @@ export function Musica() {
       <div className="flex flex-wrap gap-2">
         <Link
           to={`/teleprompter/musica/${id}`}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-500"
+          className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-500"
         >
           ▶ Modo Evento
+          <InfoTooltip
+            text={FUNCIONALIDADE_TOOLTIPS.teleprompter}
+            label="Sobre o teleprompter"
+          />
         </Link>
         <button
           type="button"
@@ -181,19 +193,23 @@ export function Musica() {
         aria-label="Visualização da música"
       >
         {TABS_VISIVEIS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? 'page' : undefined}
-            className={`px-3 py-2 text-sm font-medium transition ${
-              tab === t.id
-                ? 'border-b-2 border-[var(--crash-cifra)] text-[var(--crash-cifra)]'
-                : 'text-[var(--crash-texto-sec)] hover:text-white'
-            }`}
-          >
-            {t.label}
-          </button>
+          <div key={t.id} className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setTab(t.id)}
+              aria-current={tab === t.id ? 'page' : undefined}
+              className={`px-3 py-2 text-sm font-medium transition ${
+                tab === t.id
+                  ? 'border-b-2 border-[var(--crash-cifra)] text-[var(--crash-cifra)]'
+                  : 'text-[var(--crash-texto-sec)] hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+            {TAB_TOOLTIPS[t.id] ? (
+              <InfoTooltip text={TAB_TOOLTIPS[t.id]} label={`Sobre ${t.label}`} />
+            ) : null}
+          </div>
         ))}
       </nav>
 

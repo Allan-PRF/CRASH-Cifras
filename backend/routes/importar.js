@@ -2,6 +2,7 @@ import { Router } from 'express'
 import youtubedl from 'youtube-dl-exec'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
+import { resolverPedidoAcervo } from '../lib/acervo.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
 
 export const importarRouter = Router()
@@ -29,12 +30,13 @@ function logImport(...args) {
   console.log(LOG_IMPORT, ...args)
 }
 
-async function createJob(supabase, { userId, youtubeUrl }) {
+async function createJob(supabase, { userId, youtubeUrl, acervoMusicaId = null }) {
   const { data, error } = await supabase
     .from('import_jobs')
     .insert({
       user_id: userId,
       youtube_url: youtubeUrl,
+      acervo_musica_id: acervoMusicaId,
       status: 'pending',
       etapa: 'Recebido',
       progresso: 5,
@@ -132,7 +134,7 @@ function resolverMetadadosImportacao({ youtubeUrl, tituloManual, artistaManual, 
   return metadados
 }
 
-function buildResultadoImportacao({ metadados, youtubeUrl, ministroId }) {
+function buildResultadoImportacao({ metadados, youtubeUrl, ministroId, aguardandoMotor = false }) {
   return {
     musica: {
       ministro_id: ministroId || null,
@@ -141,7 +143,7 @@ function buildResultadoImportacao({ metadados, youtubeUrl, ministroId }) {
       youtube_url: youtubeUrl,
       bpm: BPM_PADRAO_IMPORT,
       tom_original: null,
-      import_status: 'pending',
+      import_status: aguardandoMotor ? 'processing' : 'pending',
     },
     secoes: [],
   }
@@ -195,7 +197,7 @@ async function buscarYoutube(query) {
 
 async function executarPipelineYoutube(
   supabase,
-  { job, youtubeUrl, ministroId, tituloManual = null, artistaManual = null },
+  { job, youtubeUrl, ministroId, tituloManual = null, artistaManual = null, useAcervo = true },
 ) {
   await supabase
     .from('import_jobs')
@@ -221,26 +223,84 @@ async function executarPipelineYoutube(
     videoId: validation.videoId,
   })
 
-  await updateJob(supabase, job.id, {
-    etapa: 'Salvando link do vídeo',
-    progresso: 70,
-  })
+  let acervoPedido = null
+  if (useAcervo) {
+    try {
+      acervoPedido = await resolverPedidoAcervo({
+        titulo: metadados.titulo,
+        artista: metadados.artista,
+        fonteUrl: canonicalUrl,
+      })
+      logImport('acervo:', acervoPedido?.tipo, acervoPedido?.acervoMusica?.id)
+    } catch (err) {
+      logImport('acervo lookup falhou (continua link-only):', err.message)
+    }
+  }
+
+  if (acervoPedido?.tipo === 'hit') {
+    await updateJob(supabase, job.id, {
+      etapa: 'Cifra do acervo — pronta',
+      progresso: 90,
+      acervo_musica_id: acervoPedido.acervoMusica.id,
+    })
+
+    return {
+      type: 'success',
+      data: {
+        musica: {
+          ministro_id: ministroId || null,
+          titulo: metadados.titulo,
+          artista: metadados.artista || null,
+          youtube_url: canonicalUrl,
+          bpm: acervoPedido.bpm || BPM_PADRAO_IMPORT,
+          tom_original: acervoPedido.tomOriginal,
+          import_status: 'ready',
+          acervo_versao_id: acervoPedido.acervoVersaoId,
+        },
+        secoes: acervoPedido.secoes,
+        acervo_musica_id: acervoPedido.acervoMusica.id,
+      },
+    }
+  }
+
+  const acervoMusicaId = acervoPedido?.acervoMusica?.id || null
+
+  if (acervoMusicaId) {
+    await updateJob(supabase, job.id, {
+      acervo_musica_id: acervoMusicaId,
+      etapa:
+        acervoPedido?.tipo === 'gerando'
+          ? 'Aguardando geração no acervo'
+          : 'Fila do motor — gerando cifra',
+      progresso: acervoPedido?.tipo === 'gerando' ? 50 : 45,
+    })
+  } else {
+    await updateJob(supabase, job.id, {
+      etapa: 'Salvando link do vídeo',
+      progresso: 70,
+    })
+  }
 
   const data = buildResultadoImportacao({
     metadados,
     youtubeUrl: canonicalUrl,
     ministroId,
+    aguardandoMotor: Boolean(acervoMusicaId),
   })
+  data.acervo_musica_id = acervoMusicaId
 
   logImport('importação link-only concluída', {
     videoId: validation.videoId,
     titulo: data.musica.titulo,
     artista: data.musica.artista,
     import_status: data.musica.import_status,
+    acervo_musica_id: acervoMusicaId,
   })
 
   await updateJob(supabase, job.id, {
-    etapa: 'Pronto para editar cifra',
+    etapa: acervoMusicaId
+      ? 'Vídeo salvo — motor gerando cifra'
+      : 'Pronto para editar cifra',
     progresso: 90,
   })
 
@@ -290,6 +350,7 @@ async function importarYoutubeReal(
         bpm: result.musica.bpm,
         tom_original: result.musica.tom_original,
         import_status: result.musica.import_status,
+        acervo_versao_id: result.musica.acervo_versao_id ?? null,
         ministro_id: ministroId ?? existing.ministro_id ?? result.musica.ministro_id,
       })
       .eq('id', musicaId)
@@ -330,13 +391,22 @@ async function importarYoutubeReal(
     if (secoesError) throw secoesError
   }
 
+  const aguardandoMotor = Boolean(result.acervo_musica_id) && !result.secoes?.length
+
   const { data: completed, error: jobError } = await supabase
     .from('import_jobs')
     .update({
       musica_id: musica.id,
-      status: 'completed',
-      etapa: 'Vídeo salvo — cadastre a cifra na edição',
-      progresso: 100,
+      acervo_musica_id: result.acervo_musica_id ?? job.acervo_musica_id ?? null,
+      status: aguardandoMotor ? 'processing' : 'completed',
+      etapa: aguardandoMotor
+        ? 'Aguardando motor gerar cifra no acervo…'
+        : result.musica.import_status === 'ready' && result.secoes?.length
+          ? 'Cifra do acervo aplicada'
+          : result.acervo_musica_id
+            ? 'Vídeo salvo — motor gerando cifra'
+            : 'Vídeo salvo — cadastre a cifra na edição',
+      progresso: aguardandoMotor ? 55 : 100,
     })
     .eq('id', job.id)
     .select()

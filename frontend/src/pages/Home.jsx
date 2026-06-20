@@ -6,7 +6,9 @@ import { InstallPwaPrompt } from '../components/InstallPwaPrompt'
 import { NovidadeBanner } from '../components/novidades/NovidadeBanner'
 import { MinistroFormModal } from '../components/ministros/MinistroFormModal'
 import { MinistroTable } from '../components/ministros/MinistroTable'
+import { InfoTooltip } from '../components/ui/InfoTooltip'
 import { btnSecondaryClassName } from '../components/ui/inputClasses'
+import { FUNCIONALIDADE_TOOLTIPS } from '../lib/funcionalidadeTooltips'
 import { useAuth } from '../hooks/useAuth'
 import { useMinistros } from '../hooks/useMinistros'
 import { useUserSettings } from '../hooks/useUserSettings'
@@ -97,9 +99,13 @@ export function Home() {
           <button
             type="button"
             onClick={() => setReferralOpen(true)}
-            className={btnSecondaryClassName}
+            className={`inline-flex items-center gap-1 ${btnSecondaryClassName}`}
           >
             Indicar e Ganhar
+            <InfoTooltip
+              text={FUNCIONALIDADE_TOOLTIPS.indicacao}
+              label="Sobre o programa de indicação"
+            />
           </button>
         )}
       </header>
@@ -186,9 +192,13 @@ export function Home() {
                         <button
                           type="button"
                           onClick={() => setCopiarMusica(musica)}
-                          className={`shrink-0 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
+                          className={`inline-flex shrink-0 items-center gap-0.5 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
                         >
                           Copiar para…
+                          <InfoTooltip
+                            text={FUNCIONALIDADE_TOOLTIPS.copiarCena}
+                            label="Sobre copiar para outro ministro"
+                          />
                         </button>
                       </li>
                     ))}

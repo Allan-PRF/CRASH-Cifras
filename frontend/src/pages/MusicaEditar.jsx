@@ -28,6 +28,7 @@ import {
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
+import { enviarFeedbackAcervo } from '../services/acervo'
 
 function secaoTemAcordes(linhas) {
   if (!linhas?.lines?.length) return false
@@ -161,6 +162,25 @@ export function MusicaEditar() {
         const sec = { ...secoes[i], ordem_original: i }
         await upsertSecao(id, sec)
       }
+
+      if (meta.acervo_versao_id) {
+        try {
+          await enviarFeedbackAcervo({
+            acervoVersaoId: meta.acervo_versao_id,
+            tomOriginal: meta.tom_original,
+            bpm,
+            secoes: secoes.map((sec, i) => ({
+              slug: sec.slug,
+              nome: sec.nome,
+              ordem_original: i,
+              linhas: sec.linhas,
+            })),
+          })
+        } catch (feedbackErr) {
+          console.warn('[acervo] feedback não enviado:', feedbackErr.message)
+        }
+      }
+
       navigate(`/musica/${id}`)
     } catch (err) {
       setError(err.message)

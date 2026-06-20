@@ -38,4 +38,5 @@ export const env = {
     process.env.FRONTEND_URL,
   ].filter(Boolean),
   workerEnabled: process.env.WORKER_ENABLED === 'true',
+  acervoMotorSecret: process.env.ACERVO_MOTOR_SECRET || process.env.CRON_SECRET || '',
 }

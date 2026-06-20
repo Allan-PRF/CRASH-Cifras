@@ -1,3 +1,6 @@
+import { InfoTooltip } from '../ui/InfoTooltip'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+
 export function PainelConfigTeleprompter({
   open,
   modoEvento,
@@ -39,7 +42,13 @@ export function PainelConfigTeleprompter({
       aria-label="Configurações do teleprompter"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">⚙️ Teleprompter</h2>
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          ⚙️ Teleprompter
+          <InfoTooltip
+            text={FUNCIONALIDADE_TOOLTIPS.teleprompter}
+            label="Sobre o teleprompter"
+          />
+        </h2>
         <button
           type="button"
           onClick={onClose}
@@ -62,8 +71,18 @@ export function PainelConfigTeleprompter({
           className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-[var(--crash-cifra)]"
         >
           <span>
-            <span className="block text-sm font-semibold">
-              {orientacaoIcon} Orientação: {orientacaoLabel}
+            <span className="flex items-center gap-1.5 text-sm font-semibold">
+              <span>
+                {orientacaoIcon} Orientação: {orientacaoLabel}
+              </span>
+              <InfoTooltip
+                text={
+                  orientacaoLabel?.toLowerCase().includes('horizontal')
+                    ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
+                    : FUNCIONALIDADE_TOOLTIPS.modoVertical
+                }
+                label="Sobre a orientação do teleprompter"
+              />
             </span>
             <span className="mt-1 block text-xs text-[var(--crash-texto-sec)]">
               {orientacaoDescricao}
@@ -73,25 +92,25 @@ export function PainelConfigTeleprompter({
         </button>
         <ConfigRow
           title="Acordes"
-          description="Linha laranja acima da letra."
+          tooltip={FUNCIONALIDADE_TOOLTIPS.cifras}
           active={mostrarAcordes}
           onClick={onToggleAcordes}
         />
         <ConfigRow
           title="Graus Nashville"
-          description="Linha azul abaixo da letra."
+          tooltip={FUNCIONALIDADE_TOOLTIPS.grausNashville}
           active={mostrarGraus}
           onClick={onToggleGraus}
         />
         <ConfigRow
           title="Versículos"
-          description="Rodapé bíblico contextual."
+          tooltip={FUNCIONALIDADE_TOOLTIPS.versiculos}
           active={mostrarVersiculos}
           onClick={onToggleVersiculos}
         />
         <ConfigRow
           title="Metrônomo visual"
-          description="Ponto laranja piscando no tempo."
+          tooltip={FUNCIONALIDADE_TOOLTIPS.metronomo}
           active={mostrarMetronomo}
           onClick={onToggleMetronomo}
         />
@@ -124,9 +143,9 @@ export function PainelConfigTeleprompter({
           className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-[var(--crash-cifra)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <span>
-            <span className="block text-sm font-semibold">🎛️ Ver timbre da seção</span>
-            <span className="mt-1 block text-xs text-[var(--crash-texto-sec)]">
-              Card flutuante com timbre, efeitos e pedal.
+            <span className="flex items-center gap-1.5 text-sm font-semibold">
+              🎛️ Ver timbre da seção
+              <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.timbre} label="Sobre o guia de timbre" />
             </span>
           </span>
           <span className="text-[var(--crash-cifra)]">Abrir</span>
@@ -178,7 +197,7 @@ export function PainelConfigTeleprompter({
 const controlButton =
   'flex-1 rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]'
 
-function ConfigRow({ title, description, active, onClick, disabled }) {
+function ConfigRow({ title, tooltip, description, active, onClick, disabled }) {
   return (
     <button
       type="button"
@@ -187,10 +206,15 @@ function ConfigRow({ title, description, active, onClick, disabled }) {
       className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:border-[var(--crash-cifra)] disabled:cursor-not-allowed disabled:opacity-40"
     >
       <span>
-        <span className="block text-sm font-semibold">{title}</span>
-        <span className="mt-1 block text-xs text-[var(--crash-texto-sec)]">
-          {description}
+        <span className="flex items-center gap-1.5 text-sm font-semibold">
+          {title}
+          {tooltip ? <InfoTooltip text={tooltip} label={`Sobre ${title}`} /> : null}
         </span>
+        {description ? (
+          <span className="mt-1 block text-xs text-[var(--crash-texto-sec)]">
+            {description}
+          </span>
+        ) : null}
       </span>
       <span
         className={`rounded-full px-2.5 py-1 text-xs font-bold ${

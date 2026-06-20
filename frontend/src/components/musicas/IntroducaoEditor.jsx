@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+import { InfoTooltip } from '../ui/InfoTooltip'
 import { inputOrangeClassName } from '../ui/inputClasses'
 
 export function IntroducaoEditor({ intro, onChange }) {
@@ -20,11 +22,26 @@ export function IntroducaoEditor({ intro, onChange }) {
 
   return (
     <article className="rounded-xl border-2 border-orange-500 bg-black/40 p-4">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-[var(--crash-cifra)]" />
         <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--crash-cifra)]">
           Introdução
         </h3>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-[var(--crash-texto-sec)]">
+        <span className="inline-flex items-center gap-1">
+          ━ Tracinho
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.tracinho} label="Sobre tracinho" />
+        </span>
+        <span className="inline-flex items-center gap-1">
+          / Barra
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.barraRitmo} label="Sobre barra rítmica" />
+        </span>
+        <span className="inline-flex items-center gap-1">
+          Nota junta
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.notaJuntas} label="Sobre nota de passagem" />
+        </span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { TranspositorTom } from '../cifra/TranspositorTom'
 import { FormField } from '../ui/FormField'
+import { InfoTooltip } from '../ui/InfoTooltip'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import {
   btnPrimaryClassName,
   btnSecondaryClassName,
@@ -221,8 +223,12 @@ export function CompartilharMusicaModal({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="compartilhar-musica-title" className="text-lg font-bold text-white">
+        <h2 id="compartilhar-musica-title" className="inline-flex items-center gap-1 text-lg font-bold text-white">
           {titulo}
+          <InfoTooltip
+            text={FUNCIONALIDADE_TOOLTIPS.copiarCena}
+            label="Sobre copiar para outro ministro"
+          />
         </h2>
         <p className="mt-2 text-sm text-[var(--crash-texto-sec)]">
           Copiar <span className="font-medium text-white">{musica.titulo}</span>

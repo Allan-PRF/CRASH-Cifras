@@ -1,5 +1,8 @@
 import { TELEPROMPTER_BARRA_INFERIOR_ALTURA } from './RodapePalavra'
 
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+import { InfoTooltip } from '../ui/InfoTooltip'
+
 export function BarraSuperiorTeleprompter({
   musica,
   secaoAtual,
@@ -51,22 +54,34 @@ export function BarraSuperiorTeleprompter({
           <button
             type="button"
             onClick={onToggleOrientacao}
-            className="rounded-md border border-[var(--crash-cifra)] px-2 py-1 text-[var(--crash-cifra)]"
-            title="Alternar landscape / portrait"
+            className="flex items-center gap-1 rounded-md border border-[var(--crash-cifra)] px-2 py-1 text-[var(--crash-cifra)]"
             aria-label={`Orientação: ${orientacaoLabel}`}
           >
             {orientacaoIcon} {orientacaoLabel}
+            <InfoTooltip
+              text={
+                orientacaoLabel?.toLowerCase().includes('horizontal') ||
+                orientacaoIcon?.includes('📺')
+                  ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
+                  : FUNCIONALIDADE_TOOLTIPS.modoVertical
+              }
+              label="Sobre a orientação"
+            />
           </button>
           <button
             type="button"
             onClick={onToggleGraus}
-            className={`rounded-md border px-2 py-1 ${
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 ${
               mostrarGraus
                 ? 'border-[var(--crash-grau)] text-[var(--crash-grau)]'
                 : 'border-white/20 text-[var(--crash-texto-sec)]'
             }`}
           >
             i {mostrarGraus ? 'ON' : 'OFF'}
+            <InfoTooltip
+              text={FUNCIONALIDADE_TOOLTIPS.grausNashville}
+              label="Sobre graus Nashville"
+            />
           </button>
           <span className={pausado ? 'text-[var(--crash-cifra)]' : 'text-green-400'}>
             {pausado ? '⏸' : '▶'}
@@ -109,6 +124,10 @@ export function BarraInferiorTeleprompter({
       style={{ height: TELEPROMPTER_BARRA_INFERIOR_ALTURA }}
     >
       <div className="mx-auto flex max-w-4xl items-center justify-center gap-2 sm:gap-3">
+        <InfoTooltip
+          text={FUNCIONALIDADE_TOOLTIPS.barraBlocos}
+          label="Sobre a barra de seções"
+        />
         <button
           type="button"
           onClick={(e) => {

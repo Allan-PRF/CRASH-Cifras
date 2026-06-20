@@ -11,6 +11,8 @@ import {
   inputClassName,
   selectClassName,
 } from '../ui/inputClasses'
+import { InfoTooltip } from '../ui/InfoTooltip'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { useUserSettings } from '../../hooks/useUserSettings'
 import { planoAtende, planoEfetivo } from '../../lib/planos'
 import {
@@ -145,7 +147,11 @@ function EquipePainel({ equipe, membros, meuTipo, onReload }) {
       </div>
 
       <div className="text-xs text-zinc-500">
-        Músicos: {totalMusicos}/{EQUIPE_MAX_MUSICOS} · Mesa: {totalMesa}/{EQUIPE_MAX_MESA}
+        Músicos: {totalMusicos}/{EQUIPE_MAX_MUSICOS} ·{' '}
+        <span className="inline-flex items-center gap-0.5">
+          Mesa: {totalMesa}/{EQUIPE_MAX_MESA}
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.mesaDeSom} label="Sobre mesa de som" />
+        </span>
       </div>
 
       <ul className="space-y-1.5">
@@ -324,7 +330,10 @@ export function MinhaEquipe() {
 
   return (
     <section className={`${cardClassName} p-5`}>
-      <h2 className="mb-4 text-base font-bold text-white">Minha Equipe</h2>
+      <h2 className="mb-4 inline-flex items-center gap-1 text-base font-bold text-white">
+        Minha Equipe
+        <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.modoBanda} label="Sobre o modo banda" />
+      </h2>
 
       {loading ? (
         <p className="text-sm text-zinc-400">Carregando…</p>

@@ -1,11 +1,16 @@
 import { equivalentePorNivel } from '../../lib/timbreLocal'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+import { InfoTooltip } from '../ui/InfoTooltip'
 import { btnPrimaryClassName } from '../ui/inputClasses'
 
 export function GuiaTimbre({ musica, guia, nivelTeclado, loading, onGenerate }) {
   if (!guia) {
     return (
       <section className="rounded-xl border border-dashed border-[var(--crash-borda)] p-8 text-center">
-        <h2 className="text-xl font-bold text-white">🎛️ Guia de Timbre</h2>
+        <h2 className="inline-flex items-center justify-center gap-1 text-xl font-bold text-white">
+          🎛️ Guia de Timbre
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.timbre} label="Sobre o guia de timbre" />
+        </h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--crash-texto-sec)]">
           Gere sugestões por seção para timbre, efeitos, pedal e dinâmica. Nesta fase os
           dados são simulados e salvos no Supabase; Essentia/GPT entram depois.
@@ -25,8 +30,9 @@ export function GuiaTimbre({ musica, guia, nivelTeclado, loading, onGenerate }) 
   return (
     <section className="space-y-5">
       <header className="rounded-xl border border-[var(--crash-borda)] bg-black/50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--crash-cifra)]">
+        <p className="inline-flex flex-wrap items-center gap-1 text-xs font-semibold uppercase tracking-wider text-[var(--crash-cifra)]">
           🎛️ Guia de Timbre — {musica.titulo}
+          <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.timbre} label="Sobre o guia de timbre" />
         </p>
         <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
           {guia.origem === 'simulado' ? 'Simulado nesta fase' : 'Analisado por IA'}

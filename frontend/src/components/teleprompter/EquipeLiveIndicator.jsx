@@ -1,3 +1,6 @@
+import { InfoTooltip } from '../ui/InfoTooltip'
+import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
+
 export function EquipeLiveIndicator({ isLider, membrosOnline, liderNome, seguindo }) {
   if (!seguindo && !isLider) return null
 
@@ -9,6 +12,7 @@ export function EquipeLiveIndicator({ isLider, membrosOnline, liderNome, seguind
         <span className="text-green-200/70">
           {membrosOnline} membro{membrosOnline !== 1 ? 's' : ''} conectado{membrosOnline !== 1 ? 's' : ''}
         </span>
+        <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.modoBanda} label="Sobre o modo banda" />
       </div>
     )
   }
@@ -20,6 +24,7 @@ export function EquipeLiveIndicator({ isLider, membrosOnline, liderNome, seguind
       {liderNome && (
         <span className="text-green-200/70">Seguindo {liderNome}</span>
       )}
+      <InfoTooltip text={FUNCIONALIDADE_TOOLTIPS.modoBanda} label="Sobre o modo banda" />
     </div>
   )
 }

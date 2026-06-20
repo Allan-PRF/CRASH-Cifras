@@ -27,6 +27,7 @@ const MUSICA_SELECT = `
   intro,
   versiculo_prefs,
   import_status,
+  acervo_versao_id,
   created_at,
   updated_at,
   ministro:ministros!musicas_ministro_id_fkey (
@@ -60,6 +61,7 @@ const MUSICA_PLAYLIST_SELECT = `
   semitone_offset,
   capo,
   import_status,
+  acervo_versao_id,
   created_at,
   updated_at,
   ministro:ministros!musicas_ministro_id_fkey (
@@ -189,6 +191,7 @@ export async function copiarMusica(musicaId, { ministroIdDestino, transporParaTo
     intro,
     youtubeUrl: original.youtube_url,
     secoesIniciais: secoes.length ? secoes : undefined,
+    acervoVersaoId: original.acervo_versao_id || null,
   })
 }
 
@@ -242,6 +245,7 @@ export async function createMusica({
   intro,
   youtubeUrl,
   secoesIniciais,
+  acervoVersaoId,
 }) {
   const {
     data: { user },
@@ -260,6 +264,7 @@ export async function createMusica({
       youtube_url: youtubeUrl?.trim() || null,
       intro: intro || null,
       import_status: youtubeUrl ? 'ready' : 'manual',
+      acervo_versao_id: acervoVersaoId || null,
     })
     .select(MUSICA_SELECT)
     .single()
