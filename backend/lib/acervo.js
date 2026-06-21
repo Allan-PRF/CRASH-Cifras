@@ -5,7 +5,7 @@ import {
   hashCifraNorm,
   normalizeAcervoText,
   unpackCifraToSecoes,
-} from '@crash-cifras/shared/acervo'
+} from '@crash-cifras/shared'
 import { getSupabaseAdmin } from './supabase.js'
 
 function admin() {

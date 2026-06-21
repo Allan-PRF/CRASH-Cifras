@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { buildCifraSnapshot } from '@crash-cifras/shared/acervo'
+import { buildCifraSnapshot } from '@crash-cifras/shared'
 import { env } from '../config.js'
 import {
   marcarAcervoProcessando,
