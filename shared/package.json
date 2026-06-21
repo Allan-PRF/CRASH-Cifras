@@ -11,6 +11,7 @@
     "./versiculos-prompt": "./versiculos-prompt.js",
     "./versiculos-config": "./versiculos-config.js",
     "./validate-youtube-url": "./validateYoutubeUrl.js",
-    "./referral": "./referral.js"
+    "./referral": "./referral.js",
+    "./acervo": "./acervo.js"
   }
 }
