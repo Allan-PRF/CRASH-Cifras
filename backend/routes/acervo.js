@@ -2,13 +2,14 @@ import { Router } from 'express'
 import { buildCifraSnapshot } from '@crash-cifras/shared'
 import { env } from '../config.js'
 import {
+  listarFilaMotor,
   marcarAcervoProcessando,
   preencherMusicasAguardandoAcervo,
   registrarFalhaMotor,
   registrarFeedbackSalvamento,
   registrarVersaoMotor,
 } from '../lib/acervo.js'
-import { getSupabaseAdmin, requireAuth } from '../lib/supabase.js'
+import { requireAuth } from '../lib/supabase.js'
 
 export const acervoRouter = Router()
 
@@ -30,32 +31,12 @@ function requireMotorSecret(req, res, next) {
  */
 acervoRouter.get('/motor/fila', requireMotorSecret, async (req, res, next) => {
   try {
-    const db = getSupabaseAdmin()
-    const { data: musicas, error: mErr } = await db
-      .from('acervo_musicas')
-      .select('id, titulo, artista, fonte_url, status, created_at')
-      .in('status', ['pending', 'processing'])
-      .order('created_at', { ascending: true })
-      .limit(50)
-
-    if (mErr) throw mErr
-
-    const ids = (musicas || []).map((m) => m.id)
-    let jobs = []
-    if (ids.length) {
-      const { data: jobRows, error: jErr } = await db
-        .from('import_jobs')
-        .select('id, acervo_musica_id, youtube_url, user_id, status, etapa, progresso')
-        .in('acervo_musica_id', ids)
-      if (jErr) throw jErr
-      jobs = jobRows || []
-    }
-
+    const { pendentes, total, source } = await listarFilaMotor()
     res.json({
-      pendentes: (musicas || []).map((m) => ({
-        ...m,
-        jobs: jobs.filter((j) => j.acervo_musica_id === m.id),
-      })),
+      pendentes,
+      fila: pendentes,
+      total,
+      source,
     })
   } catch (err) {
     next(err)

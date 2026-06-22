@@ -65,7 +65,7 @@ export const corsConfig = cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'x-acervo-motor-secret'],
   exposedHeaders: ['X-Request-ID', 'X-Timestamp'],
 })
 
@@ -145,6 +145,10 @@ const HONEYPOT_PATHS = [
 ]
 
 export function botDetector(req, res, next) {
+  if (req.path.startsWith('/api/acervo/motor')) {
+    return next()
+  }
+
   const userAgent = (req.headers['user-agent'] || '').toLowerCase()
   const isBot = BOT_USER_AGENTS.some((b) => userAgent.includes(b))
 

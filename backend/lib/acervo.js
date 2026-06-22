@@ -12,6 +12,54 @@ function admin() {
   return getSupabaseAdmin()
 }
 
+const FILA_ACERVO_COLS = 'id, titulo, artista, fonte_url, status, created_at'
+
+/**
+ * Fila do motor — acervo pending/processing + import_jobs associados.
+ * Usa RPC security definer; fallback para query direta se migration ainda não aplicada.
+ */
+export async function listarFilaMotor() {
+  const db = admin()
+  let musicas = []
+  let source = 'table'
+
+  const { data: rpcData, error: rpcErr } = await db.rpc('motor_fila_acervo')
+  if (!rpcErr && Array.isArray(rpcData)) {
+    musicas = rpcData
+    source = 'rpc'
+  } else {
+    if (rpcErr?.code !== 'PGRST202') {
+      console.warn('[acervo] motor_fila_acervo:', rpcErr?.message || rpcErr)
+    }
+    const { data, error } = await db
+      .from('acervo_musicas')
+      .select(FILA_ACERVO_COLS)
+      .or('status.eq.pending,status.eq.processing')
+      .order('created_at', { ascending: true })
+      .limit(50)
+    if (error) throw error
+    musicas = data || []
+  }
+
+  const ids = musicas.map((m) => m.id)
+  let jobs = []
+  if (ids.length) {
+    const { data: jobRows, error: jErr } = await db
+      .from('import_jobs')
+      .select('id, acervo_musica_id, youtube_url, user_id, status, etapa, progresso')
+      .in('acervo_musica_id', ids)
+    if (jErr) throw jErr
+    jobs = jobRows || []
+  }
+
+  const pendentes = musicas.map((m) => ({
+    ...m,
+    jobs: jobs.filter((j) => j.acervo_musica_id === m.id),
+  }))
+
+  return { pendentes, total: pendentes.length, source }
+}
+
 /**
  * Busca música no acervo por URL ou título/artista normalizados.
  */
