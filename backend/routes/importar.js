@@ -195,9 +195,29 @@ async function buscarYoutube(query) {
     .filter((entry) => entry.youtubeUrl && isValidYoutubeUrl(entry.youtubeUrl))
 }
 
+async function resolverAcervoObrigatorio({ titulo, artista, fonteUrl }) {
+  const acervoPedido = await resolverPedidoAcervo({ titulo, artista, fonteUrl })
+  const acervoMusicaId = acervoPedido?.acervoMusica?.id
+  if (!acervoMusicaId) {
+    throw new ImportFriendlyError(
+      'Não foi possível registrar a música no acervo compartilhado. Tente novamente em instantes.',
+    )
+  }
+  logImport('acervo:', acervoPedido.tipo, acervoMusicaId)
+  return acervoPedido
+}
+
 async function executarPipelineYoutube(
   supabase,
-  { job, youtubeUrl, ministroId, tituloManual = null, artistaManual = null, useAcervo = true },
+  {
+    job,
+    youtubeUrl,
+    ministroId,
+    tituloManual = null,
+    artistaManual = null,
+    useAcervo = true,
+    acervoPedido: acervoPedidoInicial = null,
+  },
 ) {
   await supabase
     .from('import_jobs')
@@ -223,18 +243,13 @@ async function executarPipelineYoutube(
     videoId: validation.videoId,
   })
 
-  let acervoPedido = null
-  if (useAcervo) {
-    try {
-      acervoPedido = await resolverPedidoAcervo({
-        titulo: metadados.titulo,
-        artista: metadados.artista,
-        fonteUrl: canonicalUrl,
-      })
-      logImport('acervo:', acervoPedido?.tipo, acervoPedido?.acervoMusica?.id)
-    } catch (err) {
-      logImport('acervo lookup falhou (continua link-only):', err.message)
-    }
+  let acervoPedido = acervoPedidoInicial
+  if (useAcervo && !acervoPedido) {
+    acervoPedido = await resolverAcervoObrigatorio({
+      titulo: metadados.titulo,
+      artista: metadados.artista,
+      fonteUrl: canonicalUrl,
+    })
   }
 
   if (acervoPedido?.tipo === 'hit') {
@@ -265,6 +280,12 @@ async function executarPipelineYoutube(
 
   const acervoMusicaId = acervoPedido?.acervoMusica?.id || null
 
+  if (useAcervo && !acervoMusicaId) {
+    throw new ImportFriendlyError(
+      'Não foi possível vincular a importação ao acervo. Verifique a configuração do servidor.',
+    )
+  }
+
   if (acervoMusicaId) {
     await updateJob(supabase, job.id, {
       acervo_musica_id: acervoMusicaId,
@@ -289,12 +310,13 @@ async function executarPipelineYoutube(
   })
   data.acervo_musica_id = acervoMusicaId
 
-  logImport('importação link-only concluída', {
+  logImport('importação concluída', {
     videoId: validation.videoId,
     titulo: data.musica.titulo,
     artista: data.musica.artista,
     import_status: data.musica.import_status,
     acervo_musica_id: acervoMusicaId,
+    acervo_tipo: acervoPedido?.tipo,
   })
 
   await updateJob(supabase, job.id, {
@@ -309,7 +331,16 @@ async function executarPipelineYoutube(
 
 async function importarYoutubeReal(
   supabase,
-  { job, userId, youtubeUrl, ministroId, musicaId = null, tituloManual = null, artistaManual = null },
+  {
+    job,
+    userId,
+    youtubeUrl,
+    ministroId,
+    musicaId = null,
+    tituloManual = null,
+    artistaManual = null,
+    acervoPedido = null,
+  },
 ) {
   const pipeline = await executarPipelineYoutube(supabase, {
     job,
@@ -317,6 +348,7 @@ async function importarYoutubeReal(
     ministroId,
     tituloManual,
     artistaManual,
+    acervoPedido,
   })
 
   if (pipeline.type === 'failed') {
@@ -434,6 +466,7 @@ async function importarYoutubePreview(
     ministroId,
     tituloManual,
     artistaManual,
+    useAcervo: false,
   })
 
   if (pipeline.type === 'failed') {
@@ -490,9 +523,33 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     const tituloManual = String(titulo || '').trim() || null
     const artistaManual = String(artista || '').trim() || null
 
+    if (!preview && !req.supabaseAdmin) {
+      return res.status(503).json({
+        error:
+          'Importação com acervo indisponível: SUPABASE_SERVICE_KEY não configurada no servidor.',
+      })
+    }
+
+    const metadados = resolverMetadadosImportacao({
+      youtubeUrl: canonicalUrl,
+      tituloManual,
+      artistaManual,
+      videoId: validation.videoId,
+    })
+
+    let acervoPedido = null
+    if (!preview) {
+      acervoPedido = await resolverAcervoObrigatorio({
+        titulo: metadados.titulo,
+        artista: metadados.artista,
+        fonteUrl: canonicalUrl,
+      })
+    }
+
     const job = await createJob(req.supabase, {
       userId: req.user.id,
       youtubeUrl: canonicalUrl,
+      acervoMusicaId: acervoPedido?.acervoMusica?.id ?? null,
     })
 
     if (preview) {
@@ -517,6 +574,7 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
       musicaId: musicaId || null,
       tituloManual,
       artistaManual,
+      acervoPedido,
     })
 
     res.status(201).json({ job: completed })
@@ -555,4 +613,4 @@ importarRouter.get('/jobs/:id', requireAuth, async (req, res, next) => {
   }
 })
 
-export { executarPipelineYoutube, importarYoutubeReal, createJob }
+export { executarPipelineYoutube, importarYoutubeReal, createJob, resolverAcervoObrigatorio }
