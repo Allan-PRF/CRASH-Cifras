@@ -12,6 +12,16 @@ function admin() {
   return getSupabaseAdmin()
 }
 
+/** BPM válido no banco: null ou inteiro em (0, 400). Zero vira null. */
+function normalizeBpmForDb(...candidates) {
+  for (const raw of candidates) {
+    if (raw == null || raw === '') continue
+    const n = Math.round(Number(raw))
+    if (Number.isFinite(n) && n > 0 && n < 400) return n
+  }
+  return null
+}
+
 const FILA_ACERVO_COLS = 'id, titulo, artista, fonte_url, status, created_at'
 
 /**
@@ -148,6 +158,7 @@ export async function registrarVersaoMotor({
 }) {
   const db = admin()
   const hash = hashCifraNorm(cifra)
+  const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
 
   const { data: versao, error: versaoErr } = await db
     .from('acervo_versoes')
@@ -155,7 +166,7 @@ export async function registrarVersaoMotor({
       acervo_musica_id: acervoMusicaId,
       cifra,
       tom_original: tomOriginal || cifra.tom_original || null,
-      bpm: bpm ?? cifra.bpm ?? null,
+      bpm: bpmVal,
       hash_norm: hash,
       origem: 'motor',
       criado_por: criadoPor,
@@ -164,7 +175,19 @@ export async function registrarVersaoMotor({
     .select()
     .single()
 
-  if (versaoErr) throw versaoErr
+  if (versaoErr) {
+    console.error('[acervo] registrarVersaoMotor insert falhou:', {
+      acervoMusicaId,
+      code: versaoErr.code,
+      message: versaoErr.message,
+      details: versaoErr.details,
+      hint: versaoErr.hint,
+      bpmEnviado: bpm,
+      bpmCifra: cifra?.bpm,
+      bpmNormalizado: bpmVal,
+    })
+    throw versaoErr
+  }
 
   await db.from('acervo_musicas').update({ status: 'ready' }).eq('id', acervoMusicaId)
 
@@ -205,7 +228,7 @@ export async function preencherMusicasAguardandoAcervo({
   const musicaIds = [...new Set((jobs || []).map((j) => j.musica_id).filter(Boolean))]
   const secoes = unpackCifraToSecoes(cifra)
   const tom = tomOriginal || cifra?.tom_original || null
-  const bpmVal = bpm ?? cifra?.bpm ?? null
+  const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
   const intro = cifra?.intro || null
 
   const preenchidas = []
@@ -237,15 +260,23 @@ export async function preencherMusicasAguardandoAcervo({
     if (delErr) throw delErr
 
     if (secoes.length) {
-      const rows = secoes.map((sec) => ({
-        slug: sec.slug,
-        nome: sec.nome,
-        ordem_original: sec.ordem_original,
+      const rows = secoes.map((sec, index) => ({
+        slug: String(sec.slug || 'verso').slice(0, 30),
+        nome: String(sec.nome || `Seção ${index + 1}`).slice(0, 50),
+        ordem_original: Number(sec.ordem_original) || index,
         linhas: sec.linhas,
         musica_id: musicaId,
       }))
       const { error: insErr } = await db.from('secoes_musica').insert(rows)
-      if (insErr) throw insErr
+      if (insErr) {
+        console.error('[acervo] preencherMusicas insert secoes falhou:', {
+          musicaId,
+          code: insErr.code,
+          message: insErr.message,
+          details: insErr.details,
+        })
+        throw insErr
+      }
     }
 
     const { error: upErr } = await db

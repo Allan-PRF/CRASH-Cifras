@@ -119,6 +119,13 @@ acervoRouter.post('/motor/completar', requireMotorSecret, async (req, res, next)
       musicas_ignoradas: preenchimento.ignoradas,
     })
   } catch (err) {
+    console.error('[acervo] motor/completar falhou:', {
+      acervo_musica_id: req.body?.acervo_musica_id,
+      code: err.code,
+      message: err.message,
+      details: err.details,
+      hint: err.hint,
+    })
     next(err)
   }
 })
