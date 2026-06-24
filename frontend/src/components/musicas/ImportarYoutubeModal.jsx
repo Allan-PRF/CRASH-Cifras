@@ -19,9 +19,6 @@ import { buscarYoutube, fetchImportJob, importarYoutube } from '../../services/i
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
 import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado.js'
 
-const btnLinkClassName =
-  'rounded-lg border border-[var(--crash-borda)] bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50'
-
 function assertValidYoutubeUrl(url) {
   const result = validateYoutubeUrl(url)
   if (!result.valid) {
@@ -104,7 +101,6 @@ export function ImportarYoutubeModal({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
-  const [showDirectLink, setShowDirectLink] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
@@ -119,7 +115,6 @@ export function ImportarYoutubeModal({
     if (!open) return
     setQuery('')
     setResults([])
-    setShowDirectLink(isReimport && Boolean(youtubeUrlInitial))
     setYoutubeUrl(youtubeUrlInitial || '')
     setJob(null)
     setError('')
@@ -235,10 +230,17 @@ export function ImportarYoutubeModal({
     }
   }
 
-  async function handleSubmitLink(event) {
-    event.preventDefault()
+  async function handleImportLink() {
+    if (!youtubeUrl.trim()) return
     await handleImport(youtubeUrl)
     setYoutubeUrl('')
+  }
+
+  function handleLinkKeyDown(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void handleImportLink()
+    }
   }
 
   function handleVoiceSearch() {
@@ -404,11 +406,33 @@ export function ImportarYoutubeModal({
                   <button
                     type="button"
                     onClick={handleVoiceSearch}
-                    className={btnSecondaryClassName}
+                    className={`${btnSecondaryClassName} shrink-0`}
                     aria-label="Buscar por voz"
                     disabled={submitting}
                   >
                     🎙️
+                  </button>
+                </div>
+              </FormField>
+
+              <FormField label="Ou cole o link">
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    onKeyDown={handleLinkKeyDown}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className={inputClassName}
+                    disabled={submitting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleImportLink()}
+                    disabled={submitting || !youtubeUrl.trim()}
+                    className={`${btnPrimaryClassName} shrink-0`}
+                  >
+                    {submitting ? 'Importando…' : 'Importar'}
                   </button>
                 </div>
               </FormField>
@@ -419,25 +443,13 @@ export function ImportarYoutubeModal({
                 </p>
               )}
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="submit"
-                  disabled={searching || submitting || query.trim().length < 2}
-                  className={`flex-1 ${btnPrimaryClassName}`}
-                >
-                  {searching ? 'Buscando…' : 'Buscar'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDirectLink((v) => !v)}
-                  disabled={submitting}
-                  className={`flex-1 ${btnLinkClassName} ${
-                    showDirectLink ? 'border-[var(--crash-cifra)] ring-1 ring-[var(--crash-cifra)]/40' : ''
-                  }`}
-                >
-                  Colar link
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={searching || submitting || query.trim().length < 2}
+                className={btnPrimaryClassName}
+              >
+                {searching ? 'Buscando…' : 'Buscar'}
+              </button>
             </form>
 
             {results.length > 0 && (
@@ -469,25 +481,6 @@ export function ImportarYoutubeModal({
                   </li>
                 ))}
               </ul>
-            )}
-
-            {showDirectLink && (
-              <form onSubmit={handleSubmitLink} className="mt-4 space-y-3">
-                <FormField label="Link do YouTube">
-                  <input
-                    type="url"
-                    required
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className={inputClassName}
-                    disabled={submitting}
-                  />
-                </FormField>
-                <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
-                  {submitting ? 'Importando…' : 'Importar'}
-                </button>
-              </form>
             )}
           </>
         )}
