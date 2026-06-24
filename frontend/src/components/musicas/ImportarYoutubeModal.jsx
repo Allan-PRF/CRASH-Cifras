@@ -106,10 +106,6 @@ export function ImportarYoutubeModal({
   const [searching, setSearching] = useState(false)
   const [showDirectLink, setShowDirectLink] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
-  const [tituloManual, setTituloManual] = useState('')
-  const [artistaManual, setArtistaManual] = useState('')
-  const [pendingUrl, setPendingUrl] = useState('')
-  const [manualHint, setManualHint] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -125,10 +121,6 @@ export function ImportarYoutubeModal({
     setResults([])
     setShowDirectLink(isReimport && Boolean(youtubeUrlInitial))
     setYoutubeUrl(youtubeUrlInitial || '')
-    setTituloManual('')
-    setArtistaManual('')
-    setPendingUrl('')
-    setManualHint('')
     setJob(null)
     setError('')
     setSubmitting(false)
@@ -211,7 +203,7 @@ export function ImportarYoutubeModal({
     await executarBusca(query)
   }
 
-  async function handleImport(url, { titulo = null, artista = null } = {}) {
+  async function handleImport(url) {
     setError('')
     setJob({ progresso: 5, etapa: 'Salvando link do vídeo…', status: 'processing' })
     setFase('importando')
@@ -222,20 +214,7 @@ export function ImportarYoutubeModal({
         youtubeUrl: safeUrl,
         ministroId,
         musicaId: musicaId || null,
-        titulo,
-        artista,
       })
-
-      if (result?.precisa_nome_manual) {
-        setPendingUrl(result.youtubeUrl || safeUrl)
-        setManualHint(
-          result.message ||
-            'Informe o nome da música e o artista para identificar na pasta.',
-        )
-        setJob(result.job || null)
-        setFase('manual')
-        return
-      }
 
       setJob(result)
       if (result.status === 'failed') {
@@ -256,25 +235,9 @@ export function ImportarYoutubeModal({
     }
   }
 
-  async function handleManualRetry(event) {
-    event.preventDefault()
-    if (!pendingUrl) return
-    if (tituloManual.trim().length < 2 || artistaManual.trim().length < 2) {
-      setError('Informe o nome da música e o artista (mínimo 2 caracteres cada).')
-      return
-    }
-    await handleImport(pendingUrl, {
-      titulo: tituloManual.trim(),
-      artista: artistaManual.trim(),
-    })
-  }
-
   async function handleSubmitLink(event) {
     event.preventDefault()
-    await handleImport(youtubeUrl, {
-      titulo: tituloManual || null,
-      artista: artistaManual || null,
-    })
+    await handleImport(youtubeUrl)
     setYoutubeUrl('')
   }
 
@@ -337,7 +300,6 @@ export function ImportarYoutubeModal({
   }
 
   const mostrarFormulario = fase === 'form'
-  const mostrarManual = fase === 'manual'
 
   return (
     <div
@@ -385,10 +347,10 @@ export function ImportarYoutubeModal({
             </h2>
             <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
               {isReimport
-                ? 'Atualiza o link do vídeo. Cadastre ou revise a cifra na edição.'
+                ? 'Atualiza o link do vídeo. O nome vem do título do YouTube.'
                 : ministroNome
-                  ? `Cole o link do YouTube. O vídeo será salvo na pasta de ${ministroNome} e você cadastra a cifra na edição.`
-                  : 'Cole o link do YouTube. O vídeo será salvo e você cadastra a cifra na edição.'}
+                  ? `Busque ou cole o link. O nome da música será salvo na pasta de ${ministroNome}.`
+                  : 'Busque ou cole o link do YouTube. O nome da música vem do título do vídeo.'}
             </p>
           </div>
           <button
@@ -497,12 +459,7 @@ export function ImportarYoutubeModal({
                       <p className="text-xs text-[var(--crash-texto-sec)]">{result.canal}</p>
                       <button
                         type="button"
-                        onClick={() =>
-                          handleImport(result.youtubeUrl, {
-                            titulo: result.titulo,
-                            artista: result.canal,
-                          })
-                        }
+                        onClick={() => handleImport(result.youtubeUrl)}
                         disabled={submitting}
                         className={`mt-2 ${btnPrimaryClassName}`}
                       >
@@ -527,60 +484,12 @@ export function ImportarYoutubeModal({
                     disabled={submitting}
                   />
                 </FormField>
-                <FormField label="Nome da música (opcional)">
-                  <input
-                    type="text"
-                    value={tituloManual}
-                    onChange={(e) => setTituloManual(e.target.value)}
-                    placeholder="Opcional — nome exibido na pasta"
-                    className={inputClassName}
-                    disabled={submitting}
-                  />
-                </FormField>
-                <FormField label="Artista (opcional)">
-                  <input
-                    type="text"
-                    value={artistaManual}
-                    onChange={(e) => setArtistaManual(e.target.value)}
-                    className={inputClassName}
-                    disabled={submitting}
-                  />
-                </FormField>
                 <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
                   {submitting ? 'Importando…' : 'Importar'}
                 </button>
               </form>
             )}
           </>
-        )}
-
-        {mostrarManual && (
-          <form onSubmit={handleManualRetry} className="mt-4 space-y-3 rounded-lg border border-amber-700/40 bg-amber-950/20 p-4">
-            <p className="text-sm text-amber-200">{manualHint}</p>
-            <FormField label="Nome da música">
-              <input
-                type="text"
-                required
-                value={tituloManual}
-                onChange={(e) => setTituloManual(e.target.value)}
-                className={inputClassName}
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField label="Artista">
-              <input
-                type="text"
-                required
-                value={artistaManual}
-                onChange={(e) => setArtistaManual(e.target.value)}
-                className={inputClassName}
-                disabled={submitting}
-              />
-            </FormField>
-            <button type="submit" disabled={submitting} className={btnPrimaryClassName}>
-              {submitting ? 'Salvando…' : 'Continuar importação'}
-            </button>
-          </form>
         )}
 
         {(fase === 'importando' || fase === 'concluido') && job && (

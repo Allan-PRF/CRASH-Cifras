@@ -3,6 +3,7 @@ import youtubedl from 'youtube-dl-exec'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
 import { resolverPedidoAcervo } from '../lib/acervo.js'
+import { buscarTituloVideoYoutube, parseTituloYoutube } from '../lib/youtubeMetadados.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
 
 export const importarRouter = Router()
@@ -90,9 +91,14 @@ function buildMetadadosFromManual({ titulo, artista }) {
 }
 
 /**
- * Metadados sem yt-dlp: manual completo, parcial ou placeholder pelo videoId.
+ * Metadados: yt-dlp no link (padrão), manual opcional no body, ou placeholder.
  */
-function resolverMetadadosImportacao({ youtubeUrl, tituloManual, artistaManual, videoId }) {
+async function resolverMetadadosImportacao({
+  youtubeUrl,
+  tituloManual = null,
+  artistaManual = null,
+  videoId,
+}) {
   if (metadadosManuaisValidos(tituloManual, artistaManual)) {
     const metadados = buildMetadadosFromManual({
       titulo: tituloManual,
@@ -102,27 +108,22 @@ function resolverMetadadosImportacao({ youtubeUrl, tituloManual, artistaManual, 
     return metadados
   }
 
-  const tituloParcial = String(tituloManual || '').trim()
-  const artistaParcial = String(artistaManual || '').trim()
-
-  if (tituloParcial.length >= 2) {
-    const metadados = {
-      titulo: tituloParcial,
-      artista: artistaParcial,
-      fonteMetadados: 'parcial',
+  try {
+    const rawTitle = await buscarTituloVideoYoutube(youtubeUrl)
+    if (rawTitle) {
+      const { titulo, artista } = parseTituloYoutube(rawTitle)
+      if (titulo.length >= 2) {
+        const metadados = {
+          titulo,
+          artista,
+          fonteMetadados: 'ytdlp',
+        }
+        logImport('metadados: yt-dlp', metadados)
+        return metadados
+      }
     }
-    logImport('metadados: título parcial', metadados)
-    return metadados
-  }
-
-  if (artistaParcial.length >= 2) {
-    const metadados = {
-      titulo: videoId ? `Importação ${videoId}` : titleFromYoutubeUrl(youtubeUrl),
-      artista: artistaParcial,
-      fonteMetadados: 'parcial',
-    }
-    logImport('metadados: artista parcial', metadados)
-    return metadados
+  } catch (err) {
+    logImport('metadados: yt-dlp falhou (usa placeholder):', err.message)
   }
 
   const metadados = {
@@ -130,7 +131,7 @@ function resolverMetadadosImportacao({ youtubeUrl, tituloManual, artistaManual, 
     artista: '',
     fonteMetadados: 'placeholder',
   }
-  logImport('metadados: placeholder (sem yt-dlp)', metadados)
+  logImport('metadados: placeholder', metadados)
   return metadados
 }
 
@@ -217,6 +218,7 @@ async function executarPipelineYoutube(
     artistaManual = null,
     useAcervo = true,
     acervoPedido: acervoPedidoInicial = null,
+    metadados: metadadosInicial = null,
   },
 ) {
   await supabase
@@ -232,15 +234,22 @@ async function executarPipelineYoutube(
   const canonicalUrl = `https://www.youtube.com/watch?v=${validation.videoId}`
 
   await updateJob(supabase, job.id, {
-    etapa: 'Preparando cadastro da música',
-    progresso: 40,
+    etapa: 'Buscando título do vídeo no YouTube',
+    progresso: 30,
   })
 
-  const metadados = resolverMetadadosImportacao({
-    youtubeUrl: canonicalUrl,
-    tituloManual,
-    artistaManual,
-    videoId: validation.videoId,
+  const metadados =
+    metadadosInicial ??
+    (await resolverMetadadosImportacao({
+      youtubeUrl: canonicalUrl,
+      tituloManual,
+      artistaManual,
+      videoId: validation.videoId,
+    }))
+
+  await updateJob(supabase, job.id, {
+    etapa: 'Preparando cadastro da música',
+    progresso: 40,
   })
 
   let acervoPedido = acervoPedidoInicial
@@ -340,6 +349,7 @@ async function importarYoutubeReal(
     tituloManual = null,
     artistaManual = null,
     acervoPedido = null,
+    metadados = null,
   },
 ) {
   const pipeline = await executarPipelineYoutube(supabase, {
@@ -349,6 +359,7 @@ async function importarYoutubeReal(
     tituloManual,
     artistaManual,
     acervoPedido,
+    metadados,
   })
 
   if (pipeline.type === 'failed') {
@@ -530,7 +541,7 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
       })
     }
 
-    const metadados = resolverMetadadosImportacao({
+    const metadados = await resolverMetadadosImportacao({
       youtubeUrl: canonicalUrl,
       tituloManual,
       artistaManual,
@@ -575,6 +586,7 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
       tituloManual,
       artistaManual,
       acervoPedido,
+      metadados,
     })
 
     res.status(201).json({ job: completed })
