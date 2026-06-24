@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDropdown'
@@ -29,6 +29,7 @@ import {
   upsertSecao,
 } from '../services/musicas'
 import { enviarFeedbackAcervo } from '../services/acervo'
+import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
 function secaoTemAcordes(linhas) {
   if (!linhas?.lines?.length) return false
@@ -77,6 +78,7 @@ export function MusicaEditar() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const introEditorRef = useRef(null)
   const load = useCallback(() => {
     setLoading(true)
     fetchMusicaCompleta(id)
@@ -128,10 +130,8 @@ export function MusicaEditar() {
       const bpm =
         meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
 
-      const introToSave =
-        (intro.mao_esquerda?.trim() || intro.mao_direita?.trim())
-          ? { mao_esquerda: intro.mao_esquerda?.trim() || '', mao_direita: intro.mao_direita?.trim() || '' }
-          : null
+      const introAtual = introEditorRef.current?.flush() ?? intro
+      const introToSave = normalizarIntroParaCopia(introAtual)
 
       const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
       if (
@@ -292,7 +292,7 @@ export function MusicaEditar() {
       </div>
 
       <div className="space-y-4">
-        <IntroducaoEditor intro={intro} onChange={setIntro} />
+        <IntroducaoEditor ref={introEditorRef} intro={intro} onChange={setIntro} />
 
         {secoes.map((sec, index) => (
           <SecaoEditor

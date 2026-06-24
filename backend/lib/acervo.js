@@ -12,6 +12,14 @@ function admin() {
   return getSupabaseAdmin()
 }
 
+/** Intro do card mãos esquerda/direita (formato musicas.intro). */
+function introMaosTemConteudo(intro) {
+  if (!intro || typeof intro !== 'object') return false
+  return Boolean(
+    String(intro.mao_esquerda ?? '').trim() || String(intro.mao_direita ?? '').trim(),
+  )
+}
+
 /** BPM válido no banco: null ou inteiro em (0, 400). Zero vira null. */
 function normalizeBpmForDb(...candidates) {
   for (const raw of candidates) {
@@ -284,7 +292,7 @@ export async function preencherMusicasAguardandoAcervo({
   const secoes = unpackCifraToSecoes(cifra)
   const tom = tomOriginal || cifra?.tom_original || null
   const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
-  const intro = cifra?.intro || null
+  const introMotor = cifra?.intro || null
 
   const preenchidas = []
   const ignoradas = []
@@ -292,7 +300,7 @@ export async function preencherMusicasAguardandoAcervo({
   for (const musicaId of musicaIds) {
     const { data: musica, error: mErr } = await db
       .from('musicas')
-      .select('id, ministro_id, import_status, acervo_versao_id')
+      .select('id, ministro_id, import_status, acervo_versao_id, intro')
       .eq('id', musicaId)
       .maybeSingle()
 
@@ -334,16 +342,21 @@ export async function preencherMusicasAguardandoAcervo({
       }
     }
 
-    const { error: upErr } = await db
-      .from('musicas')
-      .update({
-        tom_original: tom,
-        bpm: bpmVal,
-        intro,
-        acervo_versao_id: versaoId,
-        import_status: 'ready',
-      })
-      .eq('id', musicaId)
+    const updateMusica = {
+      tom_original: tom,
+      bpm: bpmVal,
+      acervo_versao_id: versaoId,
+      import_status: 'ready',
+    }
+
+    if (!introMaosTemConteudo(musica.intro) && introMaosTemConteudo(introMotor)) {
+      updateMusica.intro = {
+        mao_esquerda: String(introMotor.mao_esquerda ?? '').trim(),
+        mao_direita: String(introMotor.mao_direita ?? '').trim() || '',
+      }
+    }
+
+    const { error: upErr } = await db.from('musicas').update(updateMusica).eq('id', musicaId)
 
     if (upErr) throw upErr
 

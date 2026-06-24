@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { InfoTooltip } from '../ui/InfoTooltip'
 import { inputOrangeClassName } from '../ui/inputClasses'
 
-export function IntroducaoEditor({ intro, onChange }) {
+export const IntroducaoEditor = forwardRef(function IntroducaoEditor(
+  { intro, onChange },
+  ref,
+) {
   const [maoEsquerda, setMaoEsquerda] = useState(intro?.mao_esquerda || '')
   const [maoDireita, setMaoDireita] = useState(intro?.mao_direita || '')
 
@@ -12,13 +15,17 @@ export function IntroducaoEditor({ intro, onChange }) {
     setMaoDireita(intro?.mao_direita || '')
   }, [intro?.mao_esquerda, intro?.mao_direita])
 
-  function emit(field, value) {
-    const next = {
-      mao_esquerda: field === 'mao_esquerda' ? value : maoEsquerda,
-      mao_direita: field === 'mao_direita' ? value : maoDireita,
-    }
-    onChange(next)
+  function snapshot() {
+    return { mao_esquerda: maoEsquerda, mao_direita: maoDireita }
   }
+
+  function flush() {
+    const next = snapshot()
+    onChange(next)
+    return next
+  }
+
+  useImperativeHandle(ref, () => ({ flush, snapshot }), [maoEsquerda, maoDireita, onChange])
 
   return (
     <article className="rounded-xl border-2 border-orange-500 bg-black/40 p-4">
@@ -52,7 +59,7 @@ export function IntroducaoEditor({ intro, onChange }) {
           <textarea
             value={maoEsquerda}
             onChange={(e) => setMaoEsquerda(e.target.value)}
-            onBlur={() => emit('mao_esquerda', maoEsquerda)}
+            onBlur={flush}
             rows={4}
             className={`${inputOrangeClassName} text-sm`}
             placeholder="Mão esquerda"
@@ -65,7 +72,7 @@ export function IntroducaoEditor({ intro, onChange }) {
           <textarea
             value={maoDireita}
             onChange={(e) => setMaoDireita(e.target.value)}
-            onBlur={() => emit('mao_direita', maoDireita)}
+            onBlur={flush}
             rows={4}
             className={`${inputOrangeClassName} text-sm`}
             placeholder="Mão direita"
@@ -74,4 +81,4 @@ export function IntroducaoEditor({ intro, onChange }) {
       </div>
     </article>
   )
-}
+})

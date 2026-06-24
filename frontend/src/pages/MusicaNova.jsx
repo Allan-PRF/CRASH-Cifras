@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS } from '@crash-cifras/shared/chord-schema'
 import { IntroducaoEditor } from '../components/musicas/IntroducaoEditor'
@@ -11,6 +11,7 @@ import {
   selectClassName,
 } from '../components/ui/inputClasses'
 import { TODOS_TONS } from '../lib/tons'
+import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 import { createMusica } from '../services/musicas'
 import { fetchMinistroById } from '../services/ministros'
 
@@ -34,6 +35,7 @@ export function MusicaNova() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ministroNome, setMinistroNome] = useState('')
+  const introEditorRef = useRef(null)
 
   useEffect(() => {
     if (!ministroId) return
@@ -74,10 +76,8 @@ export function MusicaNova() {
     try {
       const bpmNum =
         bpm !== '' && Number(bpm) >= 1 ? Math.floor(Number(bpm)) : null
-      const introToSave =
-        (intro.mao_esquerda?.trim() || intro.mao_direita?.trim())
-          ? { mao_esquerda: intro.mao_esquerda?.trim() || '', mao_direita: intro.mao_direita?.trim() || '' }
-          : null
+      const introAtual = introEditorRef.current?.flush() ?? intro
+      const introToSave = normalizarIntroParaCopia(introAtual)
 
       const musica = await createMusica({
         ministroId,
@@ -188,7 +188,7 @@ export function MusicaNova() {
         </div>
 
         <div className="space-y-4">
-          <IntroducaoEditor intro={intro} onChange={setIntro} />
+          <IntroducaoEditor ref={introEditorRef} intro={intro} onChange={setIntro} />
 
           {secoes.map((sec, index) => (
             <SecaoEditor
