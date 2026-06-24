@@ -205,6 +205,61 @@ export async function registrarVersaoMotor({
 }
 
 /**
+ * Motor envia título/artista extraídos no PC — corrige placeholder no acervo e nas cópias pessoais.
+ * Se titulo vier vazio/ausente, não altera nada.
+ */
+export async function aplicarMetadadosMotor({ acervoMusicaId, titulo, artista }) {
+  const tituloTrim = String(titulo ?? '').trim()
+  if (tituloTrim.length < 2) {
+    return { atualizado: false, motivo: 'titulo_ausente' }
+  }
+
+  const artistaVal =
+    artista == null || String(artista).trim() === '' ? null : String(artista).trim()
+
+  const db = admin()
+  const payload = {
+    titulo: tituloTrim,
+    artista: artistaVal,
+    titulo_norm: normalizeAcervoText(tituloTrim),
+    artista_norm: normalizeAcervoText(artistaVal),
+  }
+
+  const { error: acervoErr } = await db
+    .from('acervo_musicas')
+    .update(payload)
+    .eq('id', acervoMusicaId)
+
+  if (acervoErr) throw acervoErr
+
+  const { data: jobs, error: jErr } = await db
+    .from('import_jobs')
+    .select('musica_id')
+    .eq('acervo_musica_id', acervoMusicaId)
+    .not('musica_id', 'is', null)
+
+  if (jErr) throw jErr
+
+  const musicaIds = [...new Set((jobs || []).map((j) => j.musica_id).filter(Boolean))]
+
+  if (musicaIds.length) {
+    const { error: musErr } = await db
+      .from('musicas')
+      .update({ titulo: tituloTrim, artista: artistaVal })
+      .in('id', musicaIds)
+
+    if (musErr) throw musErr
+  }
+
+  return {
+    atualizado: true,
+    titulo: tituloTrim,
+    artista: artistaVal,
+    musicas_atualizadas: musicaIds,
+  }
+}
+
+/**
  * Preenche todas as cópias pessoais que aguardam esta entrada do acervo (fluxo passo 4).
  * Busca via import_jobs.acervo_musica_id → musicas com import_status pending/processing.
  */

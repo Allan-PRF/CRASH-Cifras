@@ -4,6 +4,7 @@ import { env } from '../config.js'
 import {
   listarFilaMotor,
   marcarAcervoProcessando,
+  aplicarMetadadosMotor,
   preencherMusicasAguardandoAcervo,
   registrarFalhaMotor,
   registrarFeedbackSalvamento,
@@ -87,7 +88,8 @@ acervoRouter.post('/motor/falha', requireMotorSecret, async (req, res, next) => 
  */
 acervoRouter.post('/motor/completar', requireMotorSecret, async (req, res, next) => {
   try {
-    const { acervo_musica_id, cifra, tom_original, bpm, job_id } = req.body ?? {}
+    const { acervo_musica_id, cifra, tom_original, bpm, job_id, titulo, artista } =
+      req.body ?? {}
 
     if (!acervo_musica_id || !cifra?.secoes) {
       return res.status(400).json({ error: 'acervo_musica_id e cifra.secoes são obrigatórios.' })
@@ -102,6 +104,12 @@ acervoRouter.post('/motor/completar', requireMotorSecret, async (req, res, next)
 
     const versaoTopId = acervoMusica.versao_top_id || versao.id
 
+    const metadados = await aplicarMetadadosMotor({
+      acervoMusicaId: acervo_musica_id,
+      titulo,
+      artista,
+    })
+
     const preenchimento = await preencherMusicasAguardandoAcervo({
       acervoMusicaId: acervo_musica_id,
       versaoId: versaoTopId,
@@ -115,6 +123,10 @@ acervoRouter.post('/motor/completar', requireMotorSecret, async (req, res, next)
       acervo_musica_id: acervoMusica.id,
       versao_id: versao.id,
       versao_top_id: versaoTopId,
+      metadados_aplicados: metadados.atualizado,
+      titulo: metadados.titulo ?? null,
+      artista: metadados.artista ?? null,
+      musicas_metadados: metadados.musicas_atualizadas ?? [],
       musicas_preenchidas: preenchimento.preenchidas,
       musicas_ignoradas: preenchimento.ignoradas,
     })
