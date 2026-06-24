@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { FormField } from '../ui/FormField'
@@ -16,6 +16,8 @@ import {
   mensagemErroStartVoz,
 } from '../../lib/voiceSearch'
 import { buscarYoutube, fetchImportJob, importarYoutube } from '../../services/importacao'
+import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
+import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado.js'
 
 const btnLinkClassName =
   'rounded-lg border border-[var(--crash-borda)] bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50'
@@ -29,32 +31,61 @@ function assertValidYoutubeUrl(url) {
 }
 
 function ProgressoImportacao({ job }) {
-  const progresso = Math.min(100, Math.max(0, job?.progresso ?? 0))
-  const concluido = job?.status === 'completed' || job?.status === 'done' || progresso >= 100
-  const aguardandoMotor = job?.status === 'processing'
+  const maxExibidoRef = useRef(5)
+  const concluido = job?.status === 'completed' || job?.status === 'done'
+  const aguardandoMotor = job?.status === 'processing' && !concluido
+
+  useEffect(() => {
+    maxExibidoRef.current = 5
+  }, [job?.id])
+
+  const { progresso: estimado, noTeto } = useProgressoEstimadoMotor(
+    aguardandoMotor,
+    job?.id,
+  )
+
+  let bruto
+  if (concluido) {
+    bruto = 100
+  } else if (aguardandoMotor) {
+    const doServidor = Math.min(PROGRESSO_MOTOR_TETO, job?.progresso ?? 0)
+    bruto = Math.max(estimado, doServidor)
+  } else {
+    bruto = Math.min(PROGRESSO_MOTOR_TETO, job?.progresso ?? 5)
+  }
+
+  const progresso = Math.round(Math.max(maxExibidoRef.current, bruto))
+  maxExibidoRef.current = progresso
+
+  const titulo = concluido
+    ? 'Pronto!'
+    : aguardandoMotor
+      ? noTeto
+        ? 'Quase lá, finalizando…'
+        : 'Gerando cifra no acervo…'
+      : 'Salvando vídeo…'
+
+  const subtitulo =
+    aguardandoMotor && noTeto
+      ? 'O motor está finalizando a cifra. Isso pode levar mais alguns instantes.'
+      : job?.etapa
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-[var(--crash-cifra)]">
-          {concluido
-            ? 'Pronto!'
-            : aguardandoMotor
-              ? 'Gerando cifra no acervo…'
-              : 'Salvando vídeo…'}
-        </p>
+        <p className="text-sm font-semibold text-[var(--crash-cifra)]">{titulo}</p>
         <span className="text-xs text-white">{progresso}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-black/40">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${
+          className={`h-full rounded-full transition-[width] duration-700 ease-out ${
             concluido ? 'bg-green-500' : 'bg-[var(--crash-cifra)]'
           }`}
           style={{ width: `${progresso}%` }}
         />
       </div>
-      {job?.etapa && (
-        <p className="text-xs text-[var(--crash-texto-sec)]">{job.etapa}</p>
+      {subtitulo && (
+        <p className="text-xs text-[var(--crash-texto-sec)]">{subtitulo}</p>
       )}
     </div>
   )
@@ -525,13 +556,6 @@ export function ImportarYoutubeModal({
           )
         })()}
 
-        {fase === 'importando' && (
-          <p className="mt-3 text-xs text-[var(--crash-texto-sec)]">
-            {job?.status === 'processing'
-              ? 'O motor está gerando a cifra. Isso pode levar alguns minutos…'
-              : 'Salvando o link do vídeo na sua biblioteca…'}
-          </p>
-        )}
       </div>
     </div>
   )
