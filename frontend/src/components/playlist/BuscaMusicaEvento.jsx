@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import {
   btnPrimaryClassName,
@@ -19,11 +19,17 @@ import {
   mensagemErroStartVoz,
   MSG_BUSCA_VOZ_INDISPONIVEL,
   MSG_VOZ_NAO_IDENTIFICOU,
-  PLACEHOLDER_BUSCA_VOZ,
 } from '../../lib/voiceSearch'
 import { useMinistros } from '../../hooks/useMinistros'
 import { buscarYoutube, importarYoutube } from '../../services/importacao'
 import { addMusicaToPlaylist } from '../../services/playlists'
+
+const PLACEHOLDER_BUSCA_EVENTO = 'Digite o nome, fale ou cole o link do YouTube'
+
+const inputBuscaClassName = `${inputClassName} h-[42px] min-w-0 flex-1 py-2`
+
+const btnBuscaAlturaClassName =
+  'inline-flex h-[42px] shrink-0 items-center justify-center px-4 text-sm font-semibold whitespace-nowrap'
 
 function canonicalYoutubeUrl(url) {
   const result = validateYoutubeUrl(url)
@@ -33,10 +39,15 @@ function canonicalYoutubeUrl(url) {
   return `https://www.youtube.com/watch?v=${result.videoId}`
 }
 
+function entradaEhLinkYoutube(entrada) {
+  const trimmed = entrada.trim()
+  if (!trimmed) return false
+  return validateYoutubeUrl(trimmed).valid
+}
+
 export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicionada }) {
   const { ministros } = useMinistros()
   const [query, setQuery] = useState('')
-  const [linkUrl, setLinkUrl] = useState('')
   const [ministroId, setMinistroId] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -44,7 +55,6 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
   const [importingLink, setImportingLink] = useState(false)
   const [erroBusca, setErroBusca] = useState('')
   const [erroVoz, setErroVoz] = useState('')
-  const [erroLink, setErroLink] = useState('')
   const [erroAdicionar, setErroAdicionar] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [ouvindo, setOuvindo] = useState(false)
@@ -55,6 +65,8 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
 
   const importando = searching || !!importingId || importingLink
   const camposBloqueados = disabled
+  const queryTrimmed = query.trim()
+  const ehLink = useMemo(() => entradaEhLinkYoutube(query), [query])
 
   useEffect(() => {
     if (!ministroId && ministros.length === 1) {
@@ -71,6 +83,12 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
       }
     }
   }, [])
+
+  function resetarBuscaAposAdicionar() {
+    setQuery('')
+    setResults([])
+    setErroBusca('')
+  }
 
   async function executarBusca(termo) {
     const termoSafe = sanitizeText(termo).trim()
@@ -105,8 +123,18 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     }
   }
 
-  async function handleSearch(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
+    if (!queryTrimmed) {
+      setErroBusca('Digite o nome da música ou cole um link do YouTube.')
+      return
+    }
+
+    if (ehLink) {
+      await handleAdicionarPorLink()
+      return
+    }
+
     await executarBusca(query)
   }
 
@@ -234,9 +262,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
         return
       }
 
-      setResults((prev) =>
-        prev.filter((r) => (r.id || r.youtubeUrl) !== (result.id || result.youtubeUrl)),
-      )
+      resetarBuscaAposAdicionar()
     } catch (err) {
       setErroAdicionar(err.message || 'Erro ao adicionar. Tente novamente.')
     } finally {
@@ -247,14 +273,15 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
   async function handleAdicionarPorLink() {
     if (importingLink || importingId) return
 
-    const trimmed = linkUrl.trim()
+    const trimmed = queryTrimmed
     if (!trimmed) {
-      setErroLink('Cole um link do YouTube.')
+      setErroBusca('Cole um link do YouTube.')
       return
     }
 
     setImportingLink(true)
-    setErroLink('')
+    setErroBusca('')
+    setErroAdicionar('')
     setSucesso('')
     setManualPending(null)
 
@@ -273,11 +300,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
         return
       }
 
-      setLinkUrl('')
+      resetarBuscaAposAdicionar()
       setTituloManual('')
       setArtistaManual('')
     } catch (err) {
-      setErroLink(err.message || 'Erro ao importar. Tente novamente.')
+      setErroBusca(err.message || 'Erro ao importar. Tente novamente.')
     } finally {
       setImportingLink(false)
     }
@@ -311,7 +338,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
       }
 
       setManualPending(null)
-      setLinkUrl('')
+      resetarBuscaAposAdicionar()
       setTituloManual('')
       setArtistaManual('')
     } catch (err) {
@@ -321,12 +348,14 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     }
   }
 
-  function handleLinkKeyDown(event) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      handleAdicionarPorLink()
-    }
-  }
+  const acaoDesabilitada =
+    camposBloqueados || importando || !queryTrimmed || (!ehLink && queryTrimmed.length < 2)
+
+  const labelAcao = (() => {
+    if (importingLink || importingId) return 'Importando…'
+    if (searching) return 'Buscando…'
+    return ehLink ? 'Adicionar' : 'Buscar'
+  })()
 
   if (camposBloqueados) {
     return null
@@ -336,23 +365,24 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     <div className={`relative z-10 p-4 ${cardMutedClassName}`}>
       <p className="text-sm font-medium text-white">Buscar música no YouTube</p>
       <p className="mt-1 text-xs text-[var(--crash-texto-sec)]">
-        Busque por nome ou cole um link — cada opção funciona de forma independente.
+        Digite o nome, fale ou cole o link — um único campo para tudo.
       </p>
 
-      <form onSubmit={handleSearch} className="relative z-10 mt-4 space-y-3">
+      <form onSubmit={handleSubmit} className="relative z-10 mt-4 space-y-3">
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex items-stretch gap-2">
             <input
-              type="search"
+              type="text"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value)
                 setErroVoz('')
+                setErroBusca('')
               }}
-              placeholder={PLACEHOLDER_BUSCA_VOZ}
-              className={inputClassName}
+              placeholder={PLACEHOLDER_BUSCA_EVENTO}
+              className={inputBuscaClassName}
               disabled={camposBloqueados}
-              maxLength={100}
+              maxLength={200}
               autoComplete="off"
             />
             <button
@@ -363,11 +393,18 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
               aria-label={ouvindo ? 'Parar busca por voz' : 'Buscar por voz'}
               className={
                 ouvindo
-                  ? 'shrink-0 rounded-lg border border-red-500 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white animate-pulse'
-                  : `${btnSecondaryClassName} shrink-0`
+                  ? `${btnBuscaAlturaClassName} min-w-[4.5rem] border border-red-500 bg-red-600 text-white animate-pulse`
+                  : `${btnSecondaryClassName} ${btnBuscaAlturaClassName} min-w-[4.5rem] font-medium`
               }
             >
               Voz
+            </button>
+            <button
+              type="submit"
+              disabled={acaoDesabilitada}
+              className={`${btnPrimaryClassName} ${btnBuscaAlturaClassName} min-w-[5.75rem]`}
+            >
+              {labelAcao}
             </button>
           </div>
           {ouvindo && (
@@ -380,29 +417,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
               {erroVoz}
             </p>
           )}
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            onKeyDown={handleLinkKeyDown}
-            placeholder="Ou cole o link do YouTube aqui..."
-            className={inputClassName}
-            disabled={camposBloqueados}
-            maxLength={200}
-            autoComplete="off"
-            inputMode="url"
-          />
-          <button
-            type="button"
-            onClick={handleAdicionarPorLink}
-            disabled={camposBloqueados || importando || !linkUrl.trim()}
-            className={`${btnPrimaryClassName} shrink-0`}
-          >
-            {importingLink ? 'Importando…' : 'Adicionar'}
-          </button>
+          {erroBusca && (
+            <p className="text-sm text-red-400" role="alert">
+              {erroBusca}
+            </p>
+          )}
         </div>
 
         <label className="block">
@@ -421,14 +440,6 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
             ))}
           </select>
         </label>
-
-        <button
-          type="submit"
-          disabled={camposBloqueados || importando || query.trim().length < 2}
-          className={btnPrimaryClassName}
-        >
-          {searching ? 'Buscando…' : 'Buscar'}
-        </button>
       </form>
 
       {manualPending && (
@@ -464,18 +475,6 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
             {importingLink ? 'Salvando…' : 'Continuar e adicionar à playlist'}
           </button>
         </form>
-      )}
-
-      {erroBusca && (
-        <p className="mt-3 text-sm text-red-400" role="alert">
-          {erroBusca}
-        </p>
-      )}
-
-      {erroLink && (
-        <p className="mt-3 text-sm text-red-400" role="alert">
-          {erroLink}
-        </p>
       )}
 
       {erroAdicionar && (

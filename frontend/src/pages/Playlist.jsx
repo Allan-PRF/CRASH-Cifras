@@ -6,10 +6,6 @@ import { MedleyToggle } from '../components/playlist/MedleyToggle'
 import { BuscaMusicaEvento } from '../components/playlist/BuscaMusicaEvento'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import {
-  PlaylistFlowSteps,
-  playlistCurrentStep,
-} from '../components/playlist/PlaylistFlowSteps'
-import {
   btnPrimaryClassName,
   btnSecondaryClassName,
   cardClassName,
@@ -72,7 +68,6 @@ export function Playlist() {
   )
 
   const itemIds = useMemo(() => playlist?.itens?.map((item) => item.id) ?? [], [playlist])
-  const currentStep = playlistCurrentStep(playlist)
   const isPreparado = playlist?.status === 'preparado'
   const isRascunho = !playlist?.status || playlist.status === 'rascunho'
 
@@ -311,8 +306,6 @@ export function Playlist() {
           )}
         </p>
       </header>
-
-      <PlaylistFlowSteps currentStep={currentStep} compact />
 
       {isPreparado && (
         <div
