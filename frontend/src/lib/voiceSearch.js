@@ -1,6 +1,20 @@
 /** Só para erros reais de permissão / captura de áudio. */
 export const MSG_MICROFONE_INDISPONIVEL =
-  'Microfone não disponível. Verifique as permissões do navegador.'
+  'Permita o uso do microfone ou digite o nome da música.'
+
+/** Placeholder unificado — campos com busca por texto + voz. */
+export const PLACEHOLDER_BUSCA_VOZ = 'Digite o nome da música ou fale'
+
+/** Aviso quando o reconhecimento de voz não obtém resultado utilizável. */
+export const MSG_VOZ_NAO_IDENTIFICOU =
+  'Não conseguimos identificar por áudio. Por favor, digite o nome da música.'
+
+export const MSG_BUSCA_VOZ_INDISPONIVEL =
+  'Busca por voz não disponível aqui. Digite o nome da música.'
+
+/** @type {string} */
+export const classeAvisoVoz =
+  'rounded-lg border border-amber-600/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100'
 
 /** @returns {typeof SpeechRecognition | null} */
 export function getSpeechRecognition() {
@@ -62,22 +76,15 @@ export function mensagemErroReconhecimentoVoz(errorCode) {
     case 'audio-capture':
       return MSG_MICROFONE_INDISPONIVEL
     case 'no-speech':
-      return 'Nenhuma fala detectada. Tente novamente.'
+      return MSG_VOZ_NAO_IDENTIFICOU
     case 'network':
-      return (
-        'O serviço de voz do navegador não respondeu (erro de rede). ' +
-        'Verifique sua internet, use Chrome ou Edge e acesse por localhost ou HTTPS — ' +
-        'não é falha do microfone do sistema.'
-      )
+      return MSG_VOZ_NAO_IDENTIFICOU
     case 'service-not-allowed':
-      return (
-        'Reconhecimento de voz bloqueado neste site. ' +
-        'Permita o microfone para este endereço nas configurações do navegador.'
-      )
+      return MSG_VOZ_NAO_IDENTIFICOU
     case 'language-not-supported':
-      return 'Reconhecimento em português (pt-BR) não suportado neste navegador.'
+      return MSG_VOZ_NAO_IDENTIFICOU
     default:
-      return `Erro no reconhecimento de voz (${errorCode || 'desconhecido'}). Veja o console [voz].`
+      return MSG_VOZ_NAO_IDENTIFICOU
   }
 }
 
@@ -118,8 +125,7 @@ export function iniciarReconhecimentoVoz(recognition) {
 /** @param {unknown} err */
 export function mensagemErroStartVoz(err) {
   if (err instanceof Error && err.name === 'InvalidStateError') {
-    return 'O reconhecimento já estava ativo. Aguarde um instante e tente de novo.'
+    return MSG_VOZ_NAO_IDENTIFICOU
   }
-  const detail = err instanceof Error ? err.message : String(err)
-  return `Não foi possível iniciar o reconhecimento de voz (${detail}).`
+  return MSG_VOZ_NAO_IDENTIFICOU
 }

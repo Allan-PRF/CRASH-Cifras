@@ -9,11 +9,15 @@ import {
 } from '../ui/inputClasses'
 import {
   attachReconhecimentoVoz,
+  classeAvisoVoz,
   criarSpeechRecognition,
   iniciarReconhecimentoVoz,
   logSpeechRecognitionDisponivel,
   mensagemErroReconhecimentoVoz,
   mensagemErroStartVoz,
+  MSG_BUSCA_VOZ_INDISPONIVEL,
+  MSG_VOZ_NAO_IDENTIFICOU,
+  PLACEHOLDER_BUSCA_VOZ,
 } from '../../lib/voiceSearch'
 import { buscarYoutube, fetchImportJob, importarYoutube } from '../../services/importacao'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
@@ -104,6 +108,7 @@ export function ImportarYoutubeModal({
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
+  const [erroVoz, setErroVoz] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fase, setFase] = useState('form')
   const [avisoFecharMotor, setAvisoFecharMotor] = useState(false)
@@ -245,16 +250,16 @@ export function ImportarYoutubeModal({
 
   function handleVoiceSearch() {
     if (!logSpeechRecognitionDisponivel()) {
-      setError('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
-    setError('')
+    setErroVoz('')
     let recognition
     try {
       recognition = criarSpeechRecognition()
     } catch {
-      setError('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
@@ -264,18 +269,20 @@ export function ImportarYoutubeModal({
         if (transcript) {
           setQuery(transcript)
           void executarBusca(transcript)
+        } else {
+          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
         }
       },
       onError: (event) => {
         const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setError(mensagem)
+        if (mensagem) setErroVoz(mensagem)
       },
     })
 
     try {
       iniciarReconhecimentoVoz(recognition)
     } catch (err) {
-      setError(mensagemErroStartVoz(err))
+      setErroVoz(mensagemErroStartVoz(err))
     }
   }
 
@@ -398,8 +405,11 @@ export function ImportarYoutubeModal({
                   <input
                     type="search"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Nome da música ou artista…"
+                    onChange={(e) => {
+                      setQuery(e.target.value)
+                      setErroVoz('')
+                    }}
+                    placeholder={PLACEHOLDER_BUSCA_VOZ}
                     className={inputClassName}
                     disabled={submitting}
                   />
@@ -413,6 +423,11 @@ export function ImportarYoutubeModal({
                     🎙️
                   </button>
                 </div>
+                {erroVoz && (
+                  <p className={`mt-2 ${classeAvisoVoz}`} role="alert">
+                    {erroVoz}
+                  </p>
+                )}
               </FormField>
 
               <FormField label="Ou cole o link">

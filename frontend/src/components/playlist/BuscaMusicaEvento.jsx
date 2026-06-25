@@ -11,11 +11,15 @@ import {
 import { sanitizeText } from '../../lib/sanitize'
 import {
   attachReconhecimentoVoz,
+  classeAvisoVoz,
   criarSpeechRecognition,
   iniciarReconhecimentoVoz,
   logSpeechRecognitionDisponivel,
   mensagemErroReconhecimentoVoz,
   mensagemErroStartVoz,
+  MSG_BUSCA_VOZ_INDISPONIVEL,
+  MSG_VOZ_NAO_IDENTIFICOU,
+  PLACEHOLDER_BUSCA_VOZ,
 } from '../../lib/voiceSearch'
 import { useMinistros } from '../../hooks/useMinistros'
 import { buscarYoutube, importarYoutube } from '../../services/importacao'
@@ -39,6 +43,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
   const [importingId, setImportingId] = useState(null)
   const [importingLink, setImportingLink] = useState(false)
   const [erroBusca, setErroBusca] = useState('')
+  const [erroVoz, setErroVoz] = useState('')
   const [erroLink, setErroLink] = useState('')
   const [erroAdicionar, setErroAdicionar] = useState('')
   const [sucesso, setSucesso] = useState('')
@@ -121,11 +126,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     }
 
     if (!logSpeechRecognitionDisponivel()) {
-      setErroBusca('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
-    setErroBusca('')
+    setErroVoz('')
 
     let recognition
     try {
@@ -133,14 +138,14 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
       recognitionRef.current = recognition
     } catch (err) {
       console.log('[voz] falha ao criar instância:', err)
-      setErroBusca('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
     attachReconhecimentoVoz(recognition, {
       onStart: () => {
         setOuvindo(true)
-        setErroBusca('')
+        setErroVoz('')
       },
       onResult: (event) => {
         const transcript = event.results?.[0]?.[0]?.transcript?.trim()
@@ -148,12 +153,12 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
           setQuery(transcript)
           void executarBusca(transcript)
         } else {
-          setErroBusca('Não foi possível entender. Tente novamente.')
+          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
         }
       },
       onError: (event) => {
         const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setErroBusca(mensagem)
+        if (mensagem) setErroVoz(mensagem)
       },
       onEnd: () => {
         setOuvindo(false)
@@ -167,7 +172,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
       console.log('[voz] recognition.start() exceção:', err)
       setOuvindo(false)
       recognitionRef.current = null
-      setErroBusca(mensagemErroStartVoz(err))
+      setErroVoz(mensagemErroStartVoz(err))
     }
   }
 
@@ -340,8 +345,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
             <input
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Nome da música ou artista"
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setErroVoz('')
+              }}
+              placeholder={PLACEHOLDER_BUSCA_VOZ}
               className={inputClassName}
               disabled={camposBloqueados}
               maxLength={100}
@@ -365,6 +373,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
           {ouvindo && (
             <p className="text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
               Ouvindo... fale o nome da música
+            </p>
+          )}
+          {erroVoz && (
+            <p className={classeAvisoVoz} role="alert">
+              {erroVoz}
             </p>
           )}
         </div>

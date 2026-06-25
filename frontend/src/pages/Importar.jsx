@@ -11,11 +11,15 @@ import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { useMinistros } from '../hooks/useMinistros'
 import {
   attachReconhecimentoVoz,
+  classeAvisoVoz,
   criarSpeechRecognition,
   iniciarReconhecimentoVoz,
   logSpeechRecognitionDisponivel,
   mensagemErroReconhecimentoVoz,
   mensagemErroStartVoz,
+  MSG_BUSCA_VOZ_INDISPONIVEL,
+  MSG_VOZ_NAO_IDENTIFICOU,
+  PLACEHOLDER_BUSCA_VOZ,
 } from '../lib/voiceSearch'
 import { buscarYoutube, importarYoutube } from '../services/importacao'
 
@@ -38,6 +42,7 @@ export function Importar() {
   const [ministroId, setMinistroId] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
+  const [erroVoz, setErroVoz] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -143,18 +148,18 @@ export function Importar() {
 
   function handleVoiceSearch() {
     if (!logSpeechRecognitionDisponivel()) {
-      setError('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
-    setError('')
+    setErroVoz('')
 
     let recognition
     try {
       recognition = criarSpeechRecognition()
     } catch (err) {
       console.log('[voz] falha ao criar instância:', err)
-      setError('Seu navegador não suporta busca por voz. Use o campo de texto.')
+      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
 
@@ -164,11 +169,13 @@ export function Importar() {
         if (transcript) {
           setQuery(transcript)
           void executarBusca(transcript)
+        } else {
+          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
         }
       },
       onError: (event) => {
         const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setError(mensagem)
+        if (mensagem) setErroVoz(mensagem)
       },
     })
 
@@ -176,7 +183,7 @@ export function Importar() {
       iniciarReconhecimentoVoz(recognition)
     } catch (err) {
       console.log('[voz] recognition.start() exceção:', err)
-      setError(mensagemErroStartVoz(err))
+      setErroVoz(mensagemErroStartVoz(err))
     }
   }
 
@@ -205,8 +212,11 @@ export function Importar() {
             <input
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="🔍 Buscar música no YouTube..."
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setErroVoz('')
+              }}
+              placeholder={PLACEHOLDER_BUSCA_VOZ}
               className={inputClassName}
             />
             <button
@@ -218,6 +228,11 @@ export function Importar() {
               🎙️
             </button>
           </div>
+          {erroVoz && (
+            <p className={`mt-2 ${classeAvisoVoz}`} role="alert">
+              {erroVoz}
+            </p>
+          )}
         </FormField>
 
         <FormField label="Ministro (opcional)">
