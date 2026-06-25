@@ -330,6 +330,7 @@ export function Playlist() {
       {isRascunho && (
         <BuscaMusicaEvento
           playlistId={id}
+          musicaIdsNaPlaylist={alreadyInPlaylist}
           disabled={false}
           onMusicaAdicionada={() => load({ silent: true })}
         />

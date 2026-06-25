@@ -23,6 +23,7 @@ export async function importarYoutube({
   preview = false,
   titulo = null,
   artista = null,
+  contexto = 'importacao',
 }) {
   const headers = await authHeaders()
   try {
@@ -35,9 +36,18 @@ export async function importarYoutube({
         preview,
         titulo: titulo?.trim() || null,
         artista: artista?.trim() || null,
+        contexto,
       },
       { headers },
     )
+
+    if (data.reutilizada) {
+      return {
+        reutilizada: true,
+        musica_id: data.musica_id,
+        titulo: data.titulo,
+      }
+    }
 
     if (data.precisa_nome_manual) {
       return {

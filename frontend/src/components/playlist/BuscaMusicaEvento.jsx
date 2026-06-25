@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import {
+  MSG_EVENTO_MUSICA_JA_NA_PLAYLIST,
+  MSG_EVENTO_MUSICA_NAO_NO_ACERVO,
+} from '@crash-cifras/shared/evento'
+import {
   btnPrimaryClassName,
   btnSecondaryClassName,
   cardClassName,
@@ -45,7 +49,19 @@ function entradaEhLinkYoutube(entrada) {
   return validateYoutubeUrl(trimmed).valid
 }
 
-export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicionada }) {
+function ehAvisoAcervoEvento(mensagem) {
+  return (
+    mensagem === MSG_EVENTO_MUSICA_NAO_NO_ACERVO ||
+    String(mensagem || '').includes('ainda não está no seu acervo')
+  )
+}
+
+export function BuscaMusicaEvento({
+  playlistId,
+  musicaIdsNaPlaylist = new Set(),
+  disabled = false,
+  onMusicaAdicionada,
+}) {
   const { ministros } = useMinistros()
   const [query, setQuery] = useState('')
   const [ministroId, setMinistroId] = useState('')
@@ -55,12 +71,10 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
   const [importingLink, setImportingLink] = useState(false)
   const [erroBusca, setErroBusca] = useState('')
   const [erroVoz, setErroVoz] = useState('')
+  const [avisoAcervo, setAvisoAcervo] = useState('')
   const [erroAdicionar, setErroAdicionar] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [ouvindo, setOuvindo] = useState(false)
-  const [manualPending, setManualPending] = useState(null)
-  const [tituloManual, setTituloManual] = useState('')
-  const [artistaManual, setArtistaManual] = useState('')
   const recognitionRef = useRef(null)
 
   const importando = searching || !!importingId || importingLink
@@ -88,6 +102,21 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     setQuery('')
     setResults([])
     setErroBusca('')
+    setAvisoAcervo('')
+  }
+
+  async function adicionarMusicaAoEvento(musicaId, tituloExibicao, { importada = false } = {}) {
+    if (musicaIdsNaPlaylist?.has(musicaId)) {
+      setAvisoAcervo(MSG_EVENTO_MUSICA_JA_NA_PLAYLIST)
+      return false
+    }
+
+    await addMusicaToPlaylist(playlistId, musicaId)
+    const verbo = importada ? 'importada e adicionada' : 'adicionada'
+    setSucesso(`"${tituloExibicao || 'Música'}" ${verbo} à playlist.`)
+    onMusicaAdicionada?.()
+    setTimeout(() => setSucesso(''), 5000)
+    return true
   }
 
   async function executarBusca(termo) {
@@ -208,32 +237,46 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     youtubeUrl,
     { tituloExibicao = null, titulo = null, artista = null } = {},
   ) {
+    setAvisoAcervo('')
+
     const result = await importarYoutube({
       youtubeUrl,
       ministroId: ministroId || null,
       titulo,
       artista,
+      contexto: 'evento',
     })
 
-    if (result?.precisa_nome_manual) {
-      return {
-        needsManual: true,
-        youtubeUrl: result.youtubeUrl || youtubeUrl,
-        tituloExibicao,
-        message: result.message,
-      }
+    if (result?.reutilizada) {
+      const ok = await adicionarMusicaAoEvento(
+        result.musica_id,
+        result.titulo || tituloExibicao,
+      )
+      if (ok) resetarBuscaAposAdicionar()
+      return result
     }
 
     if (!result?.musica_id) {
       throw new Error('A importação não gerou uma música. Tente novamente.')
     }
 
-    await addMusicaToPlaylist(playlistId, result.musica_id)
-    const tituloMsg = tituloExibicao || result.titulo || 'Música'
-    setSucesso(`"${tituloMsg}" importada e adicionada à playlist.`)
-    onMusicaAdicionada?.()
-    setTimeout(() => setSucesso(''), 5000)
+    const ok = await adicionarMusicaAoEvento(
+      result.musica_id,
+      tituloExibicao || result.titulo,
+      { importada: true },
+    )
+    if (ok) resetarBuscaAposAdicionar()
     return result
+  }
+
+  function tratarErroAdicionar(err) {
+    const mensagem = err.message || 'Erro ao adicionar. Tente novamente.'
+    if (ehAvisoAcervoEvento(mensagem)) {
+      setAvisoAcervo(MSG_EVENTO_MUSICA_NAO_NO_ACERVO)
+      setErroAdicionar('')
+      return
+    }
+    setErroAdicionar(mensagem)
   }
 
   async function handleAdicionar(result) {
@@ -242,29 +285,16 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     setImportingId(result.id || result.youtubeUrl)
     setErroAdicionar('')
     setSucesso('')
-    setManualPending(null)
+    setAvisoAcervo('')
 
     try {
-      const outcome = await importarEAdicionarNaPlaylist(result.youtubeUrl, {
+      await importarEAdicionarNaPlaylist(result.youtubeUrl, {
         tituloExibicao: result.titulo,
         titulo: result.titulo,
         artista: result.canal,
       })
-
-      if (outcome?.needsManual) {
-        setManualPending({
-          youtubeUrl: outcome.youtubeUrl,
-          tituloExibicao: outcome.tituloExibicao,
-          message: outcome.message,
-        })
-        setTituloManual(result.titulo || '')
-        setArtistaManual(result.canal || '')
-        return
-      }
-
-      resetarBuscaAposAdicionar()
     } catch (err) {
-      setErroAdicionar(err.message || 'Erro ao adicionar. Tente novamente.')
+      tratarErroAdicionar(err)
     } finally {
       setImportingId(null)
     }
@@ -283,66 +313,18 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
     setErroBusca('')
     setErroAdicionar('')
     setSucesso('')
-    setManualPending(null)
+    setAvisoAcervo('')
 
     try {
       const youtubeUrl = canonicalYoutubeUrl(trimmed)
-      const outcome = await importarEAdicionarNaPlaylist(youtubeUrl, {
-        titulo: tituloManual || null,
-        artista: artistaManual || null,
-      })
-
-      if (outcome?.needsManual) {
-        setManualPending({
-          youtubeUrl: outcome.youtubeUrl,
-          message: outcome.message,
-        })
-        return
-      }
-
-      resetarBuscaAposAdicionar()
-      setTituloManual('')
-      setArtistaManual('')
+      await importarEAdicionarNaPlaylist(youtubeUrl)
     } catch (err) {
-      setErroBusca(err.message || 'Erro ao importar. Tente novamente.')
-    } finally {
-      setImportingLink(false)
-    }
-  }
-
-  async function handleManualRetry(event) {
-    event.preventDefault()
-    if (!manualPending?.youtubeUrl) return
-    if (tituloManual.trim().length < 2 || artistaManual.trim().length < 2) {
-      setErroAdicionar('Informe o nome da música e o artista.')
-      return
-    }
-
-    setImportingLink(true)
-    setErroAdicionar('')
-
-    try {
-      const outcome = await importarEAdicionarNaPlaylist(manualPending.youtubeUrl, {
-        tituloExibicao: manualPending.tituloExibicao,
-        titulo: tituloManual.trim(),
-        artista: artistaManual.trim(),
-      })
-
-      if (outcome?.needsManual) {
-        setManualPending({
-          youtubeUrl: outcome.youtubeUrl,
-          tituloExibicao: manualPending.tituloExibicao,
-          message: outcome.message,
-        })
-        return
+      const mensagem = err.message || 'Erro ao importar. Tente novamente.'
+      if (ehAvisoAcervoEvento(mensagem)) {
+        setAvisoAcervo(MSG_EVENTO_MUSICA_NAO_NO_ACERVO)
+      } else {
+        setErroBusca(mensagem)
       }
-
-      setManualPending(null)
-      resetarBuscaAposAdicionar()
-      setTituloManual('')
-      setArtistaManual('')
-    } catch (err) {
-      setErroAdicionar(err.message || 'Erro ao importar. Tente novamente.')
     } finally {
       setImportingLink(false)
     }
@@ -378,6 +360,7 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
                 setQuery(e.target.value)
                 setErroVoz('')
                 setErroBusca('')
+                setAvisoAcervo('')
               }}
               placeholder={PLACEHOLDER_BUSCA_EVENTO}
               className={inputBuscaClassName}
@@ -417,6 +400,11 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
               {erroVoz}
             </p>
           )}
+          {avisoAcervo && (
+            <p className={classeAvisoVoz} role="alert">
+              {avisoAcervo}
+            </p>
+          )}
           {erroBusca && (
             <p className="text-sm text-red-400" role="alert">
               {erroBusca}
@@ -441,41 +429,6 @@ export function BuscaMusicaEvento({ playlistId, disabled = false, onMusicaAdicio
           </select>
         </label>
       </form>
-
-      {manualPending && (
-        <form
-          onSubmit={handleManualRetry}
-          className="mt-4 space-y-3 rounded-lg border border-amber-700/40 bg-amber-950/20 p-4"
-        >
-          <p className="text-sm text-amber-200">
-            {manualPending.message ||
-              'Informe o nome da música e o artista para identificar na pasta.'}
-          </p>
-          <label className="block">
-            <span className="text-xs text-[var(--crash-texto-sec)]">Nome da música</span>
-            <input
-              type="text"
-              required
-              value={tituloManual}
-              onChange={(e) => setTituloManual(e.target.value)}
-              className={`${inputClassName} mt-1`}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-[var(--crash-texto-sec)]">Artista</span>
-            <input
-              type="text"
-              required
-              value={artistaManual}
-              onChange={(e) => setArtistaManual(e.target.value)}
-              className={`${inputClassName} mt-1`}
-            />
-          </label>
-          <button type="submit" disabled={importando} className={btnPrimaryClassName}>
-            {importingLink ? 'Salvando…' : 'Continuar e adicionar à playlist'}
-          </button>
-        </form>
-      )}
 
       {erroAdicionar && (
         <p className="mt-3 text-sm text-red-400" role="alert">

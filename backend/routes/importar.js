@@ -3,6 +3,8 @@ import youtubedl from 'youtube-dl-exec'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
 import { resolverPedidoAcervo } from '../lib/acervo.js'
+import { resolverMusicaProntaParaEvento } from '../lib/eventoMusica.js'
+import { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } from '@crash-cifras/shared/evento.js'
 import { buscarTituloVideoYoutube, parseTituloYoutube } from '../lib/youtubeMetadados.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
 
@@ -108,10 +110,13 @@ async function resolverMetadadosImportacao({
     return metadados
   }
 
+  logImport('metadados: resolvendo via yt-dlp', { youtubeUrl, videoId })
+
   try {
     const rawTitle = await buscarTituloVideoYoutube(youtubeUrl)
     if (rawTitle) {
       const { titulo, artista } = parseTituloYoutube(rawTitle)
+      logImport('metadados: parse título', { rawTitle, titulo, artista })
       if (titulo.length >= 2) {
         const metadados = {
           titulo,
@@ -121,6 +126,12 @@ async function resolverMetadadosImportacao({
         logImport('metadados: yt-dlp', metadados)
         return metadados
       }
+      logImport('metadados: título parseado curto demais, usa placeholder', {
+        rawTitle,
+        titulo,
+      })
+    } else {
+      logImport('metadados: yt-dlp sem título no JSON', { youtubeUrl, videoId })
     }
   } catch (err) {
     logImport('metadados: yt-dlp falhou (usa placeholder):', err.message)
@@ -522,6 +533,7 @@ importarRouter.get('/youtube/search', requireAuth, async (req, res, next) => {
 
 importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
   let canonicalUrl = null
+  const contexto = req.body?.contexto === 'evento' ? 'evento' : 'importacao'
   try {
     const { youtubeUrl: rawUrl, ministroId, preview, musicaId, titulo, artista } = req.body ?? {}
     const validation = validateYoutubeUrl(rawUrl)
@@ -534,13 +546,6 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     const tituloManual = String(titulo || '').trim() || null
     const artistaManual = String(artista || '').trim() || null
 
-    if (!preview && !req.supabaseAdmin) {
-      return res.status(503).json({
-        error:
-          'Importação com acervo indisponível: SUPABASE_SERVICE_KEY não configurada no servidor.',
-      })
-    }
-
     const metadados = await resolverMetadadosImportacao({
       youtubeUrl: canonicalUrl,
       tituloManual,
@@ -549,7 +554,39 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     })
 
     let acervoPedido = null
-    if (!preview) {
+
+    if (contexto === 'evento' && !preview) {
+      const verificacao = await resolverMusicaProntaParaEvento(req.supabase, req.user.id, {
+        fonteUrl: canonicalUrl,
+        videoId: validation.videoId,
+        titulo: tituloManual || metadados.titulo,
+        artista: artistaManual ?? metadados.artista,
+        ministroId: ministroId || null,
+      })
+
+      if (!verificacao.liberado) {
+        throw new ImportFriendlyError(MSG_EVENTO_MUSICA_NAO_NO_ACERVO)
+      }
+
+      if (verificacao.origem === 'ministro') {
+        return res.status(200).json({
+          reutilizada: true,
+          musica_id: verificacao.musicaId,
+          titulo: verificacao.titulo,
+        })
+      }
+
+      acervoPedido = verificacao.acervoPedido
+    }
+
+    if (!preview && !req.supabaseAdmin) {
+      return res.status(503).json({
+        error:
+          'Importação com acervo indisponível: SUPABASE_SERVICE_KEY não configurada no servidor.',
+      })
+    }
+
+    if (!preview && contexto !== 'evento') {
       acervoPedido = await resolverAcervoObrigatorio({
         titulo: metadados.titulo,
         artista: metadados.artista,
@@ -592,6 +629,12 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     res.status(201).json({ job: completed })
   } catch (err) {
     if (err instanceof ImportNeedsInputError) {
+      if (contexto === 'evento') {
+        return res.status(422).json({
+          error: MSG_EVENTO_MUSICA_NAO_NO_ACERVO,
+          job: err.job,
+        })
+      }
       return res.status(200).json({
         precisa_nome_manual: true,
         youtubeUrl: canonicalUrl || req.body?.youtubeUrl,
