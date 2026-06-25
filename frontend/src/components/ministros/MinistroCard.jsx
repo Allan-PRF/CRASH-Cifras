@@ -11,7 +11,7 @@ function iniciais(nome) {
 }
 
 export function MinistroCard({ ministro, onEdit }) {
-  const { id, nome, foto_url, tom_padrao, musicas_count } = ministro
+  const { id, nome, foto_url, musicas_count } = ministro
 
   return (
     <article className={`group relative p-4 transition hover:bg-white/[0.03] ${cardClassName}`}>
@@ -37,11 +37,6 @@ export function MinistroCard({ ministro, onEdit }) {
               ? 'Nenhuma música'
               : `${musicas_count} música${musicas_count !== 1 ? 's' : ''}`}
           </p>
-          {tom_padrao && (
-            <p className="mt-1 text-xs font-medium text-[var(--crash-cifra)]">
-              Tom padrão: {tom_padrao}
-            </p>
-          )}
         </div>
       </Link>
       <button

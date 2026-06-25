@@ -230,7 +230,6 @@ export function Importar() {
             {ministros.map((ministro) => (
               <option key={ministro.id} value={ministro.id}>
                 {ministro.nome}
-                {ministro.tom_padrao ? ` · ${ministro.tom_padrao}` : ''}
               </option>
             ))}
           </select>

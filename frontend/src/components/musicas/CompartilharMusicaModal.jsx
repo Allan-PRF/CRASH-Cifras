@@ -121,7 +121,6 @@ export function CompartilharMusicaModal({
               {opcoes.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.nome}
-                  {m.tom_padrao ? ` · ${m.tom_padrao}` : ''}
                 </option>
               ))}
             </select>

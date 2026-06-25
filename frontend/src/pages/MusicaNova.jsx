@@ -40,10 +40,7 @@ export function MusicaNova() {
   useEffect(() => {
     if (!ministroId) return
     fetchMinistroById(ministroId)
-      .then((m) => {
-        setMinistroNome(m.nome)
-        if (m.tom_padrao) setTomOriginal(m.tom_padrao)
-      })
+      .then((m) => setMinistroNome(m.nome))
       .catch(() => {})
   }, [ministroId])
 

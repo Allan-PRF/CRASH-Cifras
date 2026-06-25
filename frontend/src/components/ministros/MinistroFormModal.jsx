@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { FormField } from '../ui/FormField'
-import { inputClassName, selectClassName, btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
-import { TODOS_TONS } from '../../lib/tons'
+import { inputClassName, btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
 import { uploadFotoMinistro } from '../../services/ministros'
 
-const empty = { nome: '', fotoUrl: '', tomPadrao: '' }
+const empty = { nome: '', fotoUrl: '' }
 
 export function MinistroFormModal({ open, ministro, onClose, onSave }) {
   const [form, setForm] = useState(empty)
@@ -19,7 +18,6 @@ export function MinistroFormModal({ open, ministro, onClose, onSave }) {
       setForm({
         nome: ministro.nome,
         fotoUrl: ministro.foto_url || '',
-        tomPadrao: ministro.tom_padrao || '',
       })
     } else {
       setForm(empty)
@@ -56,7 +54,6 @@ export function MinistroFormModal({ open, ministro, onClose, onSave }) {
       await onSave({
         nome: form.nome,
         fotoUrl: form.fotoUrl,
-        tomPadrao: form.tomPadrao || null,
       })
       onClose()
     } catch (err) {
@@ -118,21 +115,6 @@ export function MinistroFormModal({ open, ministro, onClose, onSave }) {
                 />
               </label>
             </div>
-          </FormField>
-
-          <FormField label="Tom padrão">
-            <select
-              value={form.tomPadrao}
-              onChange={(e) => setForm((f) => ({ ...f, tomPadrao: e.target.value }))}
-              className={selectClassName}
-            >
-              <option value="">— Nenhum —</option>
-              {TODOS_TONS.map((tom) => (
-                <option key={tom} value={tom}>
-                  {tom}
-                </option>
-              ))}
-            </select>
           </FormField>
         </div>
 

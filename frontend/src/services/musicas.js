@@ -9,7 +9,6 @@ import {
 import {
   getTomExibido,
   semitonesBetween,
-  transposeKey,
   transposeLinhas,
 } from '../lib/transpose'
 
@@ -66,8 +65,7 @@ const MUSICA_PLAYLIST_SELECT = `
   updated_at,
   ministro:ministros!musicas_ministro_id_fkey (
     id,
-    nome,
-    tom_padrao
+    nome
   )
 `
 
@@ -133,7 +131,7 @@ export async function searchMusicas(term) {
   return data ?? []
 }
 
-export async function copiarMusica(musicaId, { ministroIdDestino, transporParaTomPadrao, tomDestino }) {
+export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) {
   const original = await fetchMusicaCompleta(musicaId)
 
   const intro = normalizarIntroParaCopia(original.intro)
@@ -150,25 +148,6 @@ export async function copiarMusica(musicaId, { ministroIdDestino, transporParaTo
         ...sec,
         linhas: transposeLinhas(sec.linhas, semitones),
       }))
-    }
-  } else if (transporParaTomPadrao && ministroIdDestino && original.tom_original) {
-    const { data: ministroDest, error: mErr } = await supabase
-      .from('ministros')
-      .select('tom_padrao')
-      .eq('id', ministroIdDestino)
-      .single()
-
-    if (mErr) throw mErr
-
-    if (ministroDest?.tom_padrao) {
-      const semitones = semitonesBetween(original.tom_original, ministroDest.tom_padrao)
-      if (semitones) {
-        tomOriginal = transposeKey(original.tom_original, semitones)
-        secoes = secoes.map((sec) => ({
-          ...sec,
-          linhas: transposeLinhas(sec.linhas, semitones),
-        }))
-      }
     }
   }
 

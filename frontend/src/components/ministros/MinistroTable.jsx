@@ -13,7 +13,6 @@ function iniciais(nome) {
 
 const COLUNAS = [
   { key: 'nome', label: 'Nome', sortable: true },
-  { key: 'tom_padrao', label: 'Tom', sortable: true },
   { key: 'musicas_count', label: 'Músicas', sortable: true },
 ]
 
@@ -122,7 +121,6 @@ export function MinistroTable({ ministros, onEdit, onCreate }) {
                       {m.nome}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-[var(--crash-cifra)]">{m.tom_padrao || '—'}</td>
                   <td className="px-3 py-2 text-[var(--crash-texto-sec)]">{m.musicas_count ?? 0}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex items-center justify-end gap-2">

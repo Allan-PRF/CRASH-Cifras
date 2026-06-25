@@ -116,11 +116,6 @@ export function Ministro() {
         )}
         <div>
           <h1 className="text-2xl font-bold text-white">{ministro.nome}</h1>
-          {ministro.tom_padrao && (
-            <p className="text-sm text-[var(--crash-cifra)]">
-              Tom padrão: {ministro.tom_padrao}
-            </p>
-          )}
         </div>
       </header>
 
