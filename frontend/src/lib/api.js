@@ -9,9 +9,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const isNetwork =
-      error.code === 'ERR_NETWORK' ||
-      error.message === 'Network Error' ||
-      !error.response
+      !error.response &&
+      (error.isAxiosError === true ||
+        error.code === 'ERR_NETWORK' ||
+        error.message === 'Network Error')
 
     const message = isNetwork
       ? 'Não foi possível conectar à API. Na raiz do projeto, execute: npm run dev (frontend + backend).'

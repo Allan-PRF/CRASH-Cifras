@@ -546,21 +546,14 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     const tituloManual = String(titulo || '').trim() || null
     const artistaManual = String(artista || '').trim() || null
 
-    const metadados = await resolverMetadadosImportacao({
-      youtubeUrl: canonicalUrl,
-      tituloManual,
-      artistaManual,
-      videoId: validation.videoId,
-    })
-
     let acervoPedido = null
 
     if (contexto === 'evento' && !preview) {
       const verificacao = await resolverMusicaProntaParaEvento(req.supabase, req.user.id, {
         fonteUrl: canonicalUrl,
         videoId: validation.videoId,
-        titulo: tituloManual || metadados.titulo,
-        artista: artistaManual ?? metadados.artista,
+        titulo: tituloManual,
+        artista: artistaManual,
         ministroId: ministroId || null,
       })
 
@@ -578,6 +571,13 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
 
       acervoPedido = verificacao.acervoPedido
     }
+
+    const metadados = await resolverMetadadosImportacao({
+      youtubeUrl: canonicalUrl,
+      tituloManual,
+      artistaManual,
+      videoId: validation.videoId,
+    })
 
     if (!preview && !req.supabaseAdmin) {
       return res.status(503).json({
