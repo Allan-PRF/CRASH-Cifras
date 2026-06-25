@@ -1,4 +1,4 @@
-import { normalizeAcervoText } from '@crash-cifras/shared/acervo.js'
+import { normalizeAcervoText } from '@crash-cifras/shared/acervo'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { buscarAcervoMusica, unpackCifraToSecoes } from './acervo.js'
 

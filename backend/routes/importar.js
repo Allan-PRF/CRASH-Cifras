@@ -4,7 +4,7 @@ import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
 import { resolverPedidoAcervo } from '../lib/acervo.js'
 import { resolverMusicaProntaParaEvento } from '../lib/eventoMusica.js'
-import { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } from '@crash-cifras/shared/evento.js'
+import { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } from '@crash-cifras/shared/evento'
 import { buscarTituloVideoYoutube, parseTituloYoutube } from '../lib/youtubeMetadados.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
 
