@@ -86,28 +86,13 @@ export function Home() {
 
   return (
     <section className="space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">
-            CRASH <span className="text-[#F97316]">Cifras</span>
-          </h1>
-          <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-            Plataforma de cifras e eventos para músicos
-          </p>
-        </div>
-        {user && (
-          <button
-            type="button"
-            onClick={() => setReferralOpen(true)}
-            className={`inline-flex items-center gap-1 ${btnSecondaryClassName}`}
-          >
-            Indicar e Ganhar
-            <InfoTooltip
-              text={FUNCIONALIDADE_TOOLTIPS.indicacao}
-              label="Sobre o programa de indicação"
-            />
-          </button>
-        )}
+      <header>
+        <h1 className="text-3xl font-bold text-white">
+          CRASH <span className="text-[#F97316]">Cifras</span>
+        </h1>
+        <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
+          Plataforma de cifras e eventos para músicos
+        </p>
       </header>
 
       <InstallPwaPrompt />
@@ -124,6 +109,19 @@ export function Home() {
       {user && (
         <>
           <NovidadeBanner />
+
+          <button
+            type="button"
+            onClick={() => setReferralOpen(true)}
+            className="mx-auto flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-green-500"
+          >
+            <span aria-hidden>🎁</span>
+            Indique e Ganhe
+            <InfoTooltip
+              text={FUNCIONALIDADE_TOOLTIPS.indicacao}
+              label="Sobre o programa de indicação"
+            />
+          </button>
 
           <div className="rounded-2xl border border-[var(--crash-cifra)] bg-black/50 p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
