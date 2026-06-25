@@ -53,7 +53,7 @@ export function ReferralModal({ open, onClose }) {
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] p-6 shadow-xl">
         <header className="flex items-start justify-between gap-4">
           <h2 id="referral-modal-title" className="text-xl font-bold text-white">
-            Indique e ganhe meses grátis
+            Tire um amigo do sufoco
           </h2>
           <button
             type="button"
@@ -86,25 +86,6 @@ export function ReferralModal({ open, onClose }) {
               </p>
             </div>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--crash-borda)] text-left text-[var(--crash-texto-sec)]">
-                  <th className="pb-2 font-medium">Plano indicado</th>
-                  <th className="pb-2 font-medium">Bônus</th>
-                </tr>
-              </thead>
-              <tbody className="text-white">
-                <tr className="border-b border-white/5">
-                  <td className="py-2">Solo</td>
-                  <td className="py-2 text-[var(--crash-cifra)]">1 mês grátis</td>
-                </tr>
-                <tr>
-                  <td className="py-2">Equipe</td>
-                  <td className="py-2 text-[var(--crash-cifra)]">3 meses grátis</td>
-                </tr>
-              </tbody>
-            </table>
-
             <div className="flex flex-col gap-2 sm:flex-row">
               <button type="button" onClick={copyLink} className={btnPrimaryClassName}>
                 {copied ? 'Link copiado' : 'Copiar link'}
@@ -112,24 +93,6 @@ export function ReferralModal({ open, onClose }) {
               <button type="button" onClick={shareWhatsApp} className={btnSecondaryClassName}>
                 Compartilhar via WhatsApp
               </button>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm">
-              <p className="text-white">
-                Você já indicou{' '}
-                <strong>{stats.totalIndicacoes}</strong>{' '}
-                pessoa{stats.totalIndicacoes !== 1 ? 's' : ''}
-              </p>
-              <p className="mt-2 text-[var(--crash-texto-sec)]">
-                Meses ganhos:{' '}
-                <strong className="text-white">{stats.mesesAcumulados}</strong> meses acumulados
-              </p>
-              {stats.mesesRestantes > 0 && (
-                <p className="mt-2 text-[var(--crash-cifra)]">
-                  {stats.mesesRestantes} mês{stats.mesesRestantes !== 1 ? 'es' : ''} grátis restante
-                  {stats.mesesRestantes !== 1 ? 's' : ''}
-                </p>
-              )}
             </div>
           </div>
         )}

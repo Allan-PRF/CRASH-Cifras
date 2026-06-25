@@ -27,7 +27,8 @@ export const FUNCIONALIDADE_TOOLTIPS = {
     'Nota de 4 tempos. O símbolo À FRENTE da nota dita a duração.',
   barraRitmo: 'Nota de 2 tempos.',
   notaJuntas: 'Nota de passagem — ocorre no 3º ou 4º tempo.',
-  indicacao: 'Indique músicos e ganhe meses grátis automaticamente.',
+  indicacao:
+    'Envie esse link a seu amigo que está usando cifras em folhas ou escrevendo a caneta. A libertação é CRASH Cifras, a plataforma do músico atualizado.',
   emergencia: 'Busca rápida sem sair do teleprompter.',
   copiarCena:
     'Copia a configuração para outro ministro com transposição automática.',

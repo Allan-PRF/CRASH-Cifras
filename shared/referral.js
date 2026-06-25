@@ -5,12 +5,13 @@ export function isValidReferralCode(code) {
   return typeof code === 'string' && REFERRAL_CODE_REGEX.test(code.trim())
 }
 
-/** Meses grátis creditados ao indicador quando o indicado assina e paga */
+/** Recompensa ao indicador desligada (modo boca a boca — só compartilhar link). */
+export const REFERRAL_RECOMPENSA_INDICADOR_ATIVA = false
+
+/** Meses grátis creditados ao indicador quando o indicado assina e paga (legado; ver flag acima) */
 export const REFERRAL_BONUS_MESES = {
   solo: 1,
   equipe: 3,
 }
 
-export const REFERRAL_SHARE_TEXT = `Para músicos.
-Testei e aprovei — CRASH Cifras é diferente de tudo que já usei.
-Testa 10 dias grátis pelo meu link:`
+export const REFERRAL_SHARE_TEXT = `Irmão, Conheça esta plataforma. Cansei de rabiscar cifra na mão e me perder nas músicas antes do culto. O CRASH Cifras resolveu isso pra mim. Testa 30 dias grátis no meu link e Comprove os resultados:`

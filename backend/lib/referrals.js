@@ -1,4 +1,4 @@
-import { REFERRAL_BONUS_MESES, isValidReferralCode } from '@crash-cifras/shared/referral'
+import { REFERRAL_BONUS_MESES, REFERRAL_RECOMPENSA_INDICADOR_ATIVA, isValidReferralCode } from '@crash-cifras/shared/referral'
 import { env } from '../config.js'
 import { enviarEmailIndicacaoConfirmada } from './referralEmail.js'
 
@@ -208,6 +208,10 @@ export async function processarConversaoIndicacao({
   plano,
   assinaturaId,
 }) {
+  if (!REFERRAL_RECOMPENSA_INDICADOR_ATIVA) {
+    return null
+  }
+
   const meses = REFERRAL_BONUS_MESES[plano] ?? REFERRAL_BONUS_MESES.solo
 
   const { data: result, error } = await supabase.rpc('credit_referrer_on_conversion', {

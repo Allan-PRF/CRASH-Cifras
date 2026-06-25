@@ -115,7 +115,7 @@ export function Home() {
             onClick={() => setReferralOpen(true)}
             className="flex w-full max-w-md items-center justify-start gap-2 rounded-xl bg-green-600 px-6 py-3 text-lg font-bold text-white transition hover:bg-green-500"
           >
-            Indique e Ganhe
+            Tire um amigo do sufoco
             <InfoTooltip
               text={FUNCIONALIDADE_TOOLTIPS.indicacao}
               label="Sobre o programa de indicação"
