@@ -10,7 +10,7 @@ import {
 
 export const referralsRouter = Router()
 
-referralsRouter.get('/public/:codigo', rateLimiters.general, async (req, res, next) => {
+referralsRouter.get('/public/:codigo', rateLimiters.referralPublic, async (req, res, next) => {
   try {
     const codigo = String(req.params.codigo || '').trim()
 

@@ -107,6 +107,11 @@ export const rateLimiters = {
     max: 100,
     message: 'Muitas requisições. Tente novamente em breve.',
   }),
+  referralPublic: buildLimiter({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: 'Muitas consultas ao link de indicação. Aguarde um momento.',
+  }),
 }
 
 const BOT_USER_AGENTS = [
