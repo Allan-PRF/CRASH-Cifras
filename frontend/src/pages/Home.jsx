@@ -113,13 +113,13 @@ export function Home() {
           <button
             type="button"
             onClick={() => setReferralOpen(true)}
-            className="mx-auto flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-green-500"
+            className="flex w-full max-w-md items-center justify-start gap-2 rounded-xl bg-green-600 px-6 py-3 text-lg font-bold text-white transition hover:bg-green-500"
           >
-            <span aria-hidden>🎁</span>
             Indique e Ganhe
             <InfoTooltip
               text={FUNCIONALIDADE_TOOLTIPS.indicacao}
               label="Sobre o programa de indicação"
+              triggerClassName="text-white/90 hover:bg-white/15 hover:text-white"
             />
           </button>
 

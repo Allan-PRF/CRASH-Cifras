@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 /**
  * Ícone ℹ️ discreto — tooltip de uma frase ao toque/clique (PARTE 9.3 do adendo).
  */
-export function InfoTooltip({ text, label = 'Mais informações' }) {
+export function InfoTooltip({ text, label = 'Mais informações', triggerClassName = '' }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const tooltipId = useId()
@@ -37,7 +37,7 @@ export function InfoTooltip({ text, label = 'Mais informações' }) {
           event.preventDefault()
           setOpen((value) => !value)
         }}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs text-[var(--crash-texto-sec)] transition hover:bg-white/10 hover:text-[var(--crash-cifra)]"
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs text-[var(--crash-texto-sec)] transition hover:bg-white/10 hover:text-[var(--crash-cifra)] ${triggerClassName}`}
         aria-label={label}
         aria-expanded={open}
         aria-describedby={open ? tooltipId : undefined}
@@ -48,7 +48,7 @@ export function InfoTooltip({ text, label = 'Mais informações' }) {
         <span
           id={tooltipId}
           role="tooltip"
-          className="absolute left-1/2 top-full z-[80] mt-2 w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-amber-600/30 bg-amber-950/95 px-3 py-2 text-left text-xs leading-relaxed text-amber-50 shadow-lg"
+          className="absolute left-1/2 top-full z-[80] mt-2 w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/20 bg-black px-3 py-2.5 text-left text-sm font-medium leading-relaxed text-white shadow-xl"
         >
           {text}
         </span>
