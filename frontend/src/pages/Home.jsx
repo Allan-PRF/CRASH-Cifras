@@ -252,8 +252,13 @@ export function Home() {
         ministros={ministros}
         ministroAtualId={copiarMusica?.ministro_id}
         onClose={() => setCopiarMusica(null)}
+        onCopied={() => {
+          const termo = search.trim()
+          if (termo.length >= 2) {
+            searchMusicas(termo).then(setMusicas).catch(() => setMusicas([]))
+          }
+        }}
         titulo="Copiar para…"
-        modo="global"
       />
 
       <MinistroFormModal

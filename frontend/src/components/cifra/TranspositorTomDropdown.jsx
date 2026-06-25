@@ -7,11 +7,13 @@ import { TranspositorTom } from './TranspositorTom'
  * @param {string|null} tomAtual
  * @param {(novoTom: string|null, opts: { transporAcordes: boolean }) => void} onApplyTom
  * @param {boolean} [perguntarTransporAcordes]
+ * @param {string|null} [triggerLabel] — rótulo do botão (ex.: "Trocar o tom"); omitir mostra "Tom: X"
  */
 export function TranspositorTomDropdown({
   tomAtual,
   onApplyTom,
   perguntarTransporAcordes = false,
+  triggerLabel = null,
 }) {
   const [open, setOpen] = useState(false)
   const [pendingTom, setPendingTom] = useState(null)
@@ -87,10 +89,14 @@ export function TranspositorTomDropdown({
         aria-haspopup="dialog"
         className={`${inputOrangeClassName} flex items-center justify-between gap-2 text-left hover:border-orange-400`}
       >
-        <span>
-          Tom:{' '}
-          <span className="font-semibold text-[var(--crash-cifra)]">{labelTom}</span>
-        </span>
+        {triggerLabel ? (
+          <span className="font-medium text-white">{triggerLabel}</span>
+        ) : (
+          <span>
+            Tom:{' '}
+            <span className="font-semibold text-[var(--crash-cifra)]">{labelTom}</span>
+          </span>
+        )}
         <span
           className={`text-xs text-[var(--crash-texto-sec)] transition ${open ? 'rotate-180' : ''}`}
           aria-hidden
