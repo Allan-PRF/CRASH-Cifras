@@ -1,4 +1,4 @@
-import { normalizeAcervoText } from '@crash-cifras/shared'
+import { normalizeAcervoText } from '@crash-cifras/shared/acervo'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { buscarAcervoMusica, unpackCifraToSecoes } from './acervo.js'
 
@@ -8,17 +8,12 @@ function extractVideoId(url) {
   return result.valid ? result.videoId : null
 }
 
-function musicaTemSecoes(musica) {
-  const secoes = musica?.secoes_musica
-  return Array.isArray(secoes) && secoes.length > 0
-}
-
 function pickBestMusica(candidates, ministroId) {
   const sorted = [...candidates].sort((a, b) => {
     const aPri = ministroId && a.ministro_id === ministroId ? 0 : 1
     const bPri = ministroId && b.ministro_id === ministroId ? 0 : 1
     if (aPri !== bPri) return aPri - bPri
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    return new Date(b.updated_at).getTime() - new Date(b.updated_at).getTime()
   })
   return sorted[0]
 }
@@ -32,15 +27,25 @@ async function buscarMusicaProntaNoMinistro(
 
   const { data: rows, error } = await supabase
     .from('musicas')
-    .select(
-      'id, titulo, artista, youtube_url, ministro_id, import_status, updated_at, secoes_musica(id)',
-    )
+    .select('id, titulo, artista, youtube_url, ministro_id, import_status, updated_at')
     .eq('user_id', userId)
     .in('import_status', ['ready', 'manual'])
 
   if (error) throw error
 
-  const comSecoes = (rows || []).filter(musicaTemSecoes)
+  const candidatas = rows || []
+  if (!candidatas.length) return null
+
+  const ids = candidatas.map((m) => m.id)
+  const { data: secoes, error: secoesErr } = await supabase
+    .from('secoes_musica')
+    .select('musica_id')
+    .in('musica_id', ids)
+
+  if (secoesErr) throw secoesErr
+
+  const comSecoesIds = new Set((secoes || []).map((s) => s.musica_id))
+  const comSecoes = candidatas.filter((m) => comSecoesIds.has(m.id))
   if (!comSecoes.length) return null
 
   if (vid) {
@@ -63,18 +68,23 @@ async function buscarMusicaProntaNoMinistro(
 }
 
 async function buscarAcervoHitPronto({ titulo, artista, fonteUrl }) {
-  const existente = await buscarAcervoMusica({ titulo, artista, fonteUrl })
-  if (existente?.status !== 'ready' || !existente.versao_top) return null
+  try {
+    const existente = await buscarAcervoMusica({ titulo, artista, fonteUrl })
+    if (existente?.status !== 'ready' || !existente.versao_top) return null
 
-  const versao = existente.versao_top
-  return {
-    tipo: 'hit',
-    acervoMusica: existente,
-    versao,
-    secoes: unpackCifraToSecoes(versao.cifra),
-    tomOriginal: versao.tom_original || versao.cifra?.tom_original || null,
-    bpm: versao.bpm ?? versao.cifra?.bpm ?? null,
-    acervoVersaoId: versao.id,
+    const versao = existente.versao_top
+    return {
+      tipo: 'hit',
+      acervoMusica: existente,
+      versao,
+      secoes: unpackCifraToSecoes(versao.cifra),
+      tomOriginal: versao.tom_original || versao.cifra?.tom_original || null,
+      bpm: versao.bpm ?? versao.cifra?.bpm ?? null,
+      acervoVersaoId: versao.id,
+    }
+  } catch (err) {
+    console.warn('[evento] acervo indisponível na verificação:', err.message)
+    return null
   }
 }
 

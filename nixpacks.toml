@@ -1,0 +1,6 @@
+# Railway/Nixpacks — yt-dlp via youtube-dl-exec (postinstall baixa o binário)
+[variables]
+YOUTUBE_DL_SKIP_PYTHON_CHECK = "1"
+
+[phases.setup]
+nixPkgs = ["python312"]

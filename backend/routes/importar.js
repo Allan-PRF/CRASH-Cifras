@@ -3,8 +3,6 @@ import youtubedl from 'youtube-dl-exec'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
 import { resolverPedidoAcervo } from '../lib/acervo.js'
-import { resolverMusicaProntaParaEvento } from '../lib/eventoMusica.js'
-import { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } from '@crash-cifras/shared/evento'
 import { buscarTituloVideoYoutube, parseTituloYoutube } from '../lib/youtubeMetadados.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
 
@@ -26,6 +24,7 @@ export class ImportFriendlyError extends Error {
     super(message)
     this.name = 'ImportFriendlyError'
     this.job = job
+    this.status = 422
   }
 }
 
@@ -193,18 +192,34 @@ function normalizeSearchEntry(entry) {
 
 /** Busca no YouTube via yt-dlp — usada pela busca por voz/texto no frontend. */
 async function buscarYoutube(query) {
-  const result = await youtubedl(
-    `ytsearch8:${query}`,
-    ytdlpOptions({
-      dumpSingleJson: true,
-      skipDownload: true,
-    }),
-  )
+  try {
+    const result = await youtubedl(
+      `ytsearch8:${query}`,
+      ytdlpOptions({
+        dumpSingleJson: true,
+        skipDownload: true,
+      }),
+    )
 
-  const entries = Array.isArray(result.entries) ? result.entries : [result]
-  return entries
-    .map(normalizeSearchEntry)
-    .filter((entry) => entry.youtubeUrl && isValidYoutubeUrl(entry.youtubeUrl))
+    const entries = Array.isArray(result.entries) ? result.entries : [result]
+    return entries
+      .filter(Boolean)
+      .map((entry) => {
+        try {
+          return normalizeSearchEntry(entry)
+        } catch (mapErr) {
+          logImport('entrada de busca ignorada:', mapErr.message)
+          return null
+        }
+      })
+      .filter(Boolean)
+      .filter((entry) => entry.youtubeUrl && isValidYoutubeUrl(entry.youtubeUrl))
+  } catch (err) {
+    logImport('busca youtube falhou:', err.message, err.stderr ? String(err.stderr).slice(0, 400) : '')
+    throw new ImportFriendlyError(
+      'Busca no YouTube temporariamente indisponível. Tente de novo em instantes.',
+    )
+  }
 }
 
 async function resolverAcervoObrigatorio({ titulo, artista, fonteUrl }) {
@@ -527,6 +542,9 @@ importarRouter.get('/youtube/search', requireAuth, async (req, res, next) => {
     const results = await buscarYoutube(query)
     res.json({ results })
   } catch (err) {
+    if (err instanceof ImportFriendlyError) {
+      return res.status(422).json({ error: err.message })
+    }
     next(err)
   }
 })
@@ -549,6 +567,9 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
     let acervoPedido = null
 
     if (contexto === 'evento' && !preview) {
+      const { resolverMusicaProntaParaEvento } = await import('../lib/eventoMusica.js')
+      const { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } = await import('@crash-cifras/shared/evento')
+
       const verificacao = await resolverMusicaProntaParaEvento(req.supabase, req.user.id, {
         fonteUrl: canonicalUrl,
         videoId: validation.videoId,
@@ -630,6 +651,7 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
   } catch (err) {
     if (err instanceof ImportNeedsInputError) {
       if (contexto === 'evento') {
+        const { MSG_EVENTO_MUSICA_NAO_NO_ACERVO } = await import('@crash-cifras/shared/evento')
         return res.status(422).json({
           error: MSG_EVENTO_MUSICA_NAO_NO_ACERVO,
           job: err.job,
