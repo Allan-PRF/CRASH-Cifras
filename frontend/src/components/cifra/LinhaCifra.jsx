@@ -8,64 +8,11 @@ import {
   buildGrauLineFromChords,
   limparLetraDeColchetesAcorde,
 } from '../../lib/graus'
-import { MONO, measureMonoCharWidth } from '../../lib/monoCharWidth'
+import { measureMonoCharWidth } from '../../lib/monoCharWidth'
 import { tema } from '../../lib/tema'
+import { estiloMono, LinhaPosicionada } from './LinhaPosicionada.jsx'
 
-// ALINHAMENTO CIFRA CLUB - NÃO ALTERAR
-// `pos` = coluna monoespaçada extraída pelo parser do Cifra Club (backend/lib/cifraClub.js).
-// Renderização: position absolute + left = pos × largura do caractere monospace.
-
-function estiloMono(fonteLetra, fontWeight = 400) {
-  return {
-    fontFamily: MONO,
-    fontSize: fonteLetra,
-    fontWeight,
-    letterSpacing: 0,
-    fontVariantNumeric: 'tabular-nums',
-    lineHeight: 1.25,
-  }
-}
-
-/** ALINHAMENTO CIFRA CLUB - NÃO ALTERAR */
-const LinhaPosicionada = memo(function LinhaPosicionada({
-  items,
-  fonteLetra,
-  charWidthPx,
-  color,
-  fontWeight = 700,
-  minCols = 0,
-  visualizacao = false,
-}) {
-  if (!items.length) return null
-
-  const widthCols = Math.max(
-    minCols,
-    ...items.map((item) => item.pos + (item.text?.length || 0)),
-    0,
-  )
-
-  return (
-    <div
-      className="relative m-0 max-w-full overflow-x-auto"
-      style={{
-        ...estiloMono(fonteLetra, fontWeight),
-        minHeight: `${fonteLetra * 1.25}px`,
-        minWidth: widthCols > 0 ? widthCols * charWidthPx : undefined,
-        color,
-      }}
-    >
-      {items.map((item, i) => (
-        <span
-          key={`${item.pos}-${item.text}-${i}`}
-          className="absolute top-0 whitespace-pre"
-          style={{ left: item.pos * charWidthPx }}
-        >
-          {item.text}
-        </span>
-      ))}
-    </div>
-  )
-})
+export { LinhaPosicionada } from './LinhaPosicionada.jsx'
 
 export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   line,
@@ -158,7 +105,6 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
           color={tema.cores.cifra}
           fontWeight={tema.teleprompter.cifra.fontWeight}
           minCols={minCols}
-          visualizacao={visualizacao}
         />
       )}
       <p
@@ -180,7 +126,6 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
           color={tema.cores.grau}
           fontWeight={tema.teleprompter.grau.fontWeight}
           minCols={minCols}
-          visualizacao={visualizacao}
         />
       )}
     </div>

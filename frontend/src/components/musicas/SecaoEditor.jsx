@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { SECAO_SLUGS } from '@crash-cifras/shared/constants'
-import { isSecaoLinhas } from '@crash-cifras/shared/chord-schema'
-import { linhasToEditorText, parseChordLyricBlock } from '../../lib/parseCifra'
+import { EMPTY_LINHAS, isSecaoLinhas, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
+import { serializeChordLine } from '../../lib/cifraEdit'
 import { FormField } from '../ui/FormField'
 import { inputOrangeClassName, selectOrangeClassName } from '../ui/inputClasses'
+import { SECAO_SLUGS } from '@crash-cifras/shared/constants'
+import { CifraSecaoEditorVisual } from './CifraSecaoEditorVisual.jsx'
 
 const SLUG_LABELS = {
   intro: 'Intro',
@@ -14,30 +15,36 @@ const SLUG_LABELS = {
   outro: 'Outro',
 }
 
+function normalizeLinhasForEditor(linhas) {
+  if (!isSecaoLinhas(linhas)) return EMPTY_LINHAS
+  return {
+    lines: linhas.lines.map((line) => {
+      const n = normalizeChordLine(line)
+      return serializeChordLine(n.lyricLine, n.chords)
+    }),
+  }
+}
+
 export function SecaoEditor({ secao, onChange, onRemove }) {
   const [nome, setNome] = useState(secao.nome)
   const [slug, setSlug] = useState(secao.slug)
-  const [chordsText, setChordsText] = useState('')
-  const [lyricsText, setLyricsText] = useState('')
+  const [linhas, setLinhas] = useState(() => normalizeLinhasForEditor(secao.linhas))
 
   useEffect(() => {
     setNome(secao.nome)
     setSlug(secao.slug)
-    if (isSecaoLinhas(secao.linhas)) {
-      const { chords, lyrics } = linhasToEditorText(secao.linhas)
-      setChordsText(chords)
-      setLyricsText(lyrics)
-    }
-  }, [secao])
+  }, [secao.nome, secao.slug])
 
-  function emit(linhasOverride) {
-    const linhas =
-      linhasOverride ?? parseChordLyricBlock(chordsText, lyricsText)
+  useEffect(() => {
+    setLinhas(normalizeLinhasForEditor(secao.linhas))
+  }, [secao.id])
+
+  function emit(partial = {}) {
     onChange({
       ...secao,
-      nome: nome.trim() || 'Seção',
-      slug,
-      linhas,
+      nome: (partial.nome ?? nome).trim() || 'Seção',
+      slug: partial.slug ?? slug,
+      linhas: partial.linhas ?? linhas,
     })
   }
 
@@ -75,33 +82,23 @@ export function SecaoEditor({ secao, onChange, onRemove }) {
             onClick={onRemove}
             className="text-sm text-red-400 hover:underline"
           >
-            Remover
+            Remover seção
           </button>
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Linha de cifras" hint="Acordes separados por espaços">
-          <textarea
-            value={chordsText}
-            onChange={(e) => setChordsText(e.target.value)}
-            onBlur={() => emit()}
-            rows={6}
-            className={`${inputOrangeClassName} font-mono text-sm`}
-            placeholder={'Em              G               D'}
-          />
-        </FormField>
-        <FormField label="Linha da letra">
-          <textarea
-            value={lyricsText}
-            onChange={(e) => setLyricsText(e.target.value)}
-            onBlur={() => emit()}
-            rows={6}
-            className={`${inputOrangeClassName} text-sm`}
-            placeholder="Envolto em tua presença..."
-          />
-        </FormField>
-      </div>
+      <FormField
+        label="Cifra e letra"
+        hint="Edite a letra abaixo de cada acorde. Enter cria nova linha. Remover linha enxuga repetições."
+      >
+        <CifraSecaoEditorVisual
+          linhas={linhas}
+          onChange={(nextLinhas) => {
+            setLinhas(nextLinhas)
+            emit({ linhas: nextLinhas })
+          }}
+        />
+      </FormField>
     </article>
   )
 }
