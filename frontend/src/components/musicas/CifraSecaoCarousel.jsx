@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { InfoTooltip } from '../ui/InfoTooltip'
 
 const SWIPE_THRESHOLD = 48
+const SLIDE_MIN_HEIGHT = '7rem'
+const HEIGHT_TRANSITION_MS = 300
+const FADE_TRANSITION_MS = 220
+
+const navButtonClass =
+  'absolute inset-y-0 z-10 hidden items-center sm:flex'
+
+const navButtonInnerClass =
+  'rounded-full border border-[var(--crash-borda)] bg-black/80 p-2 text-white transition hover:bg-black disabled:opacity-25'
 
 export function CifraSecaoCarousel({
   secoes,
@@ -11,8 +20,12 @@ export function CifraSecaoCarousel({
   onActiveIndexChange,
 }) {
   const [internalIndex, setInternalIndex] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(null)
+  const [slideVisible, setSlideVisible] = useState(true)
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
+  const activeSlideRef = useRef(null)
+  const fadeTimerRef = useRef(null)
 
   const index =
     controlledIndex != null ? controlledIndex : internalIndex
@@ -20,10 +33,11 @@ export function CifraSecaoCarousel({
   const setIndex = useCallback(
     (next) => {
       const clamped = Math.max(0, Math.min(secoes.length - 1, next))
+      if (clamped === index) return
       if (controlledIndex == null) setInternalIndex(clamped)
       onActiveIndexChange?.(clamped)
     },
-    [controlledIndex, onActiveIndexChange, secoes.length],
+    [controlledIndex, index, onActiveIndexChange, secoes.length],
   )
 
   useEffect(() => {
@@ -34,12 +48,38 @@ export function CifraSecaoCarousel({
 
   useEffect(() => {
     function onKeyDown(e) {
+      if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
       if (e.key === 'ArrowLeft') setIndex(index - 1)
       if (e.key === 'ArrowRight') setIndex(index + 1)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [index, setIndex])
+
+  useEffect(() => {
+    setSlideVisible(false)
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
+    fadeTimerRef.current = setTimeout(() => {
+      setSlideVisible(true)
+    }, 40)
+    return () => {
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
+    }
+  }, [index])
+
+  useLayoutEffect(() => {
+    const el = activeSlideRef.current
+    if (!el) return undefined
+
+    function syncHeight() {
+      setViewportHeight(el.offsetHeight)
+    }
+
+    syncHeight()
+    const ro = new ResizeObserver(syncHeight)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [index, secoes])
 
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
@@ -61,50 +101,73 @@ export function CifraSecaoCarousel({
 
   const canPrev = index > 0
   const canNext = index < secoes.length - 1
+  const multi = secoes.length > 1
 
   return (
-    <div className="relative select-none">
-      {secoes.length > 1 && (
-        <>
-          <button
-            type="button"
-            aria-label="Seção anterior"
-            disabled={!canPrev}
-            onClick={() => setIndex(index - 1)}
-            className="absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-[var(--crash-borda)] bg-black/80 p-2 text-white transition hover:bg-black disabled:opacity-25 sm:flex"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            aria-label="Próxima seção"
-            disabled={!canNext}
-            onClick={() => setIndex(index + 1)}
-            className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-[var(--crash-borda)] bg-black/80 p-2 text-white transition hover:bg-black disabled:opacity-25 sm:flex"
-          >
-            ›
-          </button>
-        </>
-      )}
-
+    <div className="select-none">
       <div
-        className="overflow-hidden touch-pan-y"
+        className={`relative overflow-x-hidden touch-pan-y ${multi ? 'sm:px-9' : ''}`}
+        style={{
+          minHeight: SLIDE_MIN_HEIGHT,
+          height: viewportHeight != null ? viewportHeight : 'auto',
+          transition: `height ${HEIGHT_TRANSITION_MS}ms ease-out`,
+        }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div
-          className="flex transition-transform duration-300 ease-out"
-          style={{ transform: `translateX(-${index * 100}%)` }}
-        >
-          {secoes.map((sec, i) => (
-            <div key={sec.id || i} className="w-full shrink-0 px-0.5">
-              {renderSlide(sec, i)}
-            </div>
-          ))}
+        {multi && (
+          <>
+            <button
+              type="button"
+              aria-label="Seção anterior"
+              disabled={!canPrev}
+              onClick={() => setIndex(index - 1)}
+              className={`${navButtonClass} left-0 pl-0.5`}
+            >
+              <span className={navButtonInnerClass}>‹</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Próxima seção"
+              disabled={!canNext}
+              onClick={() => setIndex(index + 1)}
+              className={`${navButtonClass} right-0 pr-0.5`}
+            >
+              <span className={navButtonInnerClass}>›</span>
+            </button>
+          </>
+        )}
+
+        <div className="grid [&>*]:col-start-1 [&>*]:row-start-1">
+          {secoes.map((sec, i) => {
+            const isActive = i === index
+            return (
+              <div
+                key={sec.id || i}
+                ref={isActive ? activeSlideRef : undefined}
+                aria-hidden={!isActive}
+                className={`w-full px-0.5 ${
+                  isActive
+                    ? 'relative z-[1]'
+                    : 'pointer-events-none invisible absolute inset-x-0 top-0 opacity-0'
+                }`}
+                style={
+                  isActive
+                    ? {
+                        opacity: slideVisible ? 1 : 0,
+                        transition: `opacity ${FADE_TRANSITION_MS}ms ease-out`,
+                      }
+                    : undefined
+                }
+              >
+                {renderSlide(sec, i)}
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {secoes.length > 1 && (
+      {multi && (
         <div
           className="mt-4 flex items-center justify-center gap-1.5"
           role="tablist"

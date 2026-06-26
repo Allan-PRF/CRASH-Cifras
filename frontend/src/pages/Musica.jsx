@@ -250,7 +250,7 @@ export function Musica() {
             </nav>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-[var(--crash-borda)] bg-black px-3 py-3 sm:px-4">
+          <div className="overflow-x-hidden rounded-xl border border-[var(--crash-borda)] bg-black px-3 py-3 sm:px-4">
             {secoes.length === 0 ? (
               <p className="text-sm text-[var(--crash-texto-sec)]">
                 Nenhuma seção.{' '}
