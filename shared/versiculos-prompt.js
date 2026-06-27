@@ -5,13 +5,16 @@ export const VERSICULOS_IA_REGRAS_RIGIDAS = `Você SOMENTE pode sugerir versícu
 
 Independente do estilo da música — gospel, secular ou qualquer outro — os versículos são SEMPRE da Bíblia Sagrada.
 
-Prioridade de livros:
-- Salmos e Provérbios (Velho Testamento)
-- Novo Testamento completo
-- Todos os livros da Bíblia
+Tom das mensagens: EDIFICANTE, REFLEXIVO e MOTIVACIONAL — encorajar, consolar, inspirar esperança, confiança, entrega e obediência amorosa. Evite culpa paralisante.
 
-As mensagens devem ser sempre voltadas ao amor e arrependimento.
-Nunca trazer conteúdo de julgamento, condenação ou qualquer direção fora do contexto bíblico.`
+Prioridade de livros (busque em toda a Bíblia, com ênfase nestes):
+- Salmos e Provérbios (Velho Testamento)
+- Evangelhos: Mateus, Marcos, Lucas e João
+- Cartas paulinas e demais livros do Novo Testamento
+- Demais livros do Velho Testamento, quando dialogarem bem com o tema
+
+EVITE passagens de juízo final, condenação, maldição, terror, ameaça ou tom negativo que não edifique a congregação no momento da adoração.
+Nunca trazer conteúdo que desanime ou condene sem oferecer esperança em Cristo.`
 
 export const VERSICULOS_IA_FORMATO_JSON = `Retorne APENAS JSON válido (sem markdown), neste formato:
 {
@@ -20,7 +23,7 @@ export const VERSICULOS_IA_FORMATO_JSON = `Retorne APENAS JSON válido (sem mark
     {
       "referencia": "Livro capítulo:versículo",
       "texto": "texto fiel do versículo na versão solicitada",
-      "palavra": "mensagem curta de aplicação pastoral (amor e arrependimento)",
+      "palavra": "mensagem curta de aplicação pastoral edificante",
       "momento": "verso"
     },
     {
@@ -40,13 +43,19 @@ export const VERSICULOS_IA_FORMATO_JSON = `Retorne APENAS JSON válido (sem mark
 
 Gere exatamente 3 versículos: um para momento "verso", um para "refrao" e um para "ponte".`
 
-export const VERSICULOS_IA_INSTRUCAO_LETRA = `Analise a letra da música abaixo e escolha um versículo bíblico que complemente e aprofunde a mensagem da canção. O versículo deve ser único e específico para essa música.
+export const VERSICULOS_IA_INSTRUCAO_LETRA = `Analise a letra da música abaixo e escolha versículos bíblicos que complementem e aprofundem a mensagem da canção. Cada versículo deve ser único e específico para essa música — não genérico.
 
-Identifique o tema central da letra (ex.: entrega, santidade, presença de Deus, arrependimento, esperança) e escolha referências bíblicas que dialoguem com esse tema.
+Identifique o tema central da letra (ex.: entrega, presença de Deus, esperança, gratidão, consolo, santidade, amor, confiança) e escolha referências que dialoguem com esse tema.
 
-Para verso, refrão e ponte, use versículos e aplicações pastorais DIFERENTES — não repita a mesma referência nem mensagens genéricas que serviriam para qualquer música.`
+Para cada momento:
+- "verso": versículo mais fundacional ou introdutório ao tema
+- "refrao": versículo mais celebrativo ou declarativo
+- "ponte": versículo mais reflexivo ou de aplicação pessoal
+
+Use referências DIFERENTES e aplicações pastorais DIFERENTES em verso, refrão e ponte — não repita livro, referência nem mensagem.`
 
 /**
+ * Prompt para Claude (Anthropic): system + user separados.
  * @param {object} params
  * @param {string} params.versaoBiblica
  * @param {string} [params.titulo]
@@ -54,7 +63,7 @@ Para verso, refrão e ponte, use versículos e aplicações pastorais DIFERENTES
  * @param {string} [params.tom]
  * @param {string} [params.letraCompleta]
  */
-export function buildVersiculosIaMessages({
+export function buildVersiculosIaPrompt({
   versaoBiblica = 'NVI',
   titulo = '',
   artista = '',
@@ -74,10 +83,16 @@ ${tom ? `Tom musical: ${tom}` : 'Tom musical: (não informado)'}
 ${VERSICULOS_IA_INSTRUCAO_LETRA}
 
 Letra completa da música:
-${letraCompleta.trim() || '(sem letra disponível — identifique o tema pelo título e escolha versículos de adoração, amor e arrependimento, ainda assim específicos ao contexto informado)'}
+${letraCompleta.trim() || '(sem letra disponível — identifique o tema pelo título e escolha versículos edificantes e específicos ao contexto informado, priorizando Salmos, Provérbios e Novo Testamento)'}
 
-Lembre-se: apenas Bíblia Sagrada; mensagens de amor e arrependimento; sem julgamento ou condenação.`
+Lembre-se: apenas Bíblia Sagrada; mensagens edificantes, reflexivas e motivacionais; sem juízo, condenação ou maldição.`
 
+  return { system, user }
+}
+
+/** @deprecated Use buildVersiculosIaPrompt — mantido para compatibilidade. */
+export function buildVersiculosIaMessages(params) {
+  const { system, user } = buildVersiculosIaPrompt(params)
   return [
     { role: 'system', content: system },
     { role: 'user', content: user },

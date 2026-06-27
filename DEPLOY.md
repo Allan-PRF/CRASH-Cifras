@@ -27,7 +27,7 @@
    - `CRON_SECRET=...` para proteger rotinas automáticas
    - `RESEND_API_KEY=...` para envio do e-mail de fim de trial
    - `EMAIL_FROM=CRASH Cifras <noreply@seu-dominio.com>`
-   - `OPENAI_API_KEY=...` quando ativar IA real
+   - `ANTHROPIC_API_KEY=...` para versículos bíblicos (Claude Haiku)
    - `WORKER_ENABLED=false` ou `true` quando o worker real estiver pronto
 5. Health check: `/health`.
 6. Configure um cron diário no Railway chamando:

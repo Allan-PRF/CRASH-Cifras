@@ -33,7 +33,7 @@ Stack: **React + Vite** (frontend/Vercel) · **Express** (API/Railway) · **Supa
 ## Variáveis de ambiente
 
 - **Frontend (Vite):** apenas `VITE_*` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL`)
-- **Backend:** `SUPABASE_SERVICE_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `INFINITPAY_*` — nunca `VITE_`
+- **Backend:** `SUPABASE_SERVICE_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `INFINITPAY_*` — nunca `VITE_`
 - **`CLIENT_ORIGIN`:** URL pública do SPA (ex.: `https://crashcifras.com.br`). **Configurar no Vercel** (Environment Variables) e no Railway/backend antes do deploy — o CORS da API só aceita origens listadas em `backend/middleware/security.js` + `CLIENT_ORIGIN`.
 - **`SUPABASE_SERVICE_KEY`:** deve ser a service role real (`eyJ…`, 100+ caracteres). Placeholder quebra upload admin e webhooks.
 - `.env` e `.env.*` estão no `.gitignore`

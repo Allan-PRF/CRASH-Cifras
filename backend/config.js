@@ -11,7 +11,7 @@ const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 3001,
-  openaiKey: process.env.OPENAI_API_KEY || '',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseServiceKey:
     process.env.SUPABASE_SERVICE_KEY ||

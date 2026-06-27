@@ -1,8 +1,13 @@
 import {
-  buildVersiculosIaMessages,
+  buildVersiculosIaPrompt,
   resumirLetraDasSecoes,
 } from '@crash-cifras/shared'
 import { env } from '../config.js'
+
+/** Modelo Claude para versículos bíblicos — Haiku (econômico). */
+export const VERSICULOS_CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
+
+const ANTHROPIC_API_VERSION = '2023-06-01'
 
 function parseJsonObject(text) {
   const trimmed = String(text || '').trim()
@@ -20,7 +25,7 @@ function normalizarVersiculosGerados(payload, versaoBiblica) {
     .map((item) => ({
       referencia: String(item.referencia).trim(),
       texto: String(item.texto).trim(),
-      palavra: String(item.palavra || '').trim() || 'Deus nos chama ao amor e ao arrependimento.',
+      palavra: String(item.palavra || '').trim() || 'Deus nos encoraja com Sua Palavra e Sua presença.',
       momento: item.momento,
       versao: versaoBiblica,
     }))
@@ -36,19 +41,19 @@ function normalizarVersiculosGerados(payload, versaoBiblica) {
   }
 }
 
-export async function gerarVersiculosComOpenAI({
+export async function gerarVersiculosComClaude({
   versaoBiblica = 'NVI',
   titulo,
   artista,
   tom,
   secoes,
 }) {
-  if (!env.openaiKey) {
-    throw new Error('Configure OPENAI_API_KEY no backend para gerar versículos com IA')
+  if (!env.anthropicApiKey) {
+    throw new Error('Configure ANTHROPIC_API_KEY no backend para gerar versículos com IA')
   }
 
   const letraCompleta = resumirLetraDasSecoes(secoes)
-  const messages = buildVersiculosIaMessages({
+  const { system, user } = buildVersiculosIaPrompt({
     versaoBiblica,
     titulo,
     artista,
@@ -56,24 +61,35 @@ export async function gerarVersiculosComOpenAI({
     letraCompleta,
   })
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.openaiKey}`,
+      'x-api-key': env.anthropicApiKey,
+      'anthropic-version': ANTHROPIC_API_VERSION,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: VERSICULOS_CLAUDE_MODEL,
+      max_tokens: 1200,
       temperature: 0.3,
-      messages,
+      system,
+      messages: [{ role: 'user', content: user }],
     }),
   })
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new Error(data?.error?.message || 'OpenAI não conseguiu gerar os versículos')
+    const msg =
+      data?.error?.message ||
+      data?.message ||
+      'A API Anthropic não conseguiu gerar os versículos'
+    throw new Error(msg)
   }
 
-  const parsed = parseJsonObject(data.choices?.[0]?.message?.content || '')
+  const textBlock = (data.content || []).find((block) => block.type === 'text')
+  const parsed = parseJsonObject(textBlock?.text || '')
   return normalizarVersiculosGerados(parsed, versaoBiblica)
 }
+
+/** @deprecated Use gerarVersiculosComClaude */
+export const gerarVersiculosComOpenAI = gerarVersiculosComClaude

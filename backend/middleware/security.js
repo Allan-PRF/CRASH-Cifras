@@ -33,7 +33,7 @@ export const helmetConfig = helmet({
         'https://*.supabase.co',
         'wss://*.supabase.co',
         'https://api.infinitepay.io',
-        'https://api.openai.com',
+        'https://api.anthropic.com',
       ],
       mediaSrc: ["'self'", 'https://www.youtube.com'],
       objectSrc: ["'none'"],
