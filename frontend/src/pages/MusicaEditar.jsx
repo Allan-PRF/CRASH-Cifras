@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDropdown'
 import { PageNav } from '../components/layout/PageNav'
-import { IntroducaoEditor } from '../components/musicas/IntroducaoEditor'
-import { SecaoEditor } from '../components/musicas/SecaoEditor'
+import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { FormField } from '../components/ui/FormField'
 import {
   btnPrimaryClassName,
@@ -78,7 +77,6 @@ export function MusicaEditar() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const introEditorRef = useRef(null)
   const load = useCallback(() => {
     setLoading(true)
     fetchMusicaCompleta(id)
@@ -130,8 +128,7 @@ export function MusicaEditar() {
       const bpm =
         meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
 
-      const introAtual = introEditorRef.current?.flush() ?? intro
-      const introToSave = normalizarIntroParaCopia(introAtual)
+      const introToSave = normalizarIntroParaCopia(intro)
 
       const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
       if (
@@ -187,12 +184,6 @@ export function MusicaEditar() {
     } finally {
       setSaving(false)
     }
-  }
-
-  async function handleRemoveSecao(index) {
-    const sec = secoes[index]
-    if (sec.id) await deleteSecao(sec.id)
-    setSecoes(secoes.filter((_, i) => i !== index))
   }
 
   function aplicarNovoTomOriginal(novoTom, { transporAcordes = false } = {}) {
@@ -291,24 +282,11 @@ export function MusicaEditar() {
         </button>
       </div>
 
-      <div className="space-y-4">
-        <IntroducaoEditor ref={introEditorRef} intro={intro} onChange={setIntro} />
-
-        {secoes.map((sec, index) => (
-          <SecaoEditor
-            key={sec.id || `new-${index}`}
-            secao={sec}
-            onChange={(updated) => {
-              const next = [...secoes]
-              next[index] = updated
-              setSecoes(next)
-            }}
-            onRemove={
-              secoes.length > 1 ? () => handleRemoveSecao(index) : undefined
-            }
-          />
-        ))}
-      </div>
+      <CifraEditorFolhaMaquete
+        intro={intro}
+        secoes={secoes}
+        tomOriginal={meta.tom_original}
+      />
 
       <VersiculoMusicaPrefsEditor
         prefs={versiculoPrefs}
