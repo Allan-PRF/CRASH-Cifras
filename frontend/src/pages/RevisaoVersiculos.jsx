@@ -11,7 +11,8 @@ import {
 import { gerarVersiculos } from '../lib/palavraLocal'
 import { PageNav } from '../components/layout/PageNav'
 import { fetchMusicaCompleta } from '../services/musicas'
-import { fetchPlaylistCompleta } from '../services/playlists'
+import { fetchPlaylistCompleta, isPlaylistNotFoundError } from '../services/playlists'
+import { removeCultoPreparadoFromCache } from '../lib/offlineCulto'
 import {
   fetchVersiculosByPlaylist,
   updateVersiculosRecord,
@@ -64,6 +65,9 @@ export function RevisaoVersiculos() {
       setRecords(versiculos)
       setMusicas(Object.fromEntries(musicEntries))
     } catch (err) {
+      if (isPlaylistNotFoundError(err)) {
+        removeCultoPreparadoFromCache(id)
+      }
       setError(err.message)
     } finally {
       setLoading(false)

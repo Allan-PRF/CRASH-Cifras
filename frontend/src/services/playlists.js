@@ -1,5 +1,26 @@
 import { supabase } from '../lib/supabase'
 
+/** Playlist apagada ou inexistente — evita erro técnico do .single() vazio. */
+export class PlaylistNotFoundError extends Error {
+  constructor(playlistId) {
+    super('Este evento não existe mais.')
+    this.name = 'PlaylistNotFoundError'
+    this.playlistId = playlistId
+  }
+}
+
+export function isPlaylistNotFoundError(err) {
+  return err?.name === 'PlaylistNotFoundError'
+}
+
+/** IDs de playlists que ainda existem no servidor (para podar cache offline). */
+export async function fetchExistingPlaylistIds(ids) {
+  if (!ids?.length) return new Set()
+  const { data, error } = await supabase.from('playlists').select('id').in('id', ids)
+  if (error) throw error
+  return new Set((data ?? []).map((row) => row.id))
+}
+
 const PLAYLIST_SELECT = `
   id,
   user_id,
@@ -130,9 +151,10 @@ export async function fetchPlaylistCompleta(id) {
     .from('playlists')
     .select(PLAYLIST_SELECT)
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
+  if (!playlist) throw new PlaylistNotFoundError(id)
 
   const { data: itens, error: itemError } = await supabase
     .from('playlist_itens')

@@ -43,3 +43,35 @@ export function getCultosPreparadosIndex() {
     return []
   }
 }
+
+/** Remove um evento do índice e do payload local. */
+export function removeCultoPreparadoFromCache(playlistId) {
+  localStorage.removeItem(`${CACHE_PREFIX}${playlistId}`)
+  const index = getCultosPreparadosIndex().filter((item) => item.id !== playlistId)
+  localStorage.setItem(CACHE_INDEX, JSON.stringify(index))
+}
+
+/** Limpa todos os pacotes offline deste dispositivo. */
+export function clearAllCultosPreparadosCache() {
+  for (const item of getCultosPreparadosIndex()) {
+    localStorage.removeItem(`${CACHE_PREFIX}${item.id}`)
+  }
+  localStorage.removeItem(CACHE_INDEX)
+}
+
+/**
+ * Remove do cache local eventos que não existem mais no Supabase.
+ * @param {(ids: string[]) => Promise<Set<string>>} fetchExistingIds
+ * @returns {Promise<Array<{ id: string, nome: string }>>} entradas removidas
+ */
+export async function pruneStaleOfflineCultos(fetchExistingIds) {
+  const index = getCultosPreparadosIndex()
+  if (!index.length) return []
+
+  const existing = await fetchExistingIds(index.map((item) => item.id))
+  const stale = index.filter((item) => !existing.has(item.id))
+  for (const item of stale) {
+    removeCultoPreparadoFromCache(item.id)
+  }
+  return stale
+}

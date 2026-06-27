@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { expandirOrdemSecoes } from '../lib/diretorLocal'
 import { fetchMusicaCompleta } from '../services/musicas'
-import { fetchPlaylistCompleta } from '../services/playlists'
+import { fetchPlaylistCompleta, isPlaylistNotFoundError } from '../services/playlists'
+import { removeCultoPreparadoFromCache } from '../lib/offlineCulto'
 import {
   btnPrimaryClassName,
   btnSecondaryClassName,
@@ -40,7 +41,12 @@ export function PreviewArranjo() {
           setPreviews(resolved)
         }
       } catch (err) {
-        if (!cancelled) setError(err.message)
+        if (!cancelled) {
+          if (isPlaylistNotFoundError(err)) {
+            removeCultoPreparadoFromCache(id)
+          }
+          setError(err.message)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }

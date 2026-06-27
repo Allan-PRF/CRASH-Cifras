@@ -15,7 +15,7 @@ import {
 } from '../components/ui/inputClasses'
 import { formatDataEvento } from '../lib/formatDataBr'
 import { gerarOrdemSecoesLocal } from '../lib/diretorLocal'
-import { cacheCultoPreparado } from '../lib/offlineCulto'
+import { cacheCultoPreparado, removeCultoPreparadoFromCache } from '../lib/offlineCulto'
 import {
   aplicarSecoesPadraoVersiculos,
   mesclarVersiculoPrefs,
@@ -31,6 +31,7 @@ import { AnotacaoIndicador } from '../components/musicas/AnotacaoIndicador'
 import {
   addMusicaToPlaylist,
   fetchPlaylistCompleta,
+  isPlaylistNotFoundError,
   marcarPlaylistPreparada,
   reabrirPlaylistRascunho,
   removePlaylistItem,
@@ -58,6 +59,7 @@ export function Playlist() {
   const [draggingId, setDraggingId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notFound, setNotFound] = useState(false)
   const [preparing, setPreparing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -72,7 +74,10 @@ export function Playlist() {
   const isRascunho = !playlist?.status || playlist.status === 'rascunho'
 
   const load = useCallback(({ silent = false } = {}) => {
-    if (!silent) setLoading(true)
+    if (!silent) {
+      setLoading(true)
+      setNotFound(false)
+    }
     setError('')
     Promise.all([fetchPlaylistCompleta(id), fetchMusicasParaPlaylist()])
       .then(([playlistData, songs]) => {
@@ -90,7 +95,16 @@ export function Playlist() {
           setShowAddPanel(true)
         }
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (isPlaylistNotFoundError(err)) {
+          removeCultoPreparadoFromCache(id)
+          setNotFound(true)
+          setPlaylist(null)
+          setError('')
+        } else {
+          setError(err.message)
+        }
+      })
       .finally(() => {
         if (!silent) setLoading(false)
       })
@@ -274,6 +288,31 @@ export function Playlist() {
 
   if (loading) {
     return <p className="text-sm text-[var(--crash-texto-sec)]">Carregando…</p>
+  }
+
+  if (notFound) {
+    return (
+      <section className="mx-auto max-w-lg space-y-4">
+        <PageNav
+          breadcrumbItems={[
+            { label: 'Início', to: '/' },
+            { label: 'Histórico', to: '/historico' },
+            { label: 'Evento' },
+          ]}
+          backTo="/historico"
+        />
+        <div className={`space-y-3 p-6 ${cardClassName}`}>
+          <h1 className="text-xl font-bold text-white">Este evento não existe mais</h1>
+          <p className="text-sm leading-relaxed text-[var(--crash-texto-sec)]">
+            Ele foi removido do servidor ou o cache offline deste dispositivo estava
+            desatualizado. Removemos a cópia local automaticamente.
+          </p>
+          <Link to="/historico" className={`inline-block ${btnPrimaryClassName}`}>
+            Voltar ao histórico
+          </Link>
+        </div>
+      </section>
+    )
   }
 
   if (error && !playlist) {
