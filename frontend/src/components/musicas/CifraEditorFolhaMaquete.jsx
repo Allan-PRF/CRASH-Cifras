@@ -15,7 +15,7 @@ function TituloSecaoFolha({ children }) {
 function FolhaDivisor() {
   return (
     <div
-      className="my-8 border-t border-white/15"
+      className="my-8 border-t border-[var(--crash-cifra)]/25"
       role="separator"
       aria-hidden
     />
@@ -41,9 +41,9 @@ function CifraEditorIntroBloco({ intro }) {
   return (
     <section>
       <TituloSecaoFolha>Introdução</TituloSecaoFolha>
-      <div className="space-y-5">
-        <LinhaIntro rotulo="Mão direita" conteudo={intro.mao_direita} />
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
         <LinhaIntro rotulo="Mão esquerda" conteudo={intro.mao_esquerda} />
+        <LinhaIntro rotulo="Mão direita" conteudo={intro.mao_direita} />
       </div>
     </section>
   )
