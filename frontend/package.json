@@ -8,7 +8,8 @@
     "dev:full": "npm run dev --prefix ..",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:transpose": "node scripts/test-transpose.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",
