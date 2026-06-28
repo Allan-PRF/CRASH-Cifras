@@ -81,17 +81,16 @@ function CifraEditorIntroBloco({ intro }) {
   )
 }
 
-function linhasParaExibicao(linhas, offsetVisual, tomOriginal) {
-  if (!offsetVisual || !linhas) return linhas
-  const tomDestino = getTomExibido(tomOriginal, offsetVisual)
-  return transposeLinhas(linhas, offsetVisual, { tonDestino })
-}
-
 function CifraEditorSecaoBloco({ secao, tomOriginal, offsetVisual }) {
-  const linhasExibidas = useMemo(
-    () => linhasParaExibicao(secao.linhas, offsetVisual, tomOriginal),
-    [secao.linhas, offsetVisual, tomOriginal],
-  )
+  const linhasExibidas = useMemo(() => {
+    if (!offsetVisual || !secao.linhas) {
+      return secao.linhas
+    }
+    const tomDestino = getTomExibido(tomOriginal, offsetVisual)
+    return transposeLinhas(secao.linhas, offsetVisual, {
+      tonDestino: tomDestino ?? undefined,
+    })
+  }, [secao.linhas, offsetVisual, tomOriginal])
 
   const tomGraus = offsetVisual
     ? getTomExibido(tomOriginal, offsetVisual)
