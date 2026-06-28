@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
 import { BlocoSecao } from '../cifra/LinhaCifra.jsx'
+import { getTomExibido, transposeLinhas } from '../../lib/transpose'
+import { CifraFolhaTransporPreview } from './CifraFolhaTransporPreview.jsx'
 
 function TituloSecaoFolha({ children }) {
   return (
@@ -15,6 +18,23 @@ function FolhaDivisor() {
       role="separator"
       aria-hidden
     />
+  )
+}
+
+function FolhaAlertaTomOriginal() {
+  return (
+    <div
+      className="mb-4 flex gap-3 rounded-lg border border-sky-600/30 bg-sky-950/20 px-3 py-3 sm:px-4"
+      role="status"
+    >
+      <span className="shrink-0 text-sky-300/90" aria-hidden>
+        ℹ️
+      </span>
+      <p className="text-xs leading-relaxed text-sky-100/90 sm:text-sm">
+        As cifras ficam sempre no tom original. Transpor aqui é só para visualizar — não
+        altera a cifra salva. Para tocar em outro tom, use o transpose no teleprompter.
+      </p>
+    </div>
   )
 }
 
@@ -61,13 +81,28 @@ function CifraEditorIntroBloco({ intro }) {
   )
 }
 
-function CifraEditorSecaoBloco({ secao, tomOriginal }) {
+function linhasParaExibicao(linhas, offsetVisual, tomOriginal) {
+  if (!offsetVisual || !linhas) return linhas
+  const tomDestino = getTomExibido(tomOriginal, offsetVisual)
+  return transposeLinhas(linhas, offsetVisual, { tonDestino })
+}
+
+function CifraEditorSecaoBloco({ secao, tomOriginal, offsetVisual }) {
+  const linhasExibidas = useMemo(
+    () => linhasParaExibicao(secao.linhas, offsetVisual, tomOriginal),
+    [secao.linhas, offsetVisual, tomOriginal],
+  )
+
+  const tomGraus = offsetVisual
+    ? getTomExibido(tomOriginal, offsetVisual)
+    : tomOriginal
+
   return (
     <section>
       <TituloSecaoFolha>{secao.nome || 'Seção'}</TituloSecaoFolha>
       <BlocoSecao
-        linhas={secao.linhas}
-        tomOriginal={tomOriginal}
+        linhas={linhasExibidas}
+        tomOriginal={tomGraus}
         mostrarAcordes
         mostrarGrau={false}
         visualizacao
@@ -78,17 +113,28 @@ function CifraEditorSecaoBloco({ secao, tomOriginal }) {
 }
 
 /**
- * Fase 1 — maquete visual: folha corrida read-only (mesmo look da aba Cifra).
- * Edição e alinhamento fino vêm nas fases seguintes.
+ * Folha corrida read-only — exibição com transpose visual opcional (não persiste).
  */
-export function CifraEditorFolhaMaquete({ intro, secoes, tomOriginal }) {
+export function CifraEditorFolhaMaquete({
+  intro,
+  secoes,
+  tomOriginal,
+  offsetVisual = 0,
+  onOffsetVisualChange,
+}) {
   const listaSecoes = secoes ?? []
 
   return (
     <div className="overflow-x-hidden rounded-xl border border-[var(--crash-borda)] bg-black px-3 py-4 sm:px-5 sm:py-5">
-      <p className="mb-6 text-[10px] uppercase tracking-widest text-[var(--crash-texto-sec)]/60">
-        Pré-visualização do editor — folha corrida
-      </p>
+      <FolhaAlertaTomOriginal />
+
+      <div className="mb-5">
+        <CifraFolhaTransporPreview
+          tomOriginal={tomOriginal}
+          offsetVisual={offsetVisual}
+          onOffsetVisualChange={onOffsetVisualChange}
+        />
+      </div>
 
       <div className="pb-2">
         <CifraEditorIntroBloco intro={intro} />
@@ -101,7 +147,11 @@ export function CifraEditorFolhaMaquete({ intro, secoes, tomOriginal }) {
           listaSecoes.map((secao, index) => (
             <div key={secao.id || `sec-${index}`}>
               <FolhaDivisor />
-              <CifraEditorSecaoBloco secao={secao} tomOriginal={tomOriginal} />
+              <CifraEditorSecaoBloco
+                secao={secao}
+                tomOriginal={tomOriginal}
+                offsetVisual={offsetVisual}
+              />
             </div>
           ))
         )}

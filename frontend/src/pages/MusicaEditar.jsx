@@ -29,9 +29,6 @@ import {
 import { enviarFeedbackAcervo } from '../services/acervo'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
-const HINT_TOM_ORIGINAL =
-  'O tom original é a referência da cifra. Para tocar em outro tom, use Transpor na visualização (aba Cifra).'
-
 function secaoTemConteudo(linhas) {
   if (!linhas?.lines?.length) return false
   return linhas.lines.some((line) => {
@@ -67,6 +64,7 @@ export function MusicaEditar() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [offsetVisual, setOffsetVisual] = useState(0)
   const load = useCallback(() => {
     setLoading(true)
     fetchMusicaCompleta(id)
@@ -79,6 +77,7 @@ export function MusicaEditar() {
           todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
         )
         setSecoes(secoesParaEditor(todas))
+        setOffsetVisual(0)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -178,6 +177,7 @@ export function MusicaEditar() {
 
   function aplicarNovoTomOriginal(novoTom) {
     if (novoTom === meta.tom_original) return
+    setOffsetVisual(0)
     setMeta({ ...meta, tom_original: novoTom || null })
   }
 
@@ -242,10 +242,7 @@ export function MusicaEditar() {
             className={inputOrangeClassName}
           />
         </FormField>
-        <FormField
-          label="Tom original"
-          hint={HINT_TOM_ORIGINAL}
-        >
+        <FormField label="Tom original">
           <TranspositorTomDropdown
             tomAtual={meta.tom_original}
             perguntarTransporAcordes={false}
@@ -265,6 +262,8 @@ export function MusicaEditar() {
         intro={intro}
         secoes={secoes}
         tomOriginal={meta.tom_original}
+        offsetVisual={offsetVisual}
+        onOffsetVisualChange={setOffsetVisual}
       />
 
       <VersiculoMusicaPrefsEditor
