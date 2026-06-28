@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
-import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDropdown'
 import { PageNav } from '../components/layout/PageNav'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
-import { FormField } from '../components/ui/FormField'
 import {
   btnPrimaryClassName,
   btnSecondaryClassName,
-  inputOrangeClassName,
 } from '../components/ui/inputClasses'
 import {
   prepararVersiculoPrefsParaSalvar,
@@ -175,12 +172,6 @@ export function MusicaEditar() {
     }
   }
 
-  function aplicarNovoTomOriginal(novoTom) {
-    if (novoTom === meta.tom_original) return
-    setOffsetVisual(0)
-    setMeta({ ...meta, tom_original: novoTom || null })
-  }
-
   if (loading) {
     return <p className="text-sm text-[var(--crash-texto-sec)]">Carregando…</p>
   }
@@ -197,15 +188,11 @@ export function MusicaEditar() {
   }
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="mx-auto max-w-3xl space-y-4">
       <PageNav
         breadcrumbItems={musicaBreadcrumbItems(meta, { suffix: 'Editar' })}
         backTo={`/musica/${id}`}
       />
-
-      <header>
-        <h1 className="text-2xl font-bold text-white">Editar cifra</h1>
-      </header>
 
       {meta.import_status === 'pending' && (
         <div
@@ -219,44 +206,20 @@ export function MusicaEditar() {
             ℹ️
           </span>
           <p className="text-sm leading-relaxed text-amber-100/95">
-            Esta música ainda não tem cifra cadastrada. Preencha o tom, BPM e as seções
-            abaixo para usar no teleprompter.
+            Esta música ainda não tem cifra cadastrada. Preencha as seções abaixo para usar
+            no teleprompter.
           </p>
         </div>
       )}
 
-      <div className="grid gap-4 rounded-xl border-2 border-orange-500 p-4 sm:grid-cols-2">
-        <FormField label="Título">
-          <input
-            type="text"
-            value={meta.titulo}
-            onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
-            className={inputOrangeClassName}
-          />
-        </FormField>
-        <FormField label="Artista">
-          <input
-            type="text"
-            value={meta.artista || ''}
-            onChange={(e) => setMeta({ ...meta, artista: e.target.value })}
-            className={inputOrangeClassName}
-          />
-        </FormField>
-        <FormField label="Tom original">
-          <TranspositorTomDropdown
-            tomAtual={meta.tom_original}
-            perguntarTransporAcordes={false}
-            onApplyTom={aplicarNovoTomOriginal}
-          />
-        </FormField>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Seções</h2>
-        <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
-          + Seção
-        </button>
-      </div>
+      <input
+        type="text"
+        value={meta.titulo}
+        onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
+        aria-label="Título da música"
+        placeholder="Título da música"
+        className="w-full rounded-lg border border-[var(--crash-borda)] bg-black/40 px-3 py-2 text-base font-medium leading-snug text-white outline-none transition placeholder:text-[var(--crash-texto-sec)]/70 focus:border-[var(--crash-cifra)]/50"
+      />
 
       <CifraEditorFolhaMaquete
         intro={intro}
@@ -265,6 +228,12 @@ export function MusicaEditar() {
         offsetVisual={offsetVisual}
         onOffsetVisualChange={setOffsetVisual}
       />
+
+      <div className="flex justify-end">
+        <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
+          + Seção
+        </button>
+      </div>
 
       <VersiculoMusicaPrefsEditor
         prefs={versiculoPrefs}
