@@ -10,7 +10,6 @@ import {
   btnSecondaryClassName,
   inputOrangeClassName,
 } from '../components/ui/inputClasses'
-import { semitonesBetween, transposeLinhas } from '../lib/transpose'
 import {
   prepararVersiculoPrefsParaSalvar,
   quantidadeFromMomentosAtivos,
@@ -30,17 +29,8 @@ import {
 import { enviarFeedbackAcervo } from '../services/acervo'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
-function secaoTemAcordes(linhas) {
-  if (!linhas?.lines?.length) return false
-  return linhas.lines.some((line) => {
-    const n = normalizeChordLine(line)
-    return n.chords.length > 0 || Boolean(n.chordLine.trim())
-  })
-}
-
-function musicasTemAcordes(secoes) {
-  return secoes.some((sec) => secaoTemAcordes(sec.linhas))
-}
+const HINT_TOM_ORIGINAL =
+  'O tom original é a referência da cifra. Para tocar em outro tom, use Transpor na visualização (aba Cifra).'
 
 function secaoTemConteudo(linhas) {
   if (!linhas?.lines?.length) return false
@@ -186,22 +176,8 @@ export function MusicaEditar() {
     }
   }
 
-  function aplicarNovoTomOriginal(novoTom, { transporAcordes = false } = {}) {
-    const anterior = meta.tom_original
-    if (novoTom === anterior) return
-
-    if (transporAcordes && anterior && novoTom) {
-      const st = semitonesBetween(anterior, novoTom)
-      if (st) {
-        setSecoes(
-          secoes.map((sec) => ({
-            ...sec,
-            linhas: transposeLinhas(sec.linhas, st),
-          })),
-        )
-      }
-    }
-
+  function aplicarNovoTomOriginal(novoTom) {
+    if (novoTom === meta.tom_original) return
     setMeta({ ...meta, tom_original: novoTom || null })
   }
 
@@ -266,10 +242,13 @@ export function MusicaEditar() {
             className={inputOrangeClassName}
           />
         </FormField>
-        <FormField label="Tom original">
+        <FormField
+          label="Tom original"
+          hint={HINT_TOM_ORIGINAL}
+        >
           <TranspositorTomDropdown
             tomAtual={meta.tom_original}
-            perguntarTransporAcordes={musicasTemAcordes(secoes)}
+            perguntarTransporAcordes={false}
             onApplyTom={aplicarNovoTomOriginal}
           />
         </FormField>

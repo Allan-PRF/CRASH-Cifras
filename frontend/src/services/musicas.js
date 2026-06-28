@@ -9,7 +9,6 @@ import {
 import {
   getTomExibido,
   semitonesBetween,
-  transposeLinhas,
 } from '../lib/transpose'
 
 const MUSICA_SELECT = `
@@ -137,17 +136,17 @@ export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) 
   const intro = normalizarIntroParaCopia(original.intro)
   const omitirSecaoIntro = introComConteudo(intro)
 
-  let tomOriginal = original.tom_original
-  let secoes = secoesParaCopia(original.secoes, { omitirSecaoIntro })
+  const tomOriginal = original.tom_original
+  const secoes = secoesParaCopia(original.secoes, { omitirSecaoIntro })
 
-  if (tomDestino && original.tom_original && tomDestino !== original.tom_original) {
-    const semitones = semitonesBetween(original.tom_original, tomDestino)
+  let tomAtualInicial = tomOriginal
+  let semitoneOffsetInicial = 0
+
+  if (tomDestino && tomOriginal && tomDestino !== tomOriginal) {
+    const semitones = semitonesBetween(tomOriginal, tomDestino)
     if (semitones) {
-      tomOriginal = tomDestino
-      secoes = secoes.map((sec) => ({
-        ...sec,
-        linhas: transposeLinhas(sec.linhas, semitones),
-      }))
+      tomAtualInicial = tomDestino
+      semitoneOffsetInicial = semitones
     }
   }
 
@@ -171,6 +170,8 @@ export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) 
     youtubeUrl: original.youtube_url,
     secoesIniciais: secoes.length ? secoes : undefined,
     acervoVersaoId: original.acervo_versao_id || null,
+    tomAtualInicial,
+    semitoneOffsetInicial,
   })
 }
 
@@ -225,6 +226,8 @@ export async function createMusica({
   youtubeUrl,
   secoesIniciais,
   acervoVersaoId,
+  tomAtualInicial,
+  semitoneOffsetInicial,
 }) {
   const {
     data: { user },
@@ -254,8 +257,8 @@ export async function createMusica({
     await supabase.from('musica_ministro').upsert({
       musica_id: musica.id,
       ministro_id: ministroId,
-      tom_atual: tomOriginal,
-      semitone_offset: 0,
+      tom_atual: tomAtualInicial ?? tomOriginal,
+      semitone_offset: semitoneOffsetInicial ?? 0,
     })
   }
 
