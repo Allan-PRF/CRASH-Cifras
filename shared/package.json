@@ -9,6 +9,7 @@
     "./chord-schema": "./chord-schema.js",
     "./constants": "./constants.js",
     "./versiculos-prompt": "./versiculos-prompt.js",
+    "./versiculos-fallback": "./versiculos-fallback.js",
     "./versiculos-config": "./versiculos-config.js",
     "./validate-youtube-url": "./validateYoutubeUrl.js",
     "./referral": "./referral.js",
