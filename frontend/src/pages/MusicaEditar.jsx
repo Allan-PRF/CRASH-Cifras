@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
-import { PageNav } from '../components/layout/PageNav'
+import { PageBackButton } from '../components/layout/PageBackButton'
+import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import {
   btnPrimaryClassName,
   btnSecondaryClassName,
+  inputClassName,
 } from '../components/ui/inputClasses'
 import {
   prepararVersiculoPrefsParaSalvar,
@@ -189,10 +191,16 @@ export function MusicaEditar() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-4">
-      <PageNav
-        breadcrumbItems={musicaBreadcrumbItems(meta, { suffix: 'Editar' })}
-        backTo={`/musica/${id}`}
-      />
+      <div className="space-y-3">
+        <PageBreadcrumb
+          items={musicaBreadcrumbItems(meta, { suffix: 'Editar' })}
+          className="text-sm [&_a]:text-white/90 [&_a:hover]:text-[var(--crash-cifra)] [&>span:last-child]:font-medium [&>span:last-child]:text-[var(--crash-cifra)]"
+        />
+        <PageBackButton
+          to={`/musica/${id}`}
+          className="border-[var(--crash-cifra)]/40 text-white hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
+        />
+      </div>
 
       {meta.import_status === 'pending' && (
         <div
@@ -218,7 +226,7 @@ export function MusicaEditar() {
         onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
         aria-label="Título da música"
         placeholder="Título da música"
-        className="w-full rounded-lg border border-[var(--crash-borda)] bg-black/40 px-3 py-2 text-base font-medium leading-snug text-white outline-none transition placeholder:text-[var(--crash-texto-sec)]/70 focus:border-[var(--crash-cifra)]/50"
+        className={`${inputClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]`}
       />
 
       <CifraEditorFolhaMaquete
