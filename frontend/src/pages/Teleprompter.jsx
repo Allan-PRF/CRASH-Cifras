@@ -54,7 +54,8 @@ import {
   saveYoutubePosition,
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
-import { getTomExibido, tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
+import { TransporTomControle } from '../components/cifra/TransporTomControle'
+import { tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
 import { useEquipeSessao } from '../hooks/useEquipeSessao'
@@ -203,6 +204,7 @@ export function Teleprompter() {
   const [timbreOpen, setTimbreOpen] = useState(false)
   const [anotacao, setAnotacao] = useState(null)
   const [anotacaoPainelOpen, setAnotacaoPainelOpen] = useState(false)
+  const [offsetSessao, setOffsetSessao] = useState(0)
   const [youtubeEnabled, setYoutubeEnabled] = useState(() => loadYoutubePlayerEnabled())
   const [youtubeSync, setYoutubeSync] = useState(() => loadYoutubeSync())
   const [youtubeMinimized, setYoutubeMinimized] = useState(() => loadYoutubeMinimized())
@@ -256,8 +258,8 @@ export function Teleprompter() {
   const lineRefsMap = useRef({})
   const metronomeTimerRef = useRef(null)
   const playlistId = searchParams.get('playlist')
-  const offset = musica?.semitone_offset ?? 0
-  const tomGraus = tomParaGrausMusica(musica, offset)
+  const offset = offsetSessao
+  const tomGraus = tomParaGrausMusica(musica, offsetSessao)
 
   const equipeSessao = useEquipeSessao()
   const equipeSeguindo = !equipeSessao.isLider && equipeSessao.sessao != null
@@ -369,6 +371,11 @@ export function Teleprompter() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!musica || String(musica.id) !== String(musicaId)) return
+    setOffsetSessao(musica.semitone_offset ?? 0)
+  }, [musicaId, musica?.id, musica?.semitone_offset])
 
   useEffect(() => {
     if (!musicaId || !musica) return
@@ -982,6 +989,9 @@ export function Teleprompter() {
         modoEvento={modoEvento}
         orientacaoLabel={layout.shortLabel}
         orientacaoIcon={layout.icon}
+        tomOriginal={musica.tom_original}
+        offsetSessao={offsetSessao}
+        onOffsetSessaoChange={setOffsetSessao}
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
@@ -1122,7 +1132,13 @@ export function Teleprompter() {
         </div>
       )}
 
-      <div className="fixed left-4 top-16 z-30 flex gap-2 sm:hidden">
+      <div className="fixed left-4 top-16 z-[35] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 sm:hidden">
+        <TransporTomControle
+          tomOriginal={musica.tom_original}
+          offsetVisual={offsetSessao}
+          onOffsetVisualChange={setOffsetSessao}
+          variant="teleprompter"
+        />
         <button
           type="button"
           onClick={toggleOrientacao}
@@ -1221,6 +1237,9 @@ export function Teleprompter() {
         temTimbre={Boolean(timbreAtual)}
         fontLabel={fontLabel}
         bpm={bpm}
+        tomOriginal={musica.tom_original}
+        offsetSessao={offsetSessao}
+        onOffsetSessaoChange={setOffsetSessao}
         onClose={() => setPanelOpen(false)}
         onToggleModo={toggleModoEvento}
         onToggleOrientacao={toggleOrientacao}

@@ -1,4 +1,5 @@
 import { InfoTooltip } from '../ui/InfoTooltip'
+import { TransporTomControle } from '../cifra/TransporTomControle'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 
 export function PainelConfigTeleprompter({
@@ -19,6 +20,9 @@ export function PainelConfigTeleprompter({
   temTimbre,
   fontLabel,
   bpm,
+  tomOriginal,
+  offsetSessao,
+  onOffsetSessaoChange,
   onClose,
   onToggleModo,
   onToggleOrientacao,
@@ -114,6 +118,22 @@ export function PainelConfigTeleprompter({
           active={mostrarMetronomo}
           onClick={onToggleMetronomo}
         />
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-sm font-semibold">Tom de execução</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--crash-texto-sec)]">
+            Só visual — não altera a cifra salva.
+          </p>
+          <div className="mt-3">
+            <TransporTomControle
+              tomOriginal={tomOriginal}
+              offsetVisual={offsetSessao}
+              onOffsetVisualChange={onOffsetSessaoChange}
+              variant="teleprompter"
+            />
+          </div>
+        </div>
+
         <ConfigRow
           title="Mini player YouTube"
           description={

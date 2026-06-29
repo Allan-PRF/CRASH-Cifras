@@ -1,5 +1,6 @@
 import { TELEPROMPTER_BARRA_INFERIOR_ALTURA } from './RodapePalavra'
 
+import { TransporTomControle } from '../cifra/TransporTomControle'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { InfoTooltip } from '../ui/InfoTooltip'
 
@@ -14,6 +15,9 @@ export function BarraSuperiorTeleprompter({
   modoEvento,
   orientacaoLabel,
   orientacaoIcon,
+  tomOriginal,
+  offsetSessao,
+  onOffsetSessaoChange,
   onToggleOrientacao,
   onToggleGraus,
   onOpenSettings,
@@ -42,7 +46,12 @@ export function BarraSuperiorTeleprompter({
         </div>
         <div className="hidden shrink-0 items-center gap-3 sm:flex">
           <span className="text-[var(--crash-texto-sec)]">{progresso}</span>
-          <span>Tom: {musica.tom_exibido || '—'}</span>
+          <TransporTomControle
+            tomOriginal={tomOriginal}
+            offsetVisual={offsetSessao}
+            onOffsetVisualChange={onOffsetSessaoChange}
+            variant="teleprompter"
+          />
           {mostrarMetronomo && (
             <span
               className={`h-2.5 w-2.5 rounded-full bg-[var(--crash-cifra)] transition-opacity ${
