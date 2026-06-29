@@ -4,7 +4,10 @@ import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-sch
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
+import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
+import { InfoModal } from '../components/ui/InfoModal'
 import {
+  btnCifraConfirmClassName,
   btnCifraOutlineClassName,
   btnPrimaryClassName,
   inputOrangeClassName,
@@ -25,7 +28,7 @@ import {
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
-import { enviarFeedbackAcervo } from '../services/acervo'
+import { enviarFeedbackAcervo, restaurarCifraMotor } from '../services/acervo'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
 function secaoTemConteudo(linhas) {
@@ -74,6 +77,10 @@ export function MusicaEditar() {
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
   const [undoStack, setUndoStack] = useState([])
+  const [restaurarMotorOpen, setRestaurarMotorOpen] = useState(false)
+  const [comunidadeOpen, setComunidadeOpen] = useState(false)
+  const [restaurandoMotor, setRestaurandoMotor] = useState(false)
+  const [toastMotor, setToastMotor] = useState('')
   const introEditorRef = useRef(null)
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
@@ -157,6 +164,44 @@ export function MusicaEditar() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [handleUndo])
+
+  const temLinhaAcervo = Boolean(meta?.acervo_versao_id || meta?.youtube_url?.trim())
+
+  useEffect(() => {
+    if (!toastMotor) return
+    const timer = setTimeout(() => setToastMotor(''), 4000)
+    return () => clearTimeout(timer)
+  }, [toastMotor])
+
+  async function handleRestaurarMotor() {
+    setRestaurandoMotor(true)
+    setError('')
+    try {
+      const result = await restaurarCifraMotor(id)
+      const todas = result.secoes || []
+      setIntroSecaoIds(
+        todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
+      )
+      setSecoes(secoesParaEditor(todas))
+      setIntro(result.intro || { mao_esquerda: '', mao_direita: '' })
+      setMeta((prev) => ({
+        ...prev,
+        tom_original: result.tom_original ?? prev.tom_original,
+        bpm: result.bpm ?? prev.bpm,
+        acervo_versao_id: result.acervo_versao_id ?? prev.acervo_versao_id,
+        import_status:
+          prev.import_status === 'pending' ? 'ready' : prev.import_status,
+      }))
+      setUndoStack([])
+      setOffsetVisual(0)
+      setToastMotor('Cifra do motor restaurada. Suas edições foram descartadas.')
+    } catch (err) {
+      setError(err.message || 'Não foi possível restaurar a cifra do motor.')
+      throw err
+    } finally {
+      setRestaurandoMotor(false)
+    }
+  }
 
   function addSecao() {
     setSecoesWithHistory((prev) => {
@@ -288,6 +333,15 @@ export function MusicaEditar() {
         </div>
       )}
 
+      {toastMotor && (
+        <div
+          className="flex gap-3 rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 px-4 py-3"
+          role="status"
+        >
+          <p className="text-sm font-medium text-[var(--crash-cifra)]">{toastMotor}</p>
+        </div>
+      )}
+
       <input
         type="text"
         value={meta.titulo}
@@ -311,6 +365,27 @@ export function MusicaEditar() {
           title={canUndo ? 'Desfazer última alteração (Ctrl+Z)' : 'Nada para desfazer'}
         >
           Desfazer{canUndo ? ` (${undoStack.length})` : ''}
+        </button>
+        <button
+          type="button"
+          onClick={() => setRestaurarMotorOpen(true)}
+          disabled={!temLinhaAcervo || restaurandoMotor}
+          className={btnCifraOutlineClassName}
+          title={
+            temLinhaAcervo
+              ? 'Trazer a cifra original do motor (descarta suas edições)'
+              : 'Música sem vínculo com o acervo'
+          }
+        >
+          {restaurandoMotor ? 'Restaurando…' : 'Cifra Motor'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setComunidadeOpen(true)}
+          className={btnCifraOutlineClassName}
+          title="Versões da comunidade — em breve"
+        >
+          Acervo Comunidade
         </button>
         <button type="button" onClick={addSecao} className={btnPrimaryClassName}>
           + Seção
@@ -350,6 +425,25 @@ export function MusicaEditar() {
       >
         {saving ? 'Salvando…' : 'Salvar e visualizar'}
       </button>
+
+      <ConfirmDeleteModal
+        open={restaurarMotorOpen}
+        title="Restaurar cifra do motor"
+        message="Isso vai descartar suas edições e trazer a cifra original do motor. Continuar?"
+        confirmLabel="Restaurar cifra do motor"
+        confirmLoadingLabel="Restaurando…"
+        confirmButtonClassName={btnCifraConfirmClassName}
+        cancelLabel="Cancelar"
+        onClose={() => setRestaurarMotorOpen(false)}
+        onConfirm={handleRestaurarMotor}
+      />
+
+      <InfoModal
+        open={comunidadeOpen}
+        title="Em breve"
+        message="Em breve — escolha entre versões da comunidade (ranking e correções sugeridas por outros músicos)."
+        onClose={() => setComunidadeOpen(false)}
+      />
     </section>
   )
 }

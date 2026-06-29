@@ -24,3 +24,17 @@ export async function enviarFeedbackAcervo({ acervoVersaoId, tomOriginal, bpm, s
   )
   return data
 }
+
+/**
+ * Restaura cópia pessoal com a primeira versão origem=motor do acervo (não versao_top).
+ * @param {string} musicaId
+ */
+export async function restaurarCifraMotor(musicaId) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/copias/restaurar-motor',
+    { musicaId },
+    { headers },
+  )
+  return data
+}

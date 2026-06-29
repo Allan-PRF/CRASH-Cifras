@@ -9,6 +9,7 @@ import {
   registrarFalhaMotor,
   registrarFeedbackSalvamento,
   registrarVersaoMotor,
+  restaurarCopiaPessoalDoMotor,
 } from '../lib/acervo.js'
 import { requireAuth } from '../lib/supabase.js'
 
@@ -169,6 +170,31 @@ acervoRouter.post('/feedback', requireAuth, async (req, res, next) => {
 
     res.json({ ok: true, result })
   } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Restaura cópia pessoal com a primeira versão origem=motor (não versao_top).
+ * POST /api/acervo/copias/restaurar-motor
+ */
+acervoRouter.post('/copias/restaurar-motor', requireAuth, async (req, res, next) => {
+  try {
+    const { musicaId } = req.body ?? {}
+    if (!musicaId) {
+      return res.status(400).json({ error: 'musicaId é obrigatório.' })
+    }
+
+    const result = await restaurarCopiaPessoalDoMotor({
+      musicaId,
+      userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
     next(err)
   }
 })

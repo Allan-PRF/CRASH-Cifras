@@ -11,9 +11,13 @@ export function ConfirmDeleteModal({
   extraWarning = null,
   confirmLabel = 'Excluir',
   cancelLabel = 'Cancelar',
+  confirmButtonClassName,
+  confirmLoadingLabel,
   onConfirm,
   onClose,
 }) {
+  const confirmBtnClass = confirmButtonClassName ?? btnDangerClassName
+  const loadingLabel = confirmLoadingLabel ?? 'Excluindo…'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -81,9 +85,9 @@ export function ConfirmDeleteModal({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className={btnDangerClassName}
+            className={confirmBtnClass}
           >
-            {loading ? 'Excluindo…' : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>

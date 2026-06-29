@@ -572,4 +572,149 @@ export async function resolverPedidoAcervo({ titulo, artista, fonteUrl }) {
   return { tipo: 'miss', acervoMusica: criada }
 }
 
+/**
+ * Primeira versão gerada pelo motor (origem sagrada — não versao_top).
+ * @param {string} acervoMusicaId
+ */
+export async function buscarVersaoMotorOriginal(acervoMusicaId) {
+  const { data, error } = await admin()
+    .from('acervo_versoes')
+    .select('*')
+    .eq('acervo_musica_id', acervoMusicaId)
+    .eq('origem', 'motor')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+async function resolverAcervoMusicaIdDaCopia(musica) {
+  if (musica.acervo_versao_id) {
+    const { data: versao, error } = await admin()
+      .from('acervo_versoes')
+      .select('acervo_musica_id')
+      .eq('id', musica.acervo_versao_id)
+      .maybeSingle()
+    if (error) throw error
+    if (versao?.acervo_musica_id) return versao.acervo_musica_id
+  }
+
+  const fonteUrl = String(musica.youtube_url || '').trim()
+  if (fonteUrl) {
+    const acervo = await buscarAcervoMusica({
+      titulo: musica.titulo,
+      artista: musica.artista,
+      fonteUrl,
+    })
+    return acervo?.id ?? null
+  }
+
+  return null
+}
+
+function introFromCifraMotor(cifra) {
+  const introMotor = cifra?.intro
+  if (!introMotor || typeof introMotor !== 'object') {
+    return { mao_esquerda: '', mao_direita: '' }
+  }
+  return {
+    mao_esquerda: String(introMotor.mao_esquerda ?? '').trim(),
+    mao_direita: String(introMotor.mao_direita ?? '').trim() || '',
+  }
+}
+
+/**
+ * Substitui a cópia pessoal pela primeira versão origem=motor do acervo (read-only no acervo).
+ * @param {{ musicaId: string, userId: string }}
+ */
+export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
+  const db = admin()
+
+  const { data: musica, error: mErr } = await db
+    .from('musicas')
+    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id, import_status')
+    .eq('id', musicaId)
+    .maybeSingle()
+
+  if (mErr) throw mErr
+  if (!musica) {
+    const err = new Error('Música não encontrada.')
+    err.status = 404
+    throw err
+  }
+  if (musica.user_id !== userId) {
+    const err = new Error('Sem permissão para restaurar esta música.')
+    err.status = 403
+    throw err
+  }
+
+  const acervoMusicaId = await resolverAcervoMusicaIdDaCopia(musica)
+  if (!acervoMusicaId) {
+    const err = new Error('Esta música não está vinculada ao acervo.')
+    err.status = 400
+    throw err
+  }
+
+  const versaoMotor = await buscarVersaoMotorOriginal(acervoMusicaId)
+  if (!versaoMotor?.cifra) {
+    const err = new Error('Cifra do motor não encontrada para esta música.')
+    err.status = 404
+    throw err
+  }
+
+  const cifra = versaoMotor.cifra
+  const secoes = unpackCifraToSecoes(cifra).filter((sec) => sec.slug !== 'intro')
+  const tom = versaoMotor.tom_original || cifra.tom_original || null
+  const bpmVal = normalizeBpmForDb(versaoMotor.bpm, cifra.bpm)
+  const intro = introFromCifraMotor(cifra)
+
+  const { error: delErr } = await db.from('secoes_musica').delete().eq('musica_id', musicaId)
+  if (delErr) throw delErr
+
+  if (secoes.length) {
+    const rows = secoes.map((sec, index) => ({
+      slug: String(sec.slug || 'verso').slice(0, 30),
+      nome: String(sec.nome || `Seção ${index + 1}`).slice(0, 50),
+      ordem_original: Number.isFinite(Number(sec.ordem_original))
+        ? Number(sec.ordem_original)
+        : index,
+      linhas: sec.linhas || { lines: [] },
+      musica_id: musicaId,
+    }))
+    const { error: insErr } = await db.from('secoes_musica').insert(rows)
+    if (insErr) throw insErr
+  }
+
+  const updateMusica = {
+    tom_original: tom,
+    bpm: bpmVal,
+    intro,
+    acervo_versao_id: versaoMotor.id,
+    import_status: musica.import_status === 'pending' ? 'ready' : musica.import_status,
+  }
+
+  const { error: upErr } = await db.from('musicas').update(updateMusica).eq('id', musicaId)
+  if (upErr) throw upErr
+
+  const { data: secoesSalvas, error: sErr } = await db
+    .from('secoes_musica')
+    .select('*')
+    .eq('musica_id', musicaId)
+    .order('ordem_original', { ascending: true })
+
+  if (sErr) throw sErr
+
+  return {
+    tom_original: tom,
+    bpm: bpmVal,
+    intro,
+    acervo_versao_id: versaoMotor.id,
+    acervo_musica_id: acervoMusicaId,
+    versao_motor_id: versaoMotor.id,
+    secoes: secoesSalvas ?? [],
+  }
+}
+
 export { buildCifraSnapshot, unpackCifraToSecoes, hashCifraNorm }
