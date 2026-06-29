@@ -95,3 +95,59 @@ export function updateChordSymbol(chords, index, newSymbol) {
 export function removeChordAt(chords, index) {
   return (chords || []).filter((_, i) => i !== index)
 }
+
+/**
+ * Largura da linha em colunas monospace (letra + extensão dos acordes).
+ * @param {string} lyricLine
+ * @param {{ pos: number, chord: string }[]} chords
+ */
+export function lineWidthForChords(lyricLine, chords) {
+  const fromChords = (chords || []).reduce(
+    (max, { pos, chord }) => Math.max(max, pos + (chord?.length || 0)),
+    0,
+  )
+  return Math.max(String(lyricLine ?? '').length, fromChords)
+}
+
+/**
+ * Limita `pos` aos bounds da linha.
+ * @param {number} pos
+ * @param {number} chordLen
+ * @param {number} lineWidth
+ */
+export function clampChordPos(pos, chordLen, lineWidth) {
+  const len = Math.max(0, Number(chordLen) || 0)
+  const width = Math.max(0, Number(lineWidth) || 0)
+  const maxPos = Math.max(0, width - len)
+  return Math.max(0, Math.min(Math.round(Number(pos) || 0), maxPos))
+}
+
+/**
+ * Move acorde `index` por `delta` colunas; só altera o `pos` dele.
+ * @param {{ pos: number, chord: string }[]} chords
+ * @param {number} index
+ * @param {number} delta
+ * @param {number} lineWidth
+ */
+export function moveChordPos(chords, index, delta, lineWidth) {
+  const list = chords || []
+  const current = list[index]
+  if (!current) return list.map((c) => ({ ...c }))
+
+  const chordLen = String(current.chord || '').length
+  const newPos = clampChordPos(current.pos + delta, chordLen, lineWidth)
+  return list.map((c, i) => (i === index ? { pos: newPos, chord: c.chord } : { ...c }))
+}
+
+/**
+ * Insere acorde novo; não reordena nem empurra os demais.
+ * @param {{ pos: number, chord: string }[]} chords
+ * @param {number} pos
+ * @param {string} symbol
+ * @param {number} lineWidth
+ */
+export function insertChordAt(chords, pos, symbol, lineWidth) {
+  const chord = String(symbol ?? '').trim()
+  const clamped = clampChordPos(pos, chord.length, lineWidth)
+  return [...(chords || []), { pos: clamped, chord }]
+}
