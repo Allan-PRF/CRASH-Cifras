@@ -10,6 +10,7 @@ import {
   registrarFeedbackSalvamento,
   registrarVersaoMotor,
   restaurarCopiaPessoalDoMotor,
+  restaurarCopiaPessoalDaVersao,
   listarVersoesAcervoCopia,
   buscarVersaoAcervoDetalhe,
 } from '../lib/acervo.js'
@@ -214,6 +215,32 @@ acervoRouter.get('/copias/:musicaId/versoes', requireAuth, async (req, res, next
 
     const result = await listarVersoesAcervoCopia({
       musicaId,
+      userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Substitui a cópia pessoal por uma versão escolhida do mesmo acervo.
+ * POST /api/acervo/copias/restaurar-versao
+ */
+acervoRouter.post('/copias/restaurar-versao', requireAuth, async (req, res, next) => {
+  try {
+    const { musicaId, acervoVersaoId } = req.body ?? {}
+    if (!musicaId || !acervoVersaoId) {
+      return res.status(400).json({ error: 'musicaId e acervoVersaoId são obrigatórios.' })
+    }
+
+    const result = await restaurarCopiaPessoalDaVersao({
+      musicaId,
+      acervoVersaoId,
       userId: req.user.id,
     })
 

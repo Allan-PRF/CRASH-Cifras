@@ -632,7 +632,7 @@ function formatAutorVersao(versao, profilesById) {
 async function carregarCopiaDoUsuario(musicaId, userId) {
   const { data: musica, error } = await admin()
     .from('musicas')
-    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id')
+    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id, import_status')
     .eq('id', musicaId)
     .maybeSingle()
 
@@ -848,48 +848,22 @@ function introFromCifraMotor(cifra) {
 }
 
 /**
- * Substitui a cópia pessoal pela primeira versão origem=motor do acervo (read-only no acervo).
- * @param {{ musicaId: string, userId: string }}
+ * Substitui seções e metadados da cópia pessoal a partir de uma versão do acervo (SELECT no acervo).
+ * @param {{ musicaId: string, musica: object, versao: object, acervoMusicaId: string }}
  */
-export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
+async function aplicarVersaoAcervoNaCopiaPessoal({ musicaId, musica, versao, acervoMusicaId }) {
   const db = admin()
 
-  const { data: musica, error: mErr } = await db
-    .from('musicas')
-    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id, import_status')
-    .eq('id', musicaId)
-    .maybeSingle()
-
-  if (mErr) throw mErr
-  if (!musica) {
-    const err = new Error('Música não encontrada.')
-    err.status = 404
-    throw err
-  }
-  if (musica.user_id !== userId) {
-    const err = new Error('Sem permissão para restaurar esta música.')
-    err.status = 403
-    throw err
-  }
-
-  const acervoMusicaId = await resolverAcervoMusicaIdDaCopia(musica)
-  if (!acervoMusicaId) {
-    const err = new Error('Esta música não está vinculada ao acervo.')
-    err.status = 400
-    throw err
-  }
-
-  const versaoMotor = await buscarVersaoMotorOriginal(acervoMusicaId)
-  if (!versaoMotor?.cifra) {
-    const err = new Error('Cifra do motor não encontrada para esta música.')
+  if (!versao?.cifra) {
+    const err = new Error('Versão do acervo sem cifra.')
     err.status = 404
     throw err
   }
 
-  const cifra = versaoMotor.cifra
+  const cifra = versao.cifra
   const secoes = unpackCifraToSecoes(cifra).filter((sec) => sec.slug !== 'intro')
-  const tom = versaoMotor.tom_original || cifra.tom_original || null
-  const bpmVal = normalizeBpmForDb(versaoMotor.bpm, cifra.bpm)
+  const tom = versao.tom_original || cifra.tom_original || null
+  const bpmVal = normalizeBpmForDb(versao.bpm, cifra.bpm)
   const intro = introFromCifraMotor(cifra)
 
   const { error: delErr } = await db.from('secoes_musica').delete().eq('musica_id', musicaId)
@@ -913,7 +887,7 @@ export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
     tom_original: tom,
     bpm: bpmVal,
     intro,
-    acervo_versao_id: versaoMotor.id,
+    acervo_versao_id: versao.id,
     import_status: musica.import_status === 'pending' ? 'ready' : musica.import_status,
   }
 
@@ -932,10 +906,83 @@ export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
     tom_original: tom,
     bpm: bpmVal,
     intro,
-    acervo_versao_id: versaoMotor.id,
+    acervo_versao_id: versao.id,
     acervo_musica_id: acervoMusicaId,
-    versao_motor_id: versaoMotor.id,
     secoes: secoesSalvas ?? [],
+  }
+}
+
+/**
+ * Substitui a cópia pessoal por uma versão escolhida do mesmo acervo (read-only no acervo).
+ * @param {{ musicaId: string, acervoVersaoId: string, userId: string }}
+ */
+export async function restaurarCopiaPessoalDaVersao({ musicaId, acervoVersaoId, userId }) {
+  const musica = await carregarCopiaDoUsuario(musicaId, userId)
+
+  const acervoMusicaId = await resolverAcervoMusicaIdDaCopia(musica)
+  if (!acervoMusicaId) {
+    const err = new Error('Esta música não está vinculada ao acervo.')
+    err.status = 400
+    throw err
+  }
+
+  const { data: versao, error: vErr } = await admin()
+    .from('acervo_versoes')
+    .select('*')
+    .eq('id', acervoVersaoId)
+    .maybeSingle()
+
+  if (vErr) throw vErr
+  if (!versao) {
+    const err = new Error('Versão do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+  if (versao.acervo_musica_id !== acervoMusicaId) {
+    const err = new Error('Esta versão não pertence ao acervo desta música.')
+    err.status = 400
+    throw err
+  }
+
+  return aplicarVersaoAcervoNaCopiaPessoal({
+    musicaId,
+    musica,
+    versao,
+    acervoMusicaId,
+  })
+}
+
+/**
+ * Substitui a cópia pessoal pela primeira versão origem=motor do acervo (read-only no acervo).
+ * @param {{ musicaId: string, userId: string }}
+ */
+export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
+  const musica = await carregarCopiaDoUsuario(musicaId, userId)
+
+  const acervoMusicaId = await resolverAcervoMusicaIdDaCopia(musica)
+  if (!acervoMusicaId) {
+    const err = new Error('Esta música não está vinculada ao acervo.')
+    err.status = 400
+    throw err
+  }
+
+  const versaoMotor = await buscarVersaoMotorOriginal(acervoMusicaId)
+  if (!versaoMotor?.cifra) {
+    const err = new Error('Cifra do motor não encontrada para esta música.')
+    err.status = 404
+    throw err
+  }
+
+  const result = await aplicarVersaoAcervoNaCopiaPessoal({
+    musicaId,
+    musica,
+    versao: versaoMotor,
+    acervoMusicaId,
+  })
+
+  return {
+    ...result,
+    versao_motor_id: versaoMotor.id,
   }
 }
 

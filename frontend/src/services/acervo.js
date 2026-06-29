@@ -58,3 +58,18 @@ export async function buscarVersaoAcervo(acervoVersaoId) {
   const { data } = await api.get(`/acervo/copias/versao/${acervoVersaoId}`, { headers })
   return data
 }
+
+/**
+ * Substitui a cópia pessoal por uma versão escolhida do acervo (vitrine — Etapa B).
+ * @param {string} musicaId
+ * @param {string} acervoVersaoId
+ */
+export async function restaurarVersaoAcervo(musicaId, acervoVersaoId) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/copias/restaurar-versao',
+    { musicaId, acervoVersaoId },
+    { headers },
+  )
+  return data
+}
