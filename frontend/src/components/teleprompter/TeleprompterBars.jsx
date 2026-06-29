@@ -69,10 +69,13 @@ export function BarraSuperiorTeleprompter({
             {orientacaoIcon} {orientacaoLabel}
             <InfoTooltip
               text={
-                orientacaoLabel?.toLowerCase().includes('horizontal') ||
-                orientacaoIcon?.includes('📺')
-                  ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
-                  : FUNCIONALIDADE_TOOLTIPS.modoVertical
+                orientacaoLabel?.toLowerCase().includes('fixo') ||
+                orientacaoIcon?.includes('▣')
+                  ? FUNCIONALIDADE_TOOLTIPS.modoFixo
+                  : orientacaoLabel?.toLowerCase().includes('landscape') ||
+                      orientacaoIcon?.includes('↔')
+                    ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
+                    : FUNCIONALIDADE_TOOLTIPS.modoVertical
               }
               label="Sobre a orientação"
             />

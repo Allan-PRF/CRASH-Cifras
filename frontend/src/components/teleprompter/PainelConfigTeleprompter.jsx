@@ -81,9 +81,14 @@ export function PainelConfigTeleprompter({
               </span>
               <InfoTooltip
                 text={
-                  orientacaoLabel?.toLowerCase().includes('horizontal')
-                    ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
-                    : FUNCIONALIDADE_TOOLTIPS.modoVertical
+                  orientacaoLabel?.toLowerCase().includes('fixo') ||
+                  orientacaoIcon?.includes('▣')
+                    ? FUNCIONALIDADE_TOOLTIPS.modoFixo
+                    : orientacaoLabel?.toLowerCase().includes('deitado') ||
+                        orientacaoLabel?.toLowerCase().includes('landscape') ||
+                        orientacaoIcon?.includes('↔')
+                      ? FUNCIONALIDADE_TOOLTIPS.modoHorizontal
+                      : FUNCIONALIDADE_TOOLTIPS.modoVertical
                 }
                 label="Sobre a orientação do teleprompter"
               />
@@ -208,7 +213,7 @@ export function PainelConfigTeleprompter({
 
       <p className="mt-8 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-[var(--crash-texto-sec)]">
         Atalhos: Espaço pausa/retoma · ←/→ muda seção · ↑/↓ fonte · G graus ·
-        T painel · M modo Evento/Ensaio.
+        T painel · M modo Evento/Ensaio · O alterna layout (↔ ↕ ▣).
       </p>
     </aside>
   )

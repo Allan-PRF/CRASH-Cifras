@@ -23,6 +23,8 @@ export const FUNCIONALIDADE_TOOLTIPS = {
     'Letra sobe de baixo pra cima. Ideal para quem toca em pé.',
   modoHorizontal:
     'Letra desliza da direita pra esquerda. Ideal para teclado.',
+  modoFixo:
+    'Uma seção por tela, sem rolagem. Passe com ◄ ► ou swipe. Ideal para foco total.',
   tracinho:
     'Nota de 4 tempos. O símbolo À FRENTE da nota dita a duração.',
   barraRitmo: 'Nota de 2 tempos.',

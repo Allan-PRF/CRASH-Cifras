@@ -55,6 +55,7 @@ import {
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
 import { TransporTomControle } from '../components/cifra/TransporTomControle'
+import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
 import { tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
@@ -84,7 +85,14 @@ const TELEPROMPTER_ORIENT_KEY = 'crash-teleprompter-orientacao'
 const ORIENTACOES = {
   LANDSCAPE: 'landscape',
   PORTRAIT: 'portrait',
+  FIXO: 'fixo',
 }
+
+const ORIENTACOES_ORDEM = [
+  ORIENTACOES.LANDSCAPE,
+  ORIENTACOES.PORTRAIT,
+  ORIENTACOES.FIXO,
+]
 
 const LAYOUT_POR_ORIENTACAO = {
   landscape: {
@@ -119,12 +127,34 @@ const LAYOUT_POR_ORIENTACAO = {
     contentPadY: 'py-[22svh]',
     descricao: 'Fonte menor · mais linhas visíveis',
   },
+  fixo: {
+    label: 'Fixo',
+    shortLabel: 'Fixo',
+    icon: '▣',
+    fontSteps: [
+      { label: 'M', value: 32 },
+      { label: 'G', value: 38 },
+      { label: 'GG', value: 44 },
+      { label: 'XG', value: 50 },
+    ],
+    defaultFontIndex: 1,
+    sectionGap: 'space-y-10',
+    lineGap: 'space-y-3',
+    contentPadY: '',
+    descricao: 'Uma seção por tela · sem rolagem · ◄ ► para avançar',
+  },
 }
 
 function loadOrientacaoTeleprompter() {
   try {
     const saved = localStorage.getItem(TELEPROMPTER_ORIENT_KEY)
-    if (saved === ORIENTACOES.LANDSCAPE || saved === ORIENTACOES.PORTRAIT) return saved
+    if (
+      saved === ORIENTACOES.LANDSCAPE ||
+      saved === ORIENTACOES.PORTRAIT ||
+      saved === ORIENTACOES.FIXO
+    ) {
+      return saved
+    }
   } catch {
     // ignore
   }
@@ -221,6 +251,7 @@ export function Teleprompter() {
   const equipeSyncTimerRef = useRef(null)
 
   const isLandscape = orientacao === ORIENTACOES.LANDSCAPE
+  const isFixo = orientacao === ORIENTACOES.FIXO
 
   useEffect(() => {
     orientacaoRef.current = orientacao
@@ -626,6 +657,8 @@ export function Teleprompter() {
     const next = Math.max(0, Math.min(index, secoes.length - 1))
     setActiveSection(next)
 
+    if (orientacaoRef.current === ORIENTACOES.FIXO) return
+
     if (orientacaoRef.current === ORIENTACOES.LANDSCAPE) {
       const blockIdx = landscapeBlocksRef.current.findIndex((b) => b.secIdx === next)
       if (blockIdx >= 0) {
@@ -676,6 +709,7 @@ export function Teleprompter() {
 
     requestAnimationFrame(() => {
       scrollAccumRef.current = 0
+      if (orientacaoRef.current === ORIENTACOES.FIXO) return
       if (orientacaoRef.current === ORIENTACOES.LANDSCAPE) {
         setLandscapeScroll(0, { instant: true })
       } else {
@@ -696,6 +730,11 @@ export function Teleprompter() {
 
   function togglePause() {
     const next = !pausedRef.current
+    if (orientacaoRef.current === ORIENTACOES.FIXO) {
+      pausedRef.current = next
+      setPaused(next)
+      return
+    }
     if (next) {
       syncScrollAccumFromDom()
     } else {
@@ -721,16 +760,15 @@ export function Teleprompter() {
 
   function toggleOrientacao() {
     setOrientacao((atual) => {
-      const next =
-        atual === ORIENTACOES.LANDSCAPE
-          ? ORIENTACOES.PORTRAIT
-          : ORIENTACOES.LANDSCAPE
+      const idx = ORIENTACOES_ORDEM.indexOf(atual)
+      const next = ORIENTACOES_ORDEM[(idx + 1) % ORIENTACOES_ORDEM.length]
       saveOrientacaoTeleprompter(next)
       const nextLayout = LAYOUT_POR_ORIENTACAO[next]
       setFontIndex(nextLayout.defaultFontIndex)
       orientacaoRef.current = next
       scrollAccumRef.current = 0
       requestAnimationFrame(() => {
+        if (next === ORIENTACOES.FIXO) return
         if (next === ORIENTACOES.LANDSCAPE) {
           setLandscapeScroll(0, { instant: true })
         } else {
@@ -839,7 +877,11 @@ export function Teleprompter() {
 
   useEffect(() => {
     function tick(timestamp) {
-      if (!pausedRef.current && modoEventoRef.current) {
+      if (
+        !pausedRef.current &&
+        modoEventoRef.current &&
+        orientacaoRef.current !== ORIENTACOES.FIXO
+      ) {
         if (lastTimeRef.current === null) {
           lastTimeRef.current = timestamp
         }
@@ -890,7 +932,7 @@ export function Teleprompter() {
   }, [])
 
   useEffect(() => {
-    if (!showMetronome || !modoEvento || paused || !bpm) {
+    if (!showMetronome || !modoEvento || paused || !bpm || isFixo) {
       if (metronomeDotRef.current) metronomeDotRef.current.style.opacity = '0.3'
       return
     }
@@ -911,7 +953,7 @@ export function Teleprompter() {
       window.clearInterval(metronomeTimerRef.current)
       metronomeTimerRef.current = null
     }
-  }, [showMetronome, modoEvento, paused, bpm])
+  }, [showMetronome, modoEvento, paused, bpm, isFixo])
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -1009,7 +1051,50 @@ export function Teleprompter() {
         </div>
       )}
 
-      {isLandscape ? (
+      {isFixo ? (
+        <main
+          className="flex h-[100svh] flex-col justify-center overflow-hidden px-2 pt-20 sm:px-6"
+          style={{ paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16 }}
+        >
+          <div className="mx-auto w-full max-w-5xl">
+            {secoes.length === 0 ? (
+              <p className="text-center text-xl text-[var(--crash-texto-sec)]">
+                Esta música ainda não tem seções.
+              </p>
+            ) : (
+              <CifraSecaoCarousel
+                secoes={secoes}
+                activeIndex={activeSection}
+                onActiveIndexChange={setActiveSection}
+                variant="teleprompter"
+                disableKeyboard
+                renderSlide={(sec, index) => {
+                  const sk = sectionKeyFor(sec, index)
+                  return (
+                    <div>
+                      <div className="mb-4 flex items-center justify-center gap-3 sm:mb-6">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--crash-cifra)]" />
+                        <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--crash-cifra)] sm:text-base">
+                          {sec.nome}
+                        </h2>
+                      </div>
+                      <BlocoSecao
+                        linhas={linhasPorSecao[index]}
+                        tomOriginal={tomGraus}
+                        mostrarAcordes={showChords}
+                        mostrarGrau={showGrades}
+                        fonteLetra={fonteLetra}
+                        sectionKey={sk}
+                        lineGapClassName={layout.lineGap}
+                      />
+                    </div>
+                  )
+                }}
+              />
+            )}
+          </div>
+        </main>
+      ) : isLandscape ? (
         <TeleprompterLandscapeMarquee
           blocks={landscapeBlocks}
           showChords={showChords}
@@ -1124,7 +1209,7 @@ export function Teleprompter() {
       </main>
       )}
 
-      {paused && (
+      {paused && !isFixo && (
         <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center bg-black/30">
           <span className="rounded-full border border-white/20 bg-black/70 px-8 py-5 text-5xl text-[var(--crash-cifra)]">
             ⏸
@@ -1156,7 +1241,7 @@ export function Teleprompter() {
         </button>
       </div>
 
-      {modoEvento && !paused && (
+      {modoEvento && !paused && !isFixo && (
         <div className="pointer-events-none fixed left-4 top-28 z-20 hidden items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-1.5 text-xs text-[var(--crash-cifra)] sm:flex">
           <span
             ref={metronomeDotRef}
@@ -1183,7 +1268,7 @@ export function Teleprompter() {
       <BarraInferiorTeleprompter
         pausado={paused}
         bpm={bpm}
-        bpmModoIcon={isLandscape ? '↔' : '↕'}
+        bpmModoIcon={isLandscape ? '↔' : isFixo ? '▣' : '↕'}
         modoEvento={modoEvento}
         fontLabel={fontLabel}
         footerClassName={isLandscape ? '!z-[60]' : ''}
