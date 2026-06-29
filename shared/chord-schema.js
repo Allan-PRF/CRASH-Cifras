@@ -13,6 +13,19 @@ export const EMPTY_LINHAS = { lines: [] }
 const CHORD_RE =
   /[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:\/[A-G](?:#|b)?)?/g
 
+const CHORD_SYMBOL_RE =
+  /^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:\/[A-G](?:#|b)?)?$/
+
+/**
+ * Valida símbolo de acorde (âncora completa — uma nota/acorde por string).
+ * @param {string} symbol
+ */
+export function isValidChordSymbol(symbol) {
+  const s = String(symbol ?? '').trim()
+  if (!s) return false
+  return CHORD_SYMBOL_RE.test(s)
+}
+
 /**
  * Extrai acordes com posição (coluna) na linha de cifras.
  * @param {string} chordLine

@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { LinhaPosicionada } from '../cifra/LinhaPosicionada.jsx'
+import { LinhaAcordesEditor } from './LinhaAcordesEditor.jsx'
 import { measureMonoCharWidth } from '../../lib/monoCharWidth'
+import { removeChordAt, updateChordSymbol } from '../../lib/cifraEdit'
 import { tema } from '../../lib/tema'
 import { inputOrangeClassName } from '../ui/inputClasses'
 
@@ -14,10 +16,12 @@ export function CifraLinhaEditor({
   onRemove,
   onInsertLineAfter,
   onEditStart,
+  onChordsChange,
   canRemove = true,
   variant = 'card',
 }) {
   const isFolha = variant === 'folha'
+  const editableChords = isFolha && Boolean(onChordsChange)
   const { lyricLine, chords } = useMemo(() => normalizeChordLine(line), [line])
 
   const chordCharWidthPx = useMemo(
@@ -81,16 +85,35 @@ export function CifraLinhaEditor({
         </div>
       )}
 
-      {chords.length > 0 && (
-        <LinhaPosicionada
-          items={chordItems}
-          fonteLetra={FONTE_ACORDE}
-          charWidthPx={chordCharWidthPx}
-          color={tema.cores.cifra}
-          fontWeight={tema.teleprompter.cifra.fontWeight}
-          minCols={minCols}
-        />
-      )}
+      {chords.length > 0 &&
+        (editableChords ? (
+          <LinhaAcordesEditor
+            chords={chords}
+            fonteLetra={FONTE_ACORDE}
+            charWidthPx={chordCharWidthPx}
+            color={tema.cores.cifra}
+            fontWeight={tema.teleprompter.cifra.fontWeight}
+            minCols={minCols}
+            onEditStart={onEditStart}
+            onChordUpdate={(chordIndex, newSymbol) => {
+              onChordsChange?.(
+                updateChordSymbol(chords, chordIndex, newSymbol),
+              )
+            }}
+            onChordRemove={(chordIndex) => {
+              onChordsChange?.(removeChordAt(chords, chordIndex))
+            }}
+          />
+        ) : (
+          <LinhaPosicionada
+            items={chordItems}
+            fonteLetra={FONTE_ACORDE}
+            charWidthPx={chordCharWidthPx}
+            color={tema.cores.cifra}
+            fontWeight={tema.teleprompter.cifra.fontWeight}
+            minCols={minCols}
+          />
+        ))}
 
       <textarea
         value={lyricLine}

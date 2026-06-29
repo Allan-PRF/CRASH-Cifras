@@ -73,3 +73,25 @@ export function serializeChordLine(lyricLine, chords) {
 export function emptyChordLine() {
   return serializeChordLine('', [])
 }
+
+/**
+ * Troca símbolo do acorde; `pos` inalterado.
+ * @param {{ pos: number, chord: string }[]} chords
+ * @param {number} index
+ * @param {string} newSymbol
+ */
+export function updateChordSymbol(chords, index, newSymbol) {
+  const symbol = String(newSymbol ?? '').trim()
+  return (chords || []).map((c, i) =>
+    i === index ? { pos: c.pos, chord: symbol } : { ...c },
+  )
+}
+
+/**
+ * Remove acorde; `pos` dos demais inalterado.
+ * @param {{ pos: number, chord: string }[]} chords
+ * @param {number} index
+ */
+export function removeChordAt(chords, index) {
+  return (chords || []).filter((_, i) => i !== index)
+}

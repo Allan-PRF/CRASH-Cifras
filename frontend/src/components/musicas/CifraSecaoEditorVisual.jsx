@@ -47,6 +47,12 @@ export function CifraSecaoEditorVisual({
     emitLines([...lines, emptyChordLine()])
   }
 
+  function handleChordsChange(index, newChords) {
+    const current = lines[index]
+    const lyric = String(current?.lyricLine ?? '')
+    updateLine(index, serializeChordLine(lyric, newChords))
+  }
+
   return (
     <div className={isFolha ? 'max-w-full space-y-0.5 overflow-x-auto' : 'space-y-2'}>
       {lines.length === 0 ? (
@@ -63,6 +69,9 @@ export function CifraSecaoEditorVisual({
             onRemove={() => handleRemoveLine(index)}
             onInsertLineAfter={() => handleInsertLineAfter(index)}
             onEditStart={onEditStart}
+            onChordsChange={
+              isFolha ? (newChords) => handleChordsChange(index, newChords) : undefined
+            }
             canRemove
           />
         ))
