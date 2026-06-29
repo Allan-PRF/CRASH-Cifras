@@ -10,7 +10,7 @@ export function musicaBreadcrumbItems(musica, { suffix } = {}) {
   if (musica?.titulo) {
     items.push({
       label: musica.titulo,
-      to: suffix ? `/musica/${musica.id}` : undefined,
+      to: suffix ? `/teleprompter/musica/${musica.id}` : undefined,
     })
   }
   if (suffix) {

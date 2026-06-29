@@ -172,7 +172,7 @@ export function Home() {
                         className="flex items-center gap-2 rounded-md border border-white/5 px-2.5 py-2 transition hover:border-[var(--crash-cifra)]"
                       >
                         <Link
-                          to={`/musica/${musica.id}`}
+                          to={`/teleprompter/musica/${musica.id}`}
                           className="min-w-0 flex-1 text-sm"
                         >
                           <span className="font-medium text-white">{musica.titulo}</span>

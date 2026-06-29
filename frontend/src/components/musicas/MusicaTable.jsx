@@ -11,7 +11,7 @@ const COLS = [
   { key: 'artista', label: 'Artista', sortable: true, className: 'min-w-[100px]' },
   { key: 'tom_original', label: 'Tom', sortable: true, className: 'w-16 text-center' },
   { key: 'bpm', label: 'BPM', sortable: true, className: 'w-16 text-center' },
-  { key: 'acoes', label: 'Ações', sortable: false, className: 'min-w-[420px] whitespace-nowrap' },
+  { key: 'acoes', label: 'Ações', sortable: false, className: 'min-w-[280px] whitespace-nowrap' },
 ]
 
 function compare(a, b, key, dir) {
@@ -126,7 +126,7 @@ export function MusicaTable({
                 <td className="px-3 py-2">
                   <span className="inline-flex items-center gap-1.5">
                     <Link
-                      to={`/musica/${m.id}`}
+                      to={`/teleprompter/musica/${m.id}`}
                       className="font-medium text-white hover:text-[var(--crash-cifra)]"
                     >
                       {m.titulo}
@@ -149,13 +149,7 @@ export function MusicaTable({
                       to={`/teleprompter/musica/${m.id}`}
                       className="shrink-0 rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-green-500"
                     >
-                      ▶ Evento
-                    </Link>
-                    <Link
-                      to={`/musica/${m.id}`}
-                      className="shrink-0 rounded-md border border-[var(--crash-cifra)] bg-[var(--crash-cifra)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--crash-cifra)] transition hover:bg-[var(--crash-cifra)]/25"
-                    >
-                      Abrir →
+                      ▶ Tocar
                     </Link>
                     <Link
                       to={`/musica/${m.id}/editar`}

@@ -4,7 +4,7 @@
  */
 export const FUNCIONALIDADE_TOOLTIPS = {
   teleprompter:
-    'A letra rola automaticamente no BPM. Toque na tela para pausar.',
+    'Toque no culto: uma seção por vez (fixo), rolagem vertical/horizontal ou rolagem automática no BPM.',
   barraBlocos:
     'Mostra em qual parte da música você está. Toque para pular para qualquer seção.',
   cifras:

@@ -280,7 +280,7 @@ export function MusicaEditar() {
       }
 
       setUndoStack([])
-      navigate(`/musica/${id}`)
+      navigate(`/teleprompter/musica/${id}`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -311,7 +311,7 @@ export function MusicaEditar() {
           className="text-sm [&_a]:text-white/90 [&_a:hover]:text-[var(--crash-cifra)] [&>span:last-child]:font-medium [&>span:last-child]:text-[var(--crash-cifra)]"
         />
         <PageBackButton
-          to={`/musica/${id}`}
+          to={meta?.ministro_id ? `/ministro/${meta.ministro_id}` : '/'}
           className="border-[var(--crash-cifra)]/40 text-white hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
         />
       </div>

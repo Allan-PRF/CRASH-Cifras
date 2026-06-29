@@ -30,7 +30,7 @@ export function BarraSuperiorTeleprompter({
           type="button"
           onClick={onBack}
           className="shrink-0 rounded-md px-2 py-1 text-xl leading-none text-[var(--crash-texto-sec)] hover:bg-white/10 hover:text-white"
-          aria-label="Voltar para a música"
+          aria-label="Voltar"
         >
           ←
         </button>
@@ -197,9 +197,11 @@ export function BarraInferiorTeleprompter({
           <span
             className={modoEvento ? 'text-[var(--crash-cifra)]' : 'text-[var(--crash-texto-sec)]'}
             title={
-              bpmModoIcon === '↔'
-                ? 'BPM landscape (só neste aparelho)'
-                : 'BPM oficial da música (banco)'
+              bpmModoIcon === '▣'
+                ? 'Modo fixo — BPM não rola a folha'
+                : bpmModoIcon === '↔'
+                  ? 'BPM landscape (só neste aparelho)'
+                  : 'BPM oficial da música (banco)'
             }
           >
             BPM: {bpm || '—'} {bpmModoIcon}

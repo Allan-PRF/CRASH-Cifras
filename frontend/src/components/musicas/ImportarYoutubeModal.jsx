@@ -512,14 +512,14 @@ export function ImportarYoutubeModal({
           <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
             <p className="text-sm font-semibold text-[var(--crash-cifra)]">
               {cifraPronta
-                ? 'Cifra pronta! Abra a música ou revise na edição.'
+                ? 'Cifra pronta! Toque ou revise na edição.'
                 : 'Vídeo salvo! Agora cadastre a cifra.'}
             </p>
             <div className="flex flex-wrap gap-2">
               {cifraPronta ? (
                 <>
-                  <Link to={`/musica/${job.musica_id}`} className={btnPrimaryClassName}>
-                    Abrir música
+                  <Link to={`/teleprompter/musica/${job.musica_id}`} className={btnPrimaryClassName}>
+                    Tocar
                   </Link>
                   <Link to={`/musica/${job.musica_id}/editar`} className={btnSecondaryClassName}>
                     Revisar cifra

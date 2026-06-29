@@ -64,8 +64,8 @@ export function PainelConfigTeleprompter({
 
       <div className="mt-6 space-y-5">
         <ConfigRow
-          title="Modo Evento"
-          description="Rolagem suave sincronizada ao BPM (1 linha por compasso)."
+          title="Rolagem automática"
+          description="Letra sobe ou desliza no BPM (4 compassos por linha). Desligado = folha parada ou modo fixo."
           active={modoEvento}
           onClick={onToggleModo}
         />
@@ -213,7 +213,7 @@ export function PainelConfigTeleprompter({
 
       <p className="mt-8 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-[var(--crash-texto-sec)]">
         Atalhos: Espaço pausa/retoma · ←/→ muda seção · ↑/↓ fonte · G graus ·
-        T painel · M modo Evento/Ensaio · O alterna layout (↔ ↕ ▣).
+        T painel · M rolagem automática · O alterna layout (↔ ↕ ▣).
       </p>
     </aside>
   )

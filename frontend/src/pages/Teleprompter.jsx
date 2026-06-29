@@ -158,7 +158,7 @@ function loadOrientacaoTeleprompter() {
   } catch {
     // ignore
   }
-  return ORIENTACOES.LANDSCAPE
+  return ORIENTACOES.FIXO
 }
 
 function saveOrientacaoTeleprompter(orientacao) {
@@ -1037,7 +1037,17 @@ export function Teleprompter() {
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
-        onBack={() => navigate(`/musica/${musica.id}`)}
+        onBack={() => {
+          if (playlistId) {
+            navigate(`/playlist/${playlistId}`)
+            return
+          }
+          if (musica.ministro_id) {
+            navigate(`/ministro/${musica.ministro_id}`)
+            return
+          }
+          navigate('/')
+        }}
       />
 
       {(equipeSessao.isLider || equipeSeguindo) && (

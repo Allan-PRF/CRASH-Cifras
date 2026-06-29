@@ -23,7 +23,7 @@ export function MusicaCard({ musica, onExcluir }) {
           Excluir
         </button>
       )}
-      <Link to={`/musica/${musica.id}`} className="block">
+      <Link to={`/teleprompter/musica/${musica.id}`} className="block">
         <p className="font-medium text-white">{musica.titulo}</p>
         {musica.artista && (
           <p className="text-sm text-[var(--crash-texto-sec)]">{musica.artista}</p>

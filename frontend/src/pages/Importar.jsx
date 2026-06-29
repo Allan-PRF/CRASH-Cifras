@@ -408,8 +408,8 @@ export function Importar() {
             <Link to={`/musica/${job.musica_id}/editar`} className={btnPrimaryClassName}>
               Cadastrar cifra
             </Link>
-            <Link to={`/musica/${job.musica_id}`} className={btnSecondaryClassName}>
-              Ver música
+            <Link to={`/teleprompter/musica/${job.musica_id}`} className={btnSecondaryClassName}>
+              Tocar
             </Link>
           </div>
         </article>
