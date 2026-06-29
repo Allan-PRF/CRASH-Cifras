@@ -75,7 +75,11 @@ export function MusicaEditar() {
   const [offsetVisual, setOffsetVisual] = useState(0)
   const [undoStack, setUndoStack] = useState([])
   const introRef = useRef(intro)
+  const secoesRef = useRef(secoes)
+  const undoStackRef = useRef(undoStack)
   introRef.current = intro
+  secoesRef.current = secoes
+  undoStackRef.current = undoStack
 
   const pushUndoSnapshot = useCallback((snapshot) => {
     setUndoStack((prev) => [...prev.slice(-(UNDO_STACK_LIMIT - 1)), snapshot])
@@ -83,24 +87,24 @@ export function MusicaEditar() {
 
   const setSecoesWithHistory = useCallback(
     (updater) => {
-      setSecoes((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater
-        pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current))
-        return next
-      })
+      const prev = secoesRef.current
+      pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current))
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      setSecoes(next)
     },
     [pushUndoSnapshot],
   )
 
   const handleUndo = useCallback(() => {
-    setUndoStack((stack) => {
-      if (!stack.length) return stack
-      const snapshot = stack[stack.length - 1]
-      setSecoes(snapshot.secoes)
-      setIntro(snapshot.intro)
-      return stack.slice(0, -1)
-    })
+    const stack = undoStackRef.current
+    if (!stack.length) return
+    const snapshot = stack[stack.length - 1]
+    setUndoStack(stack.slice(0, -1))
+    setSecoes(structuredClone(snapshot.secoes))
+    setIntro(structuredClone(snapshot.intro))
   }, [])
+
+  const canUndo = undoStack.length > 0
 
   const load = useCallback(() => {
     setLoading(true)
@@ -135,15 +139,15 @@ export function MusicaEditar() {
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (!(e.ctrlKey || e.metaKey) || e.key !== 'z' || e.shiftKey) return
-      if (!undoStack.length) return
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
+      if (!undoStackRef.current.length) return
       e.preventDefault()
       handleUndo()
     }
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [handleUndo, undoStack.length])
+  }, [handleUndo])
 
   function addSecao() {
     setSecoesWithHistory((prev) => {
@@ -283,6 +287,26 @@ export function MusicaEditar() {
         className={`${inputClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]`}
       />
 
+      <div
+        className="sticky top-2 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-[var(--crash-borda)]/80 bg-[var(--crash-fundo-card)]/95 px-3 py-2 backdrop-blur-sm"
+        role="toolbar"
+        aria-label="Ações da edição"
+      >
+        <button
+          type="button"
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className={btnSecondaryClassName}
+          aria-keyshortcuts="Control+Z Meta+Z"
+          title={canUndo ? 'Desfazer última alteração (Ctrl+Z)' : 'Nada para desfazer'}
+        >
+          Desfazer{canUndo ? ` (${undoStack.length})` : ''}
+        </button>
+        <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
+          + Seção
+        </button>
+      </div>
+
       <CifraEditorFolhaMaquete
         intro={intro}
         secoes={secoes}
@@ -297,21 +321,6 @@ export function MusicaEditar() {
           })
         }}
       />
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleUndo}
-          disabled={undoStack.length === 0}
-          className={btnSecondaryClassName}
-          aria-keyshortcuts="Control+Z Meta+Z"
-        >
-          Desfazer
-        </button>
-        <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
-          + Seção
-        </button>
-      </div>
 
       <VersiculoMusicaPrefsEditor
         prefs={versiculoPrefs}
