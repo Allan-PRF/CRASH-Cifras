@@ -3,6 +3,7 @@ import { BlocoSecao } from '../cifra/LinhaCifra.jsx'
 import { getTomExibido, transposeLinhas } from '../../lib/transpose'
 import { CifraFolhaTransporPreview } from './CifraFolhaTransporPreview.jsx'
 import { CifraSecaoEditorVisual } from './CifraSecaoEditorVisual.jsx'
+import { IntroducaoEditor } from './IntroducaoEditor.jsx'
 
 function TituloSecaoFolha({ children }) {
   return (
@@ -54,49 +55,6 @@ function FolhaAvisoTransposeDesativado({ visivel }) {
         Transpose desativado — você está editando no tom original.
       </p>
     </div>
-  )
-}
-
-function LinhaIntro({ rotulo, conteudo }) {
-  const preenchido = Boolean(conteudo?.trim())
-
-  return (
-    <div className="min-w-0">
-      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--crash-texto-sec)]">
-        {rotulo}
-      </p>
-      <div
-        className={`font-mono text-base leading-snug ${
-          preenchido
-            ? 'whitespace-pre-wrap text-white'
-            : 'min-h-[1.75rem] border-b border-white/10'
-        }`}
-      >
-        {preenchido ? (
-          <p className="m-0 whitespace-pre-wrap">{conteudo}</p>
-        ) : (
-          <p className="m-0 text-transparent select-none" aria-hidden>
-            {'\u00A0'}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/** Introdução fixa no topo — sempre visível, com ou sem conteúdo salvo. */
-function CifraEditorIntroBloco({ intro }) {
-  const maoEsquerda = intro?.mao_esquerda ?? ''
-  const maoDireita = intro?.mao_direita ?? ''
-
-  return (
-    <section>
-      <TituloSecaoFolha>Introdução</TituloSecaoFolha>
-      <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
-        <LinhaIntro rotulo="Mão esquerda" conteudo={maoEsquerda} />
-        <LinhaIntro rotulo="Mão direita" conteudo={maoDireita} />
-      </div>
-    </section>
   )
 }
 
@@ -179,6 +137,8 @@ function CifraEditorSecaoBloco({
  */
 export function CifraEditorFolhaMaquete({
   intro,
+  introEditorRef,
+  onIntroChange,
   secoes,
   tomOriginal,
   offsetVisual = 0,
@@ -225,7 +185,12 @@ export function CifraEditorFolhaMaquete({
       </div>
 
       <div className="pb-2">
-        <CifraEditorIntroBloco intro={intro} />
+        <IntroducaoEditor
+          ref={introEditorRef}
+          intro={intro}
+          variant="folha"
+          onChange={onIntroChange}
+        />
 
         {listaSecoes.length === 0 ? (
           <p className="mt-8 text-sm text-[var(--crash-texto-sec)]">

@@ -5,9 +5,9 @@ import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import {
+  btnCifraOutlineClassName,
   btnPrimaryClassName,
-  btnSecondaryClassName,
-  inputClassName,
+  inputOrangeClassName,
 } from '../components/ui/inputClasses'
 import {
   prepararVersiculoPrefsParaSalvar,
@@ -74,6 +74,7 @@ export function MusicaEditar() {
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
   const [undoStack, setUndoStack] = useState([])
+  const introEditorRef = useRef(null)
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
   const undoStackRef = useRef(undoStack)
@@ -91,6 +92,14 @@ export function MusicaEditar() {
       pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current))
       const next = typeof updater === 'function' ? updater(prev) : updater
       setSecoes(next)
+    },
+    [pushUndoSnapshot],
+  )
+
+  const setIntroWithHistory = useCallback(
+    (nextIntro) => {
+      pushUndoSnapshot(cloneEditorSnapshot(secoesRef.current, introRef.current))
+      setIntro(nextIntro)
     },
     [pushUndoSnapshot],
   )
@@ -173,7 +182,8 @@ export function MusicaEditar() {
       const bpm =
         meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
 
-      const introToSave = normalizarIntroParaCopia(intro)
+      const introAtual = introEditorRef.current?.flush() ?? intro
+      const introToSave = normalizarIntroParaCopia(introAtual)
 
       const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
       if (
@@ -284,11 +294,11 @@ export function MusicaEditar() {
         onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
         aria-label="Título da música"
         placeholder="Título da música"
-        className={`${inputClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]`}
+        className={`${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]`}
       />
 
       <div
-        className="sticky top-2 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border border-[var(--crash-borda)]/80 bg-[var(--crash-fundo-card)]/95 px-3 py-2 backdrop-blur-sm"
+        className="sticky top-2 z-10 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[var(--crash-cifra)]/40 bg-black/90 px-3 py-2 shadow-lg shadow-black/50 backdrop-blur-sm"
         role="toolbar"
         aria-label="Ações da edição"
       >
@@ -296,19 +306,21 @@ export function MusicaEditar() {
           type="button"
           onClick={handleUndo}
           disabled={!canUndo}
-          className={btnSecondaryClassName}
+          className={btnCifraOutlineClassName}
           aria-keyshortcuts="Control+Z Meta+Z"
           title={canUndo ? 'Desfazer última alteração (Ctrl+Z)' : 'Nada para desfazer'}
         >
           Desfazer{canUndo ? ` (${undoStack.length})` : ''}
         </button>
-        <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
+        <button type="button" onClick={addSecao} className={btnPrimaryClassName}>
           + Seção
         </button>
       </div>
 
       <CifraEditorFolhaMaquete
         intro={intro}
+        introEditorRef={introEditorRef}
+        onIntroChange={setIntroWithHistory}
         secoes={secoes}
         tomOriginal={meta.tom_original}
         offsetVisual={offsetVisual}
