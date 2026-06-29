@@ -5,8 +5,8 @@ import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
+import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
-import { InfoModal } from '../components/ui/InfoModal'
 import {
   btnCifraConfirmClassName,
   btnCifraOutlineClassName,
@@ -168,6 +168,24 @@ export function MusicaEditar() {
 
   const temLinhaAcervo = Boolean(meta?.acervo_versao_id || meta?.youtube_url?.trim())
 
+  function aplicarResultadoAcervoNaEdicao(result) {
+    const todas = result.secoes || []
+    setIntroSecaoIds(
+      todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
+    )
+    setSecoes(secoesParaEditor(todas))
+    setIntro(result.intro || { mao_esquerda: '', mao_direita: '' })
+    setMeta((prev) => ({
+      ...prev,
+      tom_original: result.tom_original ?? prev.tom_original,
+      bpm: result.bpm ?? prev.bpm,
+      acervo_versao_id: result.acervo_versao_id ?? prev.acervo_versao_id,
+      import_status: prev.import_status === 'pending' ? 'ready' : prev.import_status,
+    }))
+    setUndoStack([])
+    setOffsetVisual(0)
+  }
+
   useEffect(() => {
     if (!toastMotor) return
     const timer = setTimeout(() => setToastMotor(''), 4000)
@@ -179,22 +197,7 @@ export function MusicaEditar() {
     setError('')
     try {
       const result = await restaurarCifraMotor(id)
-      const todas = result.secoes || []
-      setIntroSecaoIds(
-        todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
-      )
-      setSecoes(secoesParaEditor(todas))
-      setIntro(result.intro || { mao_esquerda: '', mao_direita: '' })
-      setMeta((prev) => ({
-        ...prev,
-        tom_original: result.tom_original ?? prev.tom_original,
-        bpm: result.bpm ?? prev.bpm,
-        acervo_versao_id: result.acervo_versao_id ?? prev.acervo_versao_id,
-        import_status:
-          prev.import_status === 'pending' ? 'ready' : prev.import_status,
-      }))
-      setUndoStack([])
-      setOffsetVisual(0)
+      aplicarResultadoAcervoNaEdicao(result)
       setToastMotor('Cifra do motor restaurada. Suas edições foram descartadas.')
     } catch (err) {
       setError(err.message || 'Não foi possível restaurar a cifra do motor.')
@@ -383,8 +386,13 @@ export function MusicaEditar() {
         <button
           type="button"
           onClick={() => setComunidadeOpen(true)}
+          disabled={!temLinhaAcervo}
           className={btnCifraOutlineClassName}
-          title="Versões da comunidade — em breve"
+          title={
+            temLinhaAcervo
+              ? 'Ver versões da comunidade e escolher qual usar'
+              : 'Música sem vínculo com o acervo'
+          }
         >
           Acervo Comunidade
         </button>
@@ -441,11 +449,14 @@ export function MusicaEditar() {
         onConfirm={handleRestaurarMotor}
       />
 
-      <InfoModal
+      <AcervoVitrineModal
         open={comunidadeOpen}
-        title="Em breve"
-        message="Em breve — escolha entre versões da comunidade (ranking e correções sugeridas por outros músicos)."
+        musicaId={id}
         onClose={() => setComunidadeOpen(false)}
+        onVersaoAplicada={(result) => {
+          aplicarResultadoAcervoNaEdicao(result)
+          setToastMotor('Versão aplicada.')
+        }}
       />
     </section>
   )
