@@ -28,18 +28,18 @@ export function MinistrosArquivadosPanel({
         className={`inline-flex items-center gap-1.5 text-sm text-[var(--crash-texto-sec)] transition hover:text-[var(--crash-cifra)] ${btnSecondaryClassName} !border-dashed !px-3 !py-1.5 !text-xs`}
         aria-expanded={open}
       >
-        <span aria-hidden="true">{open ? '👁' : '👁‍🗨'}</span>
-        Ministros arquivados ({loading ? '…' : count})
+        <span aria-hidden="true">😴</span>
+        Ministros em soneca ({loading ? '…' : count})
       </button>
 
       {open && (
         <div className="rounded-xl border border-dashed border-[var(--crash-borda)] bg-white/[0.02] p-3">
           {loading && (
-            <p className="text-xs text-[var(--crash-texto-sec)]">Carregando arquivados…</p>
+            <p className="text-xs text-[var(--crash-texto-sec)]">Carregando soneca…</p>
           )}
           {!loading && count === 0 && (
             <p className="text-xs text-[var(--crash-texto-sec)]">
-              Nenhum ministro arquivado.
+              Nenhum ministro em soneca.
             </p>
           )}
           {!loading && count > 0 && (
@@ -61,12 +61,17 @@ export function MinistrosArquivadosPanel({
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/ministro/${m.id}`}
-                      className="block truncate text-sm font-medium text-white/80 hover:text-[var(--crash-cifra)]"
-                    >
-                      {m.nome}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link
+                        to={`/ministro/${m.id}`}
+                        className="truncate text-sm font-medium text-white/80 hover:text-[var(--crash-cifra)]"
+                      >
+                        {m.nome}
+                      </Link>
+                      <span className="shrink-0 rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                        💤 Em soneca
+                      </span>
+                    </div>
                     <span className="text-xs text-[var(--crash-texto-sec)]">
                       {m.musicas_count ?? 0} música{(m.musicas_count ?? 0) === 1 ? '' : 's'}
                     </span>
@@ -77,7 +82,12 @@ export function MinistrosArquivadosPanel({
                     disabled={restaurandoId === m.id}
                     className="shrink-0 rounded px-2 py-1 text-xs font-medium text-[var(--crash-cifra)] transition hover:bg-[var(--crash-cifra)]/10 disabled:opacity-50"
                   >
-                    {restaurandoId === m.id ? 'Restaurando…' : 'Restaurar'}
+                    {restaurandoId === m.id ? 'Acordando…' : (
+                      <>
+                        <span aria-hidden="true">👁 </span>
+                        Acordar
+                      </>
+                    )}
                   </button>
                 </li>
               ))}

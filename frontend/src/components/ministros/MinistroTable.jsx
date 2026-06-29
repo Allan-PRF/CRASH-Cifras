@@ -142,9 +142,10 @@ export function MinistroTable({ ministros, onEdit, onCreate, onArchive }) {
                           type="button"
                           onClick={() => onArchive(m)}
                           className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
-                          title="Arquivar ministro"
+                          title="Colocar ministro em modo soneca"
                         >
-                          Arquivar
+                          <span aria-hidden="true">😴 </span>
+                          Modo soneca
                         </button>
                       )}
                     </div>

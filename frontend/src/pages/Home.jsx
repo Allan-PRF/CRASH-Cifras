@@ -330,12 +330,12 @@ export function Home() {
 
       <ConfirmDeleteModal
         open={!!confirmArquivar}
-        title="Arquivar ministro?"
+        title="Modo soneca?"
         message={
-          'O acervo deste ministro será preservado. Ele sairá da lista principal e poderá ser restaurado depois.'
+          'O ministro vai entrar em modo soneca (sai da lista, mas o acervo dele fica guardado). Você pode acordá-lo quando quiser.'
         }
-        confirmLabel="Arquivar"
-        confirmLoadingLabel="Arquivando…"
+        confirmLabel="😴 Colocar em soneca"
+        confirmLoadingLabel="Colocando em soneca…"
         confirmButtonClassName={btnPrimaryClassName}
         onConfirm={handleArquivarConfirm}
         onClose={() => setConfirmArquivar(null)}
