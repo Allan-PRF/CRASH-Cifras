@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
+import { AnotacaoEditorForm } from './AnotacaoEditorForm.jsx'
 
 export function AnotacaoModal({ open, initialValue, onClose, onSave }) {
   const [value, setValue] = useState('')
@@ -38,13 +39,16 @@ export function AnotacaoModal({ open, initialValue, onClose, onSave }) {
             ✕
           </button>
         </div>
-        <textarea
+
+        <AnotacaoEditorForm
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={setValue}
+          saving={saving}
+          variant="modal"
+          className="mt-4"
           rows={8}
-          className="mt-4 w-full rounded-lg border border-[var(--crash-borda)] bg-black px-3 py-2 text-sm text-white outline-none focus:border-[var(--crash-cifra)]"
-          placeholder="Ex.: usar pad suave no verso, subir oitava no refrão..."
         />
+
         <div className="mt-4 flex gap-3">
           <button type="button" onClick={onClose} className={`flex-1 ${btnSecondaryClassName}`}>
             Cancelar

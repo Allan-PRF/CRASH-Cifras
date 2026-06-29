@@ -4,6 +4,7 @@ import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-sch
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
+import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import { InfoModal } from '../components/ui/InfoModal'
 import {
@@ -408,6 +409,8 @@ export function MusicaEditar() {
           })
         }}
       />
+
+      <AnotacaoMusicaEditorBloco musicaId={id} />
 
       <VersiculoMusicaPrefsEditor
         prefs={versiculoPrefs}
