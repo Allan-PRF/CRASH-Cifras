@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { PageBackButton } from '../components/layout/PageBackButton'
@@ -51,6 +51,15 @@ function secoesParaEditor(secoes) {
   return (secoes || []).filter((sec) => !isSecaoIntroDuplicada(sec))
 }
 
+const UNDO_STACK_LIMIT = 40
+
+function cloneEditorSnapshot(secoes, intro) {
+  return {
+    secoes: structuredClone(secoes),
+    intro: structuredClone(intro),
+  }
+}
+
 export function MusicaEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -64,6 +73,35 @@ export function MusicaEditar() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
+  const [undoStack, setUndoStack] = useState([])
+  const introRef = useRef(intro)
+  introRef.current = intro
+
+  const pushUndoSnapshot = useCallback((snapshot) => {
+    setUndoStack((prev) => [...prev.slice(-(UNDO_STACK_LIMIT - 1)), snapshot])
+  }, [])
+
+  const setSecoesWithHistory = useCallback(
+    (updater) => {
+      setSecoes((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater
+        pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current))
+        return next
+      })
+    },
+    [pushUndoSnapshot],
+  )
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((stack) => {
+      if (!stack.length) return stack
+      const snapshot = stack[stack.length - 1]
+      setSecoes(snapshot.secoes)
+      setIntro(snapshot.intro)
+      return stack.slice(0, -1)
+    })
+  }, [])
+
   const load = useCallback(() => {
     setLoading(true)
     fetchMusicaCompleta(id)
@@ -76,6 +114,7 @@ export function MusicaEditar() {
           todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
         )
         setSecoes(secoesParaEditor(todas))
+        setUndoStack([])
         setOffsetVisual(0)
       })
       .catch((err) => setError(err.message))
@@ -94,18 +133,32 @@ export function MusicaEditar() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'z' || e.shiftKey) return
+      if (!undoStack.length) return
+      e.preventDefault()
+      handleUndo()
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [handleUndo, undoStack.length])
+
   function addSecao() {
-    const n = secoes.length + 1
-    setSecoes([
-      ...secoes,
-      {
-        id: null,
-        slug: 'verso',
-        nome: `Verso ${n}`,
-        ordem_original: secoes.length,
-        linhas: EMPTY_LINHAS,
-      },
-    ])
+    setSecoesWithHistory((prev) => {
+      const n = prev.length + 1
+      return [
+        ...prev,
+        {
+          id: null,
+          slug: 'verso',
+          nome: `Verso ${n}`,
+          ordem_original: prev.length,
+          linhas: EMPTY_LINHAS,
+        },
+      ]
+    })
   }
 
   async function handleSave() {
@@ -166,6 +219,7 @@ export function MusicaEditar() {
         }
       }
 
+      setUndoStack([])
       navigate(`/musica/${id}`)
     } catch (err) {
       setError(err.message)
@@ -236,13 +290,24 @@ export function MusicaEditar() {
         offsetVisual={offsetVisual}
         onOffsetVisualChange={setOffsetVisual}
         onSecaoLinhasChange={(index, linhas) => {
-          const next = [...secoes]
-          next[index] = { ...next[index], linhas }
-          setSecoes(next)
+          setSecoesWithHistory((prev) => {
+            const next = [...prev]
+            next[index] = { ...next[index], linhas }
+            return next
+          })
         }}
       />
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleUndo}
+          disabled={undoStack.length === 0}
+          className={btnSecondaryClassName}
+          aria-keyshortcuts="Control+Z Meta+Z"
+        >
+          Desfazer
+        </button>
         <button type="button" onClick={addSecao} className={btnSecondaryClassName}>
           + Seção
         </button>
