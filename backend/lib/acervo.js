@@ -614,6 +614,228 @@ async function resolverAcervoMusicaIdDaCopia(musica) {
   return null
 }
 
+function formatAutorVersao(versao, profilesById) {
+  if (versao.origem === 'motor') {
+    return { id: null, display_name: 'Motor CRASH' }
+  }
+  if (!versao.criado_por) {
+    return { id: null, display_name: 'Anônimo' }
+  }
+  const profile = profilesById[versao.criado_por]
+  const name = String(profile?.display_name || '').trim()
+  return {
+    id: versao.criado_por,
+    display_name: name || 'Anônimo',
+  }
+}
+
+async function carregarCopiaDoUsuario(musicaId, userId) {
+  const { data: musica, error } = await admin()
+    .from('musicas')
+    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id')
+    .eq('id', musicaId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!musica) {
+    const err = new Error('Música não encontrada.')
+    err.status = 404
+    throw err
+  }
+  if (musica.user_id !== userId) {
+    const err = new Error('Sem permissão para acessar esta música.')
+    err.status = 403
+    throw err
+  }
+  return musica
+}
+
+async function usuarioTemAcessoAcervoMusica(userId, acervoMusicaId) {
+  const { data: musicas, error } = await admin()
+    .from('musicas')
+    .select('id, user_id, titulo, artista, youtube_url, acervo_versao_id')
+    .eq('user_id', userId)
+
+  if (error) throw error
+
+  for (const musica of musicas || []) {
+    const id = await resolverAcervoMusicaIdDaCopia(musica)
+    if (id === acervoMusicaId) return true
+  }
+  return false
+}
+
+const VERSAO_LISTAGEM_COLS =
+  'id, acervo_musica_id, origem, tom_original, bpm, score, aceitacao_count, convergencia_count, criado_por, created_at'
+
+/**
+ * Lista metadados de todas as versões do acervo vinculado à cópia pessoal.
+ * @param {{ musicaId: string, userId: string }}
+ */
+export async function listarVersoesAcervoCopia({ musicaId, userId }) {
+  const musica = await carregarCopiaDoUsuario(musicaId, userId)
+  const acervoMusicaId = await resolverAcervoMusicaIdDaCopia(musica)
+
+  if (!acervoMusicaId) {
+    const err = new Error('Esta música não está vinculada ao acervo.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+
+  const { data: acervoMusica, error: aErr } = await db
+    .from('acervo_musicas')
+    .select('id, titulo, artista, versao_top_id, status')
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+
+  if (aErr) throw aErr
+  if (!acervoMusica) {
+    const err = new Error('Entrada do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  const versaoMotor = await buscarVersaoMotorOriginal(acervoMusicaId)
+  const motorOriginalId = versaoMotor?.id ?? null
+  const versaoTopId = acervoMusica.versao_top_id ?? null
+  const suaVersaoAtualId = musica.acervo_versao_id ?? null
+
+  const { data: versoes, error: vErr } = await db
+    .from('acervo_versoes')
+    .select(VERSAO_LISTAGEM_COLS)
+    .eq('acervo_musica_id', acervoMusicaId)
+    .order('score', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (vErr) throw vErr
+
+  const criadorIds = [
+    ...new Set((versoes || []).map((v) => v.criado_por).filter(Boolean)),
+  ]
+  const profilesById = {}
+
+  if (criadorIds.length) {
+    const { data: profiles, error: pErr } = await db
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', criadorIds)
+    if (pErr) throw pErr
+    for (const profile of profiles || []) {
+      profilesById[profile.id] = profile
+    }
+  }
+
+  const items = (versoes || []).map((v) => ({
+    id: v.id,
+    origem: v.origem,
+    tom_original: v.tom_original,
+    bpm: v.bpm,
+    score: Number(v.score),
+    aceitacao_count: v.aceitacao_count ?? 0,
+    convergencia_count: v.convergencia_count ?? 0,
+    criado_por: v.criado_por,
+    created_at: v.created_at,
+    is_top: v.id === versaoTopId,
+    is_motor_original: v.id === motorOriginalId,
+    is_sua_versao_atual: v.id === suaVersaoAtualId,
+    autor: formatAutorVersao(v, profilesById),
+  }))
+
+  return {
+    acervo_musica_id: acervoMusicaId,
+    acervo: {
+      id: acervoMusica.id,
+      titulo: acervoMusica.titulo,
+      artista: acervoMusica.artista,
+      status: acervoMusica.status,
+      versao_top_id: versaoTopId,
+    },
+    versao_top_id: versaoTopId,
+    versao_motor_original_id: motorOriginalId,
+    sua_versao_atual_id: suaVersaoAtualId,
+    versoes: items,
+    total: items.length,
+  }
+}
+
+/**
+ * Cifra completa de uma versão do acervo (preview da vitrine).
+ * @param {{ acervoVersaoId: string, userId: string }}
+ */
+export async function buscarVersaoAcervoDetalhe({ acervoVersaoId, userId }) {
+  const db = admin()
+
+  const { data: versao, error: vErr } = await db
+    .from('acervo_versoes')
+    .select('*')
+    .eq('id', acervoVersaoId)
+    .maybeSingle()
+
+  if (vErr) throw vErr
+  if (!versao) {
+    const err = new Error('Versão do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  const permitido = await usuarioTemAcessoAcervoMusica(userId, versao.acervo_musica_id)
+  if (!permitido) {
+    const err = new Error('Sem permissão para visualizar esta versão.')
+    err.status = 403
+    throw err
+  }
+
+  const { data: acervoMusica, error: aErr } = await db
+    .from('acervo_musicas')
+    .select('id, titulo, artista, versao_top_id, status')
+    .eq('id', versao.acervo_musica_id)
+    .maybeSingle()
+
+  if (aErr) throw aErr
+
+  const versaoMotor = await buscarVersaoMotorOriginal(versao.acervo_musica_id)
+  const profilesById = {}
+
+  if (versao.criado_por) {
+    const { data: profile, error: pErr } = await db
+      .from('profiles')
+      .select('id, display_name')
+      .eq('id', versao.criado_por)
+      .maybeSingle()
+    if (pErr) throw pErr
+    if (profile) profilesById[profile.id] = profile
+  }
+
+  return {
+    id: versao.id,
+    acervo_musica_id: versao.acervo_musica_id,
+    origem: versao.origem,
+    tom_original: versao.tom_original,
+    bpm: versao.bpm,
+    score: Number(versao.score),
+    aceitacao_count: versao.aceitacao_count ?? 0,
+    convergencia_count: versao.convergencia_count ?? 0,
+    criado_por: versao.criado_por,
+    created_at: versao.created_at,
+    is_top: versao.id === acervoMusica?.versao_top_id,
+    is_motor_original: versao.id === versaoMotor?.id,
+    autor: formatAutorVersao(versao, profilesById),
+    cifra: versao.cifra,
+    secoes: unpackCifraToSecoes(versao.cifra),
+    acervo: acervoMusica
+      ? {
+          id: acervoMusica.id,
+          titulo: acervoMusica.titulo,
+          artista: acervoMusica.artista,
+          status: acervoMusica.status,
+          versao_top_id: acervoMusica.versao_top_id,
+        }
+      : null,
+  }
+}
+
 function introFromCifraMotor(cifra) {
   const introMotor = cifra?.intro
   if (!introMotor || typeof introMotor !== 'object') {

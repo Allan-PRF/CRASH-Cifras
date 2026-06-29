@@ -10,6 +10,8 @@ import {
   registrarFeedbackSalvamento,
   registrarVersaoMotor,
   restaurarCopiaPessoalDoMotor,
+  listarVersoesAcervoCopia,
+  buscarVersaoAcervoDetalhe,
 } from '../lib/acervo.js'
 import { requireAuth } from '../lib/supabase.js'
 
@@ -170,6 +172,56 @@ acervoRouter.post('/feedback', requireAuth, async (req, res, next) => {
 
     res.json({ ok: true, result })
   } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Preview — cifra completa de uma versão do acervo (sob demanda).
+ * GET /api/acervo/copias/versao/:acervoVersaoId
+ */
+acervoRouter.get('/copias/versao/:acervoVersaoId', requireAuth, async (req, res, next) => {
+  try {
+    const { acervoVersaoId } = req.params
+    if (!acervoVersaoId) {
+      return res.status(400).json({ error: 'acervoVersaoId é obrigatório.' })
+    }
+
+    const result = await buscarVersaoAcervoDetalhe({
+      acervoVersaoId,
+      userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Vitrine — metadados de todas as versões do acervo vinculado à cópia.
+ * GET /api/acervo/copias/:musicaId/versoes
+ */
+acervoRouter.get('/copias/:musicaId/versoes', requireAuth, async (req, res, next) => {
+  try {
+    const { musicaId } = req.params
+    if (!musicaId) {
+      return res.status(400).json({ error: 'musicaId é obrigatório.' })
+    }
+
+    const result = await listarVersoesAcervoCopia({
+      musicaId,
+      userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
     next(err)
   }
 })

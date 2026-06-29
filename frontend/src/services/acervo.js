@@ -38,3 +38,23 @@ export async function restaurarCifraMotor(musicaId) {
   )
   return data
 }
+
+/**
+ * Lista metadados das versões do acervo vinculado à cópia (vitrine — Etapa A).
+ * @param {string} musicaId
+ */
+export async function listarVersoesAcervo(musicaId) {
+  const headers = await authHeaders()
+  const { data } = await api.get(`/acervo/copias/${musicaId}/versoes`, { headers })
+  return data
+}
+
+/**
+ * Cifra completa de uma versão do acervo (preview sob demanda).
+ * @param {string} acervoVersaoId
+ */
+export async function buscarVersaoAcervo(acervoVersaoId) {
+  const headers = await authHeaders()
+  const { data } = await api.get(`/acervo/copias/versao/${acervoVersaoId}`, { headers })
+  return data
+}
