@@ -16,7 +16,7 @@ const COLUNAS = [
   { key: 'musicas_count', label: 'Músicas', sortable: true },
 ]
 
-export function MinistroTable({ ministros, onEdit, onCreate }) {
+export function MinistroTable({ ministros, onEdit, onCreate, onArchive }) {
   const [busca, setBusca] = useState('')
   const [sortKey, setSortKey] = useState('nome')
   const [sortAsc, setSortAsc] = useState(true)
@@ -137,6 +137,16 @@ export function MinistroTable({ ministros, onEdit, onCreate }) {
                       >
                         Editar
                       </button>
+                      {onArchive && (
+                        <button
+                          type="button"
+                          onClick={() => onArchive(m)}
+                          className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
+                          title="Arquivar ministro"
+                        >
+                          Arquivar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

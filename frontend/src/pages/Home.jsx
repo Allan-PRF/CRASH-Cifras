@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReferralModal } from '../components/referral/ReferralModal'
 import { CompartilharMusicaModal } from '../components/musicas/CompartilharMusicaModal'
@@ -6,14 +6,22 @@ import { InstallPwaPrompt } from '../components/InstallPwaPrompt'
 import { NovidadeBanner } from '../components/novidades/NovidadeBanner'
 import { MinistroFormModal } from '../components/ministros/MinistroFormModal'
 import { MinistroTable } from '../components/ministros/MinistroTable'
+import { MinistrosArquivadosPanel } from '../components/ministros/MinistrosArquivadosPanel'
+import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import { InfoTooltip } from '../components/ui/InfoTooltip'
-import { btnSecondaryClassName } from '../components/ui/inputClasses'
+import { btnPrimaryClassName, btnSecondaryClassName } from '../components/ui/inputClasses'
 import { FUNCIONALIDADE_TOOLTIPS } from '../lib/funcionalidadeTooltips'
 import { useAuth } from '../hooks/useAuth'
 import { useMinistros } from '../hooks/useMinistros'
 import { useUserSettings } from '../hooks/useUserSettings'
 import { assinaturaAtiva, diasRestantesTrial, trialAtivo } from '../lib/planos'
-import { createMinistro, updateMinistro } from '../services/ministros'
+import {
+  arquivarMinistro,
+  createMinistro,
+  fetchMinistrosArquivados,
+  restaurarMinistro,
+  updateMinistro,
+} from '../services/ministros'
 import { searchMusicas } from '../services/musicas'
 
 export function Home() {
@@ -27,6 +35,31 @@ export function Home() {
   const [searchingSongs, setSearchingSongs] = useState(false)
   const [referralOpen, setReferralOpen] = useState(false)
   const [copiarMusica, setCopiarMusica] = useState(null)
+  const [ministrosArquivados, setMinistrosArquivados] = useState([])
+  const [loadingArquivados, setLoadingArquivados] = useState(false)
+  const [showArquivados, setShowArquivados] = useState(false)
+  const [confirmArquivar, setConfirmArquivar] = useState(null)
+  const [restaurandoId, setRestaurandoId] = useState(null)
+
+  const loadArquivados = useCallback(async () => {
+    setLoadingArquivados(true)
+    try {
+      const data = await fetchMinistrosArquivados()
+      setMinistrosArquivados(data)
+    } catch {
+      setMinistrosArquivados([])
+    } finally {
+      setLoadingArquivados(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setMinistrosArquivados([])
+      return
+    }
+    loadArquivados()
+  }, [user, loadArquivados])
 
   const emTrial = trialAtivo(settings)
   const diasTrial = diasRestantesTrial(settings)
@@ -82,6 +115,22 @@ export function Home() {
       await createMinistro(payload)
     }
     await reload()
+  }
+
+  async function handleArquivarConfirm() {
+    if (!confirmArquivar) return
+    await arquivarMinistro(confirmArquivar.id)
+    await Promise.all([reload(), loadArquivados()])
+  }
+
+  async function handleRestaurar(ministro) {
+    setRestaurandoId(ministro.id)
+    try {
+      await restaurarMinistro(ministro.id)
+      await Promise.all([reload(), loadArquivados()])
+    } finally {
+      setRestaurandoId(null)
+    }
   }
 
   return (
@@ -212,7 +261,19 @@ export function Home() {
           </div>
 
           <div className="space-y-3">
-            <h2 className="text-lg font-bold text-white">Ministros</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-white">Ministros</h2>
+              {!loading && !error && (
+                <MinistrosArquivadosPanel
+                  ministros={ministrosArquivados}
+                  loading={loadingArquivados}
+                  open={showArquivados}
+                  onToggle={() => setShowArquivados((v) => !v)}
+                  onRestaurar={handleRestaurar}
+                  restaurandoId={restaurandoId}
+                />
+              )}
+            </div>
 
             {loading && (
               <p className="text-sm text-[var(--crash-texto-sec)]">Carregando…</p>
@@ -236,6 +297,7 @@ export function Home() {
                 ministros={ministros}
                 onEdit={openEdit}
                 onCreate={openCreate}
+                onArchive={setConfirmArquivar}
               />
             )}
           </div>
@@ -264,6 +326,19 @@ export function Home() {
         ministro={editing}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
+      />
+
+      <ConfirmDeleteModal
+        open={!!confirmArquivar}
+        title="Arquivar ministro?"
+        message={
+          'O acervo deste ministro será preservado. Ele sairá da lista principal e poderá ser restaurado depois.'
+        }
+        confirmLabel="Arquivar"
+        confirmLoadingLabel="Arquivando…"
+        confirmButtonClassName={btnPrimaryClassName}
+        onConfirm={handleArquivarConfirm}
+        onClose={() => setConfirmArquivar(null)}
       />
     </section>
   )

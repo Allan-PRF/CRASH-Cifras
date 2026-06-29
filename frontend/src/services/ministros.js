@@ -5,27 +5,47 @@ const MINISTRO_SELECT = `
   id,
   nome,
   foto_url,
+  arquivado_em,
   created_at,
   updated_at,
   musicas:musicas!musicas_ministro_id_fkey(count)
 `
+
+function mapMinistroRow(row) {
+  return {
+    ...row,
+    musicas_count: row.musicas?.[0]?.count ?? 0,
+  }
+}
 
 /** Upload via API (Sharp: validação, remoção EXIF, WebP). */
 export async function uploadFotoMinistro(file) {
   return uploadFotoMinistroSeguro(file)
 }
 
-export async function fetchMinistros() {
+/** Lista ministros ativos por padrão (arquivado_em IS NULL). */
+export async function fetchMinistros({ apenasAtivos = true } = {}) {
+  let query = supabase.from('ministros').select(MINISTRO_SELECT).order('nome', { ascending: true })
+
+  if (apenasAtivos) {
+    query = query.is('arquivado_em', null)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map(mapMinistroRow)
+}
+
+/** Ministros arquivados (ocultos da lista principal). */
+export async function fetchMinistrosArquivados() {
   const { data, error } = await supabase
     .from('ministros')
     .select(MINISTRO_SELECT)
+    .not('arquivado_em', 'is', null)
     .order('nome', { ascending: true })
 
   if (error) throw error
-  return data.map((row) => ({
-    ...row,
-    musicas_count: row.musicas?.[0]?.count ?? 0,
-  }))
+  return (data ?? []).map(mapMinistroRow)
 }
 
 export async function fetchMinistroById(id) {
@@ -36,10 +56,7 @@ export async function fetchMinistroById(id) {
     .single()
 
   if (error) throw error
-  return {
-    ...data,
-    musicas_count: data.musicas?.[0]?.count ?? 0,
-  }
+  return mapMinistroRow(data)
 }
 
 export async function createMinistro({ nome, fotoUrl }) {
@@ -59,7 +76,7 @@ export async function createMinistro({ nome, fotoUrl }) {
     .single()
 
   if (error) throw error
-  return { ...data, musicas_count: 0 }
+  return mapMinistroRow(data)
 }
 
 export async function updateMinistro(id, { nome, fotoUrl }) {
@@ -74,31 +91,40 @@ export async function updateMinistro(id, { nome, fotoUrl }) {
     .single()
 
   if (error) throw error
-  return {
-    ...data,
-    musicas_count: data.musicas?.[0]?.count ?? 0,
-  }
+  return mapMinistroRow(data)
 }
 
-export async function deleteMinistro(id) {
-  const { data: musicas, error: listError } = await supabase
-    .from('musicas')
-    .select('id')
-    .eq('ministro_id', id)
+/** Oculta o ministro da lista principal; músicas e acervo permanecem intactos. */
+export async function arquivarMinistro(id) {
+  const { data, error } = await supabase
+    .from('ministros')
+    .update({ arquivado_em: new Date().toISOString() })
+    .eq('id', id)
+    .select(MINISTRO_SELECT)
+    .single()
 
-  if (listError) throw listError
-
-  if (musicas?.length) {
-    const { error: delMusicasError } = await supabase
-      .from('musicas')
-      .delete()
-      .in(
-        'id',
-        musicas.map((m) => m.id),
-      )
-    if (delMusicasError) throw delMusicasError
-  }
-
-  const { error } = await supabase.from('ministros').delete().eq('id', id)
   if (error) throw error
+  return mapMinistroRow(data)
+}
+
+/** Restaura ministro arquivado para a lista principal. */
+export async function restaurarMinistro(id) {
+  const { data, error } = await supabase
+    .from('ministros')
+    .update({ arquivado_em: null })
+    .eq('id', id)
+    .select(MINISTRO_SELECT)
+    .single()
+
+  if (error) throw error
+  return mapMinistroRow(data)
+}
+
+/**
+ * PERIGO — exclusão hard apagava TODAS as músicas da pasta antes de remover o ministro.
+ * Não expor na UI. Mantida só por compatibilidade: redireciona para arquivar (acervo preservado).
+ * @deprecated Use arquivarMinistro().
+ */
+export async function deleteMinistro(id) {
+  return arquivarMinistro(id)
 }
