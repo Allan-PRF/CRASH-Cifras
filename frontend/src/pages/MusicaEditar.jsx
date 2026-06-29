@@ -235,6 +235,11 @@ export function MusicaEditar() {
         tomOriginal={meta.tom_original}
         offsetVisual={offsetVisual}
         onOffsetVisualChange={setOffsetVisual}
+        onSecaoLinhasChange={(index, linhas) => {
+          const next = [...secoes]
+          next[index] = { ...next[index], linhas }
+          setSecoes(next)
+        }}
       />
 
       <div className="flex justify-end">

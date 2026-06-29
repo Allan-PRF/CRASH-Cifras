@@ -6,7 +6,13 @@ import {
 import { btnSecondaryClassName } from '../ui/inputClasses'
 import { CifraLinhaEditor } from './CifraLinhaEditor.jsx'
 
-export function CifraSecaoEditorVisual({ linhas, onChange }) {
+export function CifraSecaoEditorVisual({
+  linhas,
+  onChange,
+  onEditStart,
+  variant = 'card',
+}) {
+  const isFolha = variant === 'folha'
   const lines = linhas?.lines ?? []
 
   function emitLines(nextLines) {
@@ -42,7 +48,7 @@ export function CifraSecaoEditorVisual({ linhas, onChange }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className={isFolha ? 'max-w-full space-y-0.5 overflow-x-auto' : 'space-y-2'}>
       {lines.length === 0 ? (
         <p className="text-sm text-[var(--crash-texto-sec)]">
           Nenhuma linha nesta seção. Adicione uma linha para começar.
@@ -52,9 +58,11 @@ export function CifraSecaoEditorVisual({ linhas, onChange }) {
           <CifraLinhaEditor
             key={`line-${index}`}
             line={line}
+            variant={variant}
             onLyricChange={(newLyric) => handleLyricChange(index, newLyric)}
             onRemove={() => handleRemoveLine(index)}
             onInsertLineAfter={() => handleInsertLineAfter(index)}
+            onEditStart={onEditStart}
             canRemove
           />
         ))

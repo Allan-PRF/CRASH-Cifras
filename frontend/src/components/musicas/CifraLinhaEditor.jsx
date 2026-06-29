@@ -13,8 +13,11 @@ export function CifraLinhaEditor({
   onLyricChange,
   onRemove,
   onInsertLineAfter,
+  onEditStart,
   canRemove = true,
+  variant = 'card',
 }) {
+  const isFolha = variant === 'folha'
   const { lyricLine, chords } = useMemo(() => normalizeChordLine(line), [line])
 
   const chordCharWidthPx = useMemo(
@@ -47,10 +50,26 @@ export function CifraLinhaEditor({
     }
   }
 
+  function handleFocus() {
+    onEditStart?.()
+  }
+
   return (
-    <div className="group rounded-lg border border-[var(--crash-borda)]/60 bg-black/50 p-2">
-      <div className="mb-1 flex items-start justify-end gap-2">
-        {canRemove && onRemove && (
+    <div
+      className={
+        isFolha
+          ? 'group max-w-full overflow-x-auto'
+          : 'group rounded-lg border border-[var(--crash-borda)]/60 bg-black/50 p-2'
+      }
+    >
+      {canRemove && onRemove && (
+        <div
+          className={
+            isFolha
+              ? 'mb-0.5 flex justify-end opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100'
+              : 'mb-1 flex items-start justify-end gap-2'
+          }
+        >
           <button
             type="button"
             onClick={onRemove}
@@ -59,8 +78,8 @@ export function CifraLinhaEditor({
           >
             Remover linha
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {chords.length > 0 && (
         <LinhaPosicionada
@@ -76,10 +95,15 @@ export function CifraLinhaEditor({
       <textarea
         value={lyricLine}
         onChange={(e) => onLyricChange(e.target.value)}
+        onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         rows={1}
         spellCheck
-        className={`${inputOrangeClassName} mt-0.5 w-full resize-none overflow-x-auto font-mono text-base leading-snug`}
+        className={
+          isFolha
+            ? 'mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
+            : `${inputOrangeClassName} mt-0.5 w-full resize-none overflow-x-auto font-mono text-base leading-snug`
+        }
         style={{
           minWidth: minCols > 0 ? minCols * lyricCharWidthPx : undefined,
         }}
