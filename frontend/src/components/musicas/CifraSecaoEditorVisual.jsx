@@ -69,6 +69,7 @@ export function CifraSecaoEditorVisual({
             onRemove={() => handleRemoveLine(index)}
             onInsertLineAfter={() => handleInsertLineAfter(index)}
             onEditStart={onEditStart}
+            editableChords={isFolha}
             onChordsChange={
               isFolha ? (newChords) => handleChordsChange(index, newChords) : undefined
             }

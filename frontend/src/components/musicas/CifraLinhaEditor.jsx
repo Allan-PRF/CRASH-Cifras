@@ -17,11 +17,12 @@ export function CifraLinhaEditor({
   onInsertLineAfter,
   onEditStart,
   onChordsChange,
+  editableChords: editableChordsProp,
   canRemove = true,
   variant = 'card',
 }) {
   const isFolha = variant === 'folha'
-  const editableChords = isFolha && Boolean(onChordsChange)
+  const editableChords = editableChordsProp ?? isFolha
   const { lyricLine, chords } = useMemo(() => normalizeChordLine(line), [line])
 
   const chordCharWidthPx = useMemo(
@@ -62,7 +63,7 @@ export function CifraLinhaEditor({
     <div
       className={
         isFolha
-          ? 'group max-w-full overflow-x-auto'
+          ? 'group relative max-w-full overflow-x-auto overflow-y-visible'
           : 'group rounded-lg border border-[var(--crash-borda)]/60 bg-black/50 p-2'
       }
     >
@@ -124,7 +125,7 @@ export function CifraLinhaEditor({
         spellCheck
         className={
           isFolha
-            ? 'mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
+            ? 'relative z-0 mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
             : `${inputOrangeClassName} mt-0.5 w-full resize-none overflow-x-auto font-mono text-base leading-snug`
         }
         style={{
