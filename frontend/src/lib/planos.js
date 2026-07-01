@@ -1,4 +1,4 @@
-import { TRIAL_DIAS } from '@crash-cifras/shared/constants'
+import { TRIAL_DIAS_PADRAO } from '@crash-cifras/shared/constants'
 
 export const PLANO_ORDEM = ['gratuito', 'solo', 'equipe']
 
@@ -15,7 +15,7 @@ export function planoAtende(planoAtual, planoNecessario) {
 
 export function diasTotaisTrial(settings) {
   if (!settings?.data_inicio_trial || !settings?.data_fim_trial) {
-    return TRIAL_DIAS.solo
+    return TRIAL_DIAS_PADRAO
   }
   const diffMs =
     new Date(settings.data_fim_trial).getTime() -

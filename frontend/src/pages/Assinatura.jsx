@@ -2,8 +2,7 @@ import { PLANOS_ASSINATURA } from '@crash-cifras/shared/constants'
 import { useEffect, useState } from 'react'
 import { PageNav } from '../components/layout/PageNav'
 import { btnSecondaryClassName } from '../components/ui/inputClasses'
-import { TRIAL_DIAS } from '@crash-cifras/shared/constants'
-import { diasRestantesTrial, formatPlanoPreco, trialAtivo } from '../lib/planos'
+import { diasRestantesTrial, diasTotaisTrial, formatPlanoPreco, trialAtivo } from '../lib/planos'
 import { criarCheckoutAssinatura, fetchAssinaturaAtual } from '../services/assinaturas'
 
 const PLANO_SOLO = PLANOS_ASSINATURA.solo
@@ -41,8 +40,7 @@ export function Assinatura() {
 
   const diasTrial = diasRestantesTrial(settings)
   const emTrial = trialAtivo(settings)
-  const planoTrial = settings?.plano_trial === 'solo' ? 'solo' : 'equipe'
-  const diasTotaisTrial = TRIAL_DIAS[planoTrial] ?? 10
+  const diasTotaisTrialValor = diasTotaisTrial(settings)
 
   return (
     <section className="space-y-8">
@@ -69,7 +67,7 @@ export function Assinatura() {
             <span className="text-[var(--crash-texto-sec)]">Carregando assinatura…</span>
           ) : emTrial ? (
             <span className="text-white">
-              Teste grátis · <strong>{diasTotaisTrial} dias</strong> ·{' '}
+              Teste grátis · <strong>{diasTotaisTrialValor} dias</strong> ·{' '}
               <strong>
                 {diasTrial} dia{diasTrial !== 1 ? 's' : ''} restante{diasTrial !== 1 ? 's' : ''}
               </strong>

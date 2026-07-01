@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS = {
 }
 
 function buildTrialDefaults(planoTrial = 'equipe') {
-  const dias = planoTrial === 'solo' ? 10 : 20
+  const dias = 30
   const inicio = new Date()
   const fim = new Date(inicio)
   fim.setDate(fim.getDate() + dias)

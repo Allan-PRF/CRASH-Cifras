@@ -42,9 +42,9 @@ export const NIVEIS_TECLADO = ['basico', 'intermediario', 'avancado']
 
 export const PLANOS = ['gratuito', 'solo', 'equipe']
 
-export const TRIAL_DIAS = { solo: 10, equipe: 20 }
+export const TRIAL_DIAS = { solo: 30, equipe: 30 }
 
-export const TRIAL_DIAS_PADRAO = 10
+export const TRIAL_DIAS_PADRAO = 30
 
 export const PLANOS_ASSINATURA = {
   gratuito: {
@@ -59,7 +59,7 @@ export const PLANOS_ASSINATURA = {
     id: 'solo',
     nome: 'Solo',
     price: 1999,
-    trial_dias: 10,
+    trial_dias: 30,
     descricao: 'Para músicos individuais',
     recursos: [
       'Teleprompter BPM automático',
@@ -76,7 +76,7 @@ export const PLANOS_ASSINATURA = {
     id: 'equipe',
     nome: 'Equipe',
     price: 9998,
-    trial_dias: 20,
+    trial_dias: 30,
     descricao: 'Para grupos e equipes musicais',
     recursos: [
       'Tudo do Solo +',

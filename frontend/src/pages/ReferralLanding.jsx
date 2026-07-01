@@ -94,7 +94,7 @@ export function ReferralLanding() {
               </div>
 
               <p className="text-center text-2xl font-bold text-[var(--crash-cifra)]">
-                10 dias grátis
+                30 dias grátis
               </p>
 
               <Link

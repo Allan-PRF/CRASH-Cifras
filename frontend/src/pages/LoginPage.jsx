@@ -59,7 +59,7 @@ export function LoginPage({ initialMode = 'login' }) {
         </p>
         {mode === 'signup' && referralCode && (
           <p className="mt-2 text-xs text-[var(--crash-cifra)]">
-            Indicação ativa — 10 dias grátis pelo link do seu convite
+            Indicação ativa — 30 dias grátis pelo link do seu convite
           </p>
         )}
       </header>
