@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { isValidReferralCode } from '@crash-cifras/shared/referral'
+import { TRIAL_DIAS_GRATIS_LABEL } from '@crash-cifras/shared/constants'
 import { btnPrimaryClassName } from '../components/ui/inputClasses'
 import { sanitizeText } from '../lib/sanitize'
 import { saveReferralCode } from '../lib/referralStorage'
@@ -94,7 +95,7 @@ export function ReferralLanding() {
               </div>
 
               <p className="text-center text-2xl font-bold text-[var(--crash-cifra)]">
-                30 dias grátis
+                {TRIAL_DIAS_GRATIS_LABEL}
               </p>
 
               <Link

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { isValidReferralCode } from '@crash-cifras/shared/referral'
+import { TRIAL_DIAS_GRATIS_LABEL } from '@crash-cifras/shared/constants'
 import { clearReferralCode, getStoredReferralCode } from '../lib/referralStorage'
 
 export function LoginPage({ initialMode = 'login' }) {
@@ -59,7 +60,7 @@ export function LoginPage({ initialMode = 'login' }) {
         </p>
         {mode === 'signup' && referralCode && (
           <p className="mt-2 text-xs text-[var(--crash-cifra)]">
-            Indicação ativa — 30 dias grátis pelo link do seu convite
+            Indicação ativa — {TRIAL_DIAS_GRATIS_LABEL} pelo link do seu convite
           </p>
         )}
       </header>

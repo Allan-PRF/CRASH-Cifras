@@ -1,4 +1,7 @@
+import { TRIAL_DIAS_PADRAO } from './constants.js'
+
 /** Formato aceito para códigos de indicação na URL e API */
+
 export const REFERRAL_CODE_REGEX = /^[a-zA-Z0-9-]{4,20}$/
 
 export function isValidReferralCode(code) {
@@ -14,7 +17,7 @@ export const REFERRAL_BONUS_MESES = {
   equipe: 3,
 }
 
-export const REFERRAL_SHARE_TEXT = `Irmão, Conheça esta plataforma. Cansei de rabiscar cifra na mão e me perder nas músicas antes do culto. O CRASH Cifras resolveu isso pra mim. Testa 30 dias grátis no meu link e Comprove os resultados:`
+export const REFERRAL_SHARE_TEXT = `Irmão, Conheça esta plataforma. Cansei de rabiscar cifra na mão e me perder nas músicas antes do culto. O CRASH Cifras resolveu isso pra mim. Testa ${TRIAL_DIAS_PADRAO} dias grátis no meu link e Comprove os resultados:`
 
 export function sanitizeReferrerDisplayName(name) {
   if (typeof name !== 'string') return 'Um músico'

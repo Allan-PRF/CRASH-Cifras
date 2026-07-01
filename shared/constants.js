@@ -46,6 +46,9 @@ export const TRIAL_DIAS = { solo: 30, equipe: 30 }
 
 export const TRIAL_DIAS_PADRAO = 30
 
+/** Rótulo único para UI de trial (landing, login, indicação). */
+export const TRIAL_DIAS_GRATIS_LABEL = `${TRIAL_DIAS_PADRAO} dias grátis`
+
 export const PLANOS_ASSINATURA = {
   gratuito: {
     id: 'gratuito',
