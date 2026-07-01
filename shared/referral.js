@@ -15,3 +15,14 @@ export const REFERRAL_BONUS_MESES = {
 }
 
 export const REFERRAL_SHARE_TEXT = `Irmão, Conheça esta plataforma. Cansei de rabiscar cifra na mão e me perder nas músicas antes do culto. O CRASH Cifras resolveu isso pra mim. Testa 30 dias grátis no meu link e Comprove os resultados:`
+
+export function sanitizeReferrerDisplayName(name) {
+  if (typeof name !== 'string') return 'Um músico'
+  return name.replace(/[<>"'&]/g, '').trim().slice(0, 60) || 'Um músico'
+}
+
+/** Monta URL pública de indicação (/ref/:codigo). */
+export function buildReferralLink(code, siteUrl = 'https://crashcifras.com.br') {
+  const base = String(siteUrl || 'https://crashcifras.com.br').replace(/\/$/, '')
+  return `${base}/ref/${code}`
+}
