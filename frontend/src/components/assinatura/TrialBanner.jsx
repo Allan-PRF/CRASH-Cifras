@@ -182,7 +182,7 @@ export function TrialAccessRedirect({ children }) {
   const location = useLocation()
   const { settings, loading } = useUserSettings()
 
-  if (loading) return children
+  if (loading || !settings) return children
 
   const isBillingPage = location.pathname.startsWith('/assinatura')
   const isAccountPage = location.pathname.startsWith('/conta')

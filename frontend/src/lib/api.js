@@ -15,7 +15,9 @@ api.interceptors.response.use(
         error.message === 'Network Error')
 
     const message = isNetwork
-      ? 'Não foi possível conectar à API. Na raiz do projeto, execute: npm run dev (frontend + backend).'
+      ? import.meta.env.PROD
+        ? 'Não foi possível conectar ao servidor. Tente novamente em alguns segundos.'
+        : 'Não foi possível conectar à API. Na raiz do projeto, execute: npm run dev (frontend + backend).'
       : error.response?.data?.error ||
         error.message ||
         'Erro ao comunicar com o servidor'
