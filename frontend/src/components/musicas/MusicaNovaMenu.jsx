@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { btnPrimaryClassName } from '../ui/inputClasses'
 import { ImportarYoutubeModal } from './ImportarYoutubeModal'
 
@@ -48,14 +47,6 @@ export function MusicaNovaMenu({ ministroId, ministroNome, onImported }) {
             >
               Importar do YouTube
             </button>
-            <Link
-              to={`/ministro/${ministroId}/musica/nova`}
-              role="menuitem"
-              className="block px-4 py-2.5 text-sm text-white transition hover:bg-[var(--crash-cifra)]/10"
-              onClick={() => setMenuOpen(false)}
-            >
-              Criar manualmente
-            </Link>
           </div>
         )}
       </div>

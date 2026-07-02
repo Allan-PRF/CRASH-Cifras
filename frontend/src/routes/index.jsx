@@ -13,7 +13,6 @@ import { LoginPage } from '../pages/LoginPage'
 import { Ministro } from '../pages/Ministro'
 import { Musica } from '../pages/Musica'
 import { MusicaEditar } from '../pages/MusicaEditar'
-import { MusicaNova } from '../pages/MusicaNova'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { Playlist } from '../pages/Playlist'
 import { Playlists } from '../pages/Playlists'
@@ -47,14 +46,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Ministro />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'ministro/:ministroId/musica/nova',
-        element: (
-          <ProtectedRoute>
-            <MusicaNova />
           </ProtectedRoute>
         ),
       },
