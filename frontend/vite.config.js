@@ -49,8 +49,18 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Não precachear JS: evita SW servir bundle antigo (ex.: "10 dias" hardcoded).
+        globPatterns: ['**/*.{css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.js$/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'app-js',
+              expiration: { maxEntries: 32, maxAgeSeconds: 86400 },
+              networkTimeoutSeconds: 5,
+            },
+          },
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
             handler: 'NetworkFirst',

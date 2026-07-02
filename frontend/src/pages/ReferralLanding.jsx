@@ -22,6 +22,13 @@ export function ReferralLanding() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((reg) => reg.update())
+    })
+  }, [])
+
+  useEffect(() => {
     const code = String(codigo || '').trim()
 
     if (!code) {
