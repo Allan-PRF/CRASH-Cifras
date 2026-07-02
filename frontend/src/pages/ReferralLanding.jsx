@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { isValidReferralCode } from '@crash-cifras/shared/referral'
-import { TRIAL_DIAS_GRATIS_LABEL, TRIAL_DIAS_PADRAO } from '@crash-cifras/shared/constants'
-import { btnCifraOutlineClassName, btnPrimaryClassName } from '../components/ui/inputClasses'
+import { TRIAL_DIAS_GRATIS_LABEL } from '@crash-cifras/shared/constants'
+import { btnPrimaryClassName } from '../components/ui/inputClasses'
 import { sanitizeText } from '../lib/sanitize'
 import { saveReferralCode } from '../lib/referralStorage'
 import { fetchPublicReferrer } from '../services/referrals'
@@ -101,12 +101,9 @@ export function ReferralLanding() {
                 </ul>
               </div>
 
-              <div
-                className={`${btnCifraOutlineClassName} block w-full py-3 text-center text-xl font-bold`}
-                aria-label={`${TRIAL_DIAS_PADRAO} dias de teste grátis`}
-              >
-                {TRIAL_DIAS_GRATIS_LABEL}
-              </div>
+              <p className="text-center text-2xl font-bold text-[var(--crash-cifra)]">
+                Experimente {TRIAL_DIAS_GRATIS_LABEL}
+              </p>
 
               <Link
                 to="/cadastro"
