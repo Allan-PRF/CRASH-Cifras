@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { InfoTooltip } from '../ui/InfoTooltip'
 import { inputClassName } from '../ui/inputClasses'
-import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 
 const COLS = [
   { key: '#', label: '#', sortable: false, className: 'w-10 text-center' },
@@ -153,19 +151,13 @@ export function MusicaTable({
                       Editar
                     </Link>
                     {onCompartilhar && (
-                      <span className="inline-flex shrink-0 items-center gap-0.5">
                         <button
                           type="button"
                           onClick={(e) => onCompartilhar(m, e.currentTarget)}
-                          className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white transition hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
+                          className="shrink-0 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white transition hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
                         >
                           ↗ Compartilhar
                         </button>
-                        <InfoTooltip
-                          text={FUNCIONALIDADE_TOOLTIPS.copiarCena}
-                          label="Sobre compartilhar com outro ministro"
-                        />
-                      </span>
                     )}
                     {onExcluir && (
                       <button

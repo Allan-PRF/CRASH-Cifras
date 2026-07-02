@@ -241,13 +241,9 @@ export function Home() {
                           onClick={(e) =>
                             setCopiarMusica({ musica, anchorEl: e.currentTarget })
                           }
-                          className={`inline-flex shrink-0 items-center gap-0.5 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
+                          className={`shrink-0 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
                         >
                           Copiar para…
-                          <InfoTooltip
-                            text={FUNCIONALIDADE_TOOLTIPS.copiarCena}
-                            label="Sobre copiar para outro ministro"
-                          />
                         </button>
                       </li>
                     ))}

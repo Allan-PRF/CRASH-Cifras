@@ -32,8 +32,6 @@ export const FUNCIONALIDADE_TOOLTIPS = {
   indicacao:
     'Envie esse link a seu amigo que está usando cifras em folhas ou escrevendo a caneta. A libertação é CRASH Cifras, a plataforma do músico atualizado.',
   emergencia: 'Busca rápida sem sair do teleprompter.',
-  copiarCena:
-    'Copia a configuração para outro ministro com transposição automática.',
   metronomo:
     'Click sonoro no tempo do BPM. Linha pisca em laranja no beat.',
 }
