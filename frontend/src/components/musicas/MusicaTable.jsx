@@ -156,7 +156,7 @@ export function MusicaTable({
                       <span className="inline-flex shrink-0 items-center gap-0.5">
                         <button
                           type="button"
-                          onClick={() => onCompartilhar(m)}
+                          onClick={(e) => onCompartilhar(m, e.currentTarget)}
                           className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white transition hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
                         >
                           ↗ Compartilhar

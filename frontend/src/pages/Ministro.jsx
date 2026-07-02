@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { PageNav } from '../components/layout/PageNav'
 import { PageBackButton } from '../components/layout/PageBackButton'
-import { CompartilharMusicaModal } from '../components/musicas/CompartilharMusicaModal'
+import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
 import { MusicaNovaMenu } from '../components/musicas/MusicaNovaMenu'
 import { MusicaTable } from '../components/musicas/MusicaTable'
 import { useMinistros } from '../hooks/useMinistros'
@@ -142,7 +142,7 @@ export function Ministro() {
           onQueryChange={setBuscaMusicas}
           hideSearch
           onExcluir={solicitarExcluirMusica}
-          onCompartilhar={setCompartilharMusica}
+          onCompartilhar={(m, anchorEl) => setCompartilharMusica({ musica: m, anchorEl })}
         />
       </section>
 
@@ -154,9 +154,10 @@ export function Ministro() {
         onClose={() => setConfirmDelete(null)}
       />
 
-      <CompartilharMusicaModal
+      <CompartilharMusicaPopover
         open={!!compartilharMusica}
-        musica={compartilharMusica}
+        musica={compartilharMusica?.musica}
+        anchorEl={compartilharMusica?.anchorEl}
         ministros={ministros}
         ministroAtualId={id}
         onClose={() => setCompartilharMusica(null)}

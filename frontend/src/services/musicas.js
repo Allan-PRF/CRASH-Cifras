@@ -130,7 +130,7 @@ export async function searchMusicas(term) {
   return data ?? []
 }
 
-export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) {
+export async function copiarMusica(musicaId, { ministroIdDestino }) {
   const original = await fetchMusicaCompleta(musicaId)
 
   const intro = normalizarIntroParaCopia(original.intro)
@@ -138,17 +138,6 @@ export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) 
 
   const tomOriginal = original.tom_original
   const secoes = secoesParaCopia(original.secoes, { omitirSecaoIntro })
-
-  let tomAtualInicial = tomOriginal
-  let semitoneOffsetInicial = 0
-
-  if (tomDestino && tomOriginal && tomDestino !== tomOriginal) {
-    const semitones = semitonesBetween(tomOriginal, tomDestino)
-    if (semitones) {
-      tomAtualInicial = tomDestino
-      semitoneOffsetInicial = semitones
-    }
-  }
 
   logCompartilharCopia({
     titulo: original.titulo,
@@ -170,8 +159,8 @@ export async function copiarMusica(musicaId, { ministroIdDestino, tomDestino }) 
     youtubeUrl: original.youtube_url,
     secoesIniciais: secoes.length ? secoes : undefined,
     acervoVersaoId: original.acervo_versao_id || null,
-    tomAtualInicial,
-    semitoneOffsetInicial,
+    tomAtualInicial: tomOriginal,
+    semitoneOffsetInicial: 0,
   })
 }
 

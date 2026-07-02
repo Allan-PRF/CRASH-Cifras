@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReferralModal } from '../components/referral/ReferralModal'
-import { CompartilharMusicaModal } from '../components/musicas/CompartilharMusicaModal'
+import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
 import { InstallPwaPrompt } from '../components/InstallPwaPrompt'
 import { NovidadeBanner } from '../components/novidades/NovidadeBanner'
 import { MinistroFormModal } from '../components/ministros/MinistroFormModal'
@@ -238,7 +238,9 @@ export function Home() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => setCopiarMusica(musica)}
+                          onClick={(e) =>
+                            setCopiarMusica({ musica, anchorEl: e.currentTarget })
+                          }
                           className={`inline-flex shrink-0 items-center gap-0.5 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
                         >
                           Copiar para…
@@ -306,11 +308,12 @@ export function Home() {
 
       <ReferralModal open={referralOpen} onClose={() => setReferralOpen(false)} />
 
-      <CompartilharMusicaModal
+      <CompartilharMusicaPopover
         open={!!copiarMusica}
-        musica={copiarMusica}
+        musica={copiarMusica?.musica}
+        anchorEl={copiarMusica?.anchorEl}
         ministros={ministros}
-        ministroAtualId={copiarMusica?.ministro_id}
+        ministroAtualId={copiarMusica?.musica?.ministro_id}
         onClose={() => setCopiarMusica(null)}
         onCopied={() => {
           const termo = search.trim()
@@ -318,7 +321,6 @@ export function Home() {
             searchMusicas(termo).then(setMusicas).catch(() => setMusicas([]))
           }
         }}
-        titulo="Copiar para…"
       />
 
       <MinistroFormModal
