@@ -8,7 +8,7 @@ import { MusicaTable } from '../components/musicas/MusicaTable'
 import { useMinistros } from '../hooks/useMinistros'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import { inputClassName } from '../components/ui/inputClasses'
-import { deleteMusica, fetchAnotacoesPorMusicas, fetchMusicasByMinistro } from '../services/musicas'
+import { deleteMusica, fetchMusicasByMinistro } from '../services/musicas'
 import { fetchMinistroById } from '../services/ministros'
 import { fetchPlaylistsAtivasComMusica } from '../services/playlists'
 
@@ -28,7 +28,6 @@ export function Ministro() {
   const { id } = useParams()
   const [ministro, setMinistro] = useState(null)
   const [musicas, setMusicas] = useState([])
-  const [anotacoesPorMusica, setAnotacoesPorMusica] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -40,13 +39,9 @@ export function Ministro() {
     setLoading(true)
     setError(null)
     Promise.all([fetchMinistroById(id), fetchMusicasByMinistro(id)])
-      .then(async ([m, songs]) => {
+      .then(([m, songs]) => {
         setMinistro(m)
         setMusicas(songs)
-        const anotacoes = await fetchAnotacoesPorMusicas(songs.map((s) => s.id)).catch(
-          () => ({}),
-        )
-        setAnotacoesPorMusica(anotacoes)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -143,7 +138,6 @@ export function Ministro() {
 
         <MusicaTable
           musicas={musicas}
-          anotacoesPorMusica={anotacoesPorMusica}
           query={buscaMusicas}
           onQueryChange={setBuscaMusicas}
           hideSearch

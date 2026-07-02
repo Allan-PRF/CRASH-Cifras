@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AnotacaoIndicador } from './AnotacaoIndicador'
 import { InfoTooltip } from '../ui/InfoTooltip'
 import { inputClassName } from '../ui/inputClasses'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
@@ -31,7 +30,6 @@ function compare(a, b, key, dir) {
 
 export function MusicaTable({
   musicas,
-  anotacoesPorMusica = {},
   onExcluir,
   onCompartilhar,
   query: queryProp,
@@ -124,15 +122,12 @@ export function MusicaTable({
                   {idx + 1}
                 </td>
                 <td className="px-3 py-2">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Link
-                      to={`/teleprompter/musica/${m.id}`}
-                      className="font-medium text-white hover:text-[var(--crash-cifra)]"
-                    >
-                      {m.titulo}
-                    </Link>
-                    <AnotacaoIndicador conteudo={anotacoesPorMusica[m.id]} />
-                  </span>
+                  <Link
+                    to={`/teleprompter/musica/${m.id}`}
+                    className="font-medium text-white hover:text-[var(--crash-cifra)]"
+                  >
+                    {m.titulo}
+                  </Link>
                 </td>
                 <td className="px-3 py-2 text-[var(--crash-texto-sec)]">
                   {m.artista || '—'}
