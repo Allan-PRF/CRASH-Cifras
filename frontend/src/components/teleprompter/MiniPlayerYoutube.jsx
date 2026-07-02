@@ -102,9 +102,19 @@ function aplicarIframePlayer(player, host) {
   })
 }
 
-function embedSrc(videoId) {
+function embedSrc(videoId, { fallback = false } = {}) {
+  const baseParams = fallback
+    ? {
+        autoplay: '0',
+        controls: '1',
+        modestbranding: '1',
+        rel: '0',
+        playsinline: '1',
+      }
+    : YOUTUBE_EMBED_PARAMS
+
   const params = new URLSearchParams({
-    ...YOUTUBE_EMBED_PARAMS,
+    ...baseParams,
     origin: typeof window !== 'undefined' ? window.location.origin : '',
   })
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params}`
@@ -337,7 +347,7 @@ export function MiniPlayerYoutube({
         {apiErro ? (
           <iframe
             title="YouTube"
-            src={embedSrc(videoId)}
+            src={embedSrc(videoId, { fallback: true })}
             ref={(el) => {
               if (el) el.style.cssText = IFRAME_CSS
             }}
@@ -363,16 +373,18 @@ export function MiniPlayerYoutube({
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={togglePlayLocal}
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
-          aria-label={videoPaused ? 'Play vídeo' : 'Pause vídeo'}
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-base text-white ring-2 ring-[var(--crash-cifra)]">
-            {videoPaused ? '▶' : '⏸'}
-          </span>
-        </button>
+        {!apiErro && (
+          <button
+            type="button"
+            onClick={togglePlayLocal}
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
+            aria-label={videoPaused ? 'Play vídeo' : 'Pause vídeo'}
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-base text-white ring-2 ring-[var(--crash-cifra)]">
+              {videoPaused ? '▶' : '⏸'}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )
