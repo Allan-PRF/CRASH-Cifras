@@ -15,6 +15,10 @@ export const btnPrimaryClassName =
 export const btnSecondaryClassName =
   'rounded-lg border border-[var(--crash-borda)] px-4 py-2.5 text-sm font-medium text-white transition hover:border-[var(--crash-cifra)] disabled:opacity-50'
 
+/** Botão voltar com identidade laranja CRASH (pastas de ministro, etc.) */
+export const btnBackCifraClassName =
+  'inline-flex items-center gap-1 rounded-lg border border-[var(--crash-cifra)]/60 bg-[var(--crash-cifra)]/10 px-4 py-2 text-base font-semibold text-[var(--crash-cifra)] transition hover:border-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/20'
+
 /** Toolbar / ações secundárias com identidade laranja CRASH */
 export const btnCifraOutlineClassName =
   'rounded-lg border border-[var(--crash-cifra)]/60 bg-[var(--crash-cifra)]/10 px-4 py-2.5 text-sm font-semibold text-[var(--crash-cifra)] transition hover:border-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/20 disabled:opacity-40'

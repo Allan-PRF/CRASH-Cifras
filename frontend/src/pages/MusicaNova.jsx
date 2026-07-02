@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PageBackButton } from '../components/layout/PageBackButton'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS } from '@crash-cifras/shared/chord-schema'
 import { IntroducaoEditor } from '../components/musicas/IntroducaoEditor'
@@ -98,14 +99,12 @@ export function MusicaNova() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <Link
+      <header className="space-y-3">
+        <PageBackButton
           to={ministroId ? `/ministro/${ministroId}` : '/'}
-          className="text-xs text-[var(--crash-texto-sec)] hover:text-white"
-        >
-          ← Voltar
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-white">Nova música</h1>
+          variant="cifra"
+        />
+        <h1 className="text-2xl font-bold text-white">Nova música</h1>
         {ministroNome && (
           <p className="text-sm text-[var(--crash-texto-sec)]">
             Ministro: {ministroNome}

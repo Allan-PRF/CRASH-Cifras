@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { PageNav } from '../components/layout/PageNav'
+import { PageBackButton } from '../components/layout/PageBackButton'
 import { CompartilharMusicaModal } from '../components/musicas/CompartilharMusicaModal'
 import { MusicaNovaMenu } from '../components/musicas/MusicaNovaMenu'
 import { MusicaTable } from '../components/musicas/MusicaTable'
@@ -85,9 +86,7 @@ export function Ministro() {
     return (
       <section className="space-y-4 text-center">
         <p className="text-red-400">{error || 'Ministro não encontrado'}</p>
-        <Link to="/" className="text-[var(--crash-cifra)] hover:underline">
-          Voltar
-        </Link>
+        <PageBackButton to="/" variant="cifra" label="Voltar" />
       </section>
     )
   }
@@ -100,6 +99,7 @@ export function Ministro() {
           { label: ministro.nome },
         ]}
         backTo="/"
+        backVariant="cifra"
       />
 
       <header className="flex items-center gap-4">

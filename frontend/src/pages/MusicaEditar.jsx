@@ -315,7 +315,7 @@ export function MusicaEditar() {
         />
         <PageBackButton
           to={meta?.ministro_id ? `/ministro/${meta.ministro_id}` : '/'}
-          className="border-[var(--crash-cifra)]/40 text-white hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]"
+          variant="cifra"
         />
       </div>
 
