@@ -1018,6 +1018,12 @@ export function Teleprompter() {
     )
   }
 
+  const teleprompterBackTo = playlistId
+    ? `/playlist/${playlistId}`
+    : musica.ministro_id
+      ? `/ministro/${musica.ministro_id}`
+      : '/'
+
   return (
     <div className="min-h-svh overflow-hidden bg-black text-white">
       <BarraSuperiorTeleprompter
@@ -1037,17 +1043,7 @@ export function Teleprompter() {
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
-        onBack={() => {
-          if (playlistId) {
-            navigate(`/playlist/${playlistId}`)
-            return
-          }
-          if (musica.ministro_id) {
-            navigate(`/ministro/${musica.ministro_id}`)
-            return
-          }
-          navigate('/')
-        }}
+        backTo={teleprompterBackTo}
       />
 
       {(equipeSessao.isLider || equipeSeguindo) && (

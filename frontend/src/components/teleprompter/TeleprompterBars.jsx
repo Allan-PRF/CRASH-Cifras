@@ -1,6 +1,7 @@
 import { TELEPROMPTER_BARRA_INFERIOR_ALTURA } from './RodapePalavra'
 
 import { TransporTomControle } from '../cifra/TransporTomControle'
+import { PageBackButton } from '../layout/PageBackButton'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { InfoTooltip } from '../ui/InfoTooltip'
 
@@ -21,19 +22,12 @@ export function BarraSuperiorTeleprompter({
   onToggleOrientacao,
   onToggleGraus,
   onOpenSettings,
-  onBack,
+  backTo,
 }) {
   return (
     <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-black/85 px-4 py-2 text-[13px] font-medium text-white backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="shrink-0 rounded-md px-2 py-1 text-xl leading-none text-[var(--crash-texto-sec)] hover:bg-white/10 hover:text-white"
-          aria-label="Voltar"
-        >
-          ←
-        </button>
+        <PageBackButton to={backTo} variant="cifra" className="shrink-0" />
         <div className="min-w-0 flex-1 truncate">
           <span className="text-[var(--crash-cifra)]">🎵</span>{' '}
           <span className="font-semibold">{musica.titulo}</span>
