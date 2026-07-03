@@ -8,6 +8,7 @@ import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import {
   btnPrimaryClassName,
   btnSecondaryClassName,
+  btnCifraOutlineClassName,
   cardClassName,
   cardDashedClassName,
   cardMutedClassName,
@@ -15,6 +16,7 @@ import {
 } from '../components/ui/inputClasses'
 import { formatDataEvento } from '../lib/formatDataBr'
 import { gerarOrdemSecoesLocal } from '../lib/diretorLocal'
+import { tituloDestinoMedley } from '../lib/playlistCultoNav'
 import { cacheCultoPreparado, removeCultoPreparadoFromCache } from '../lib/offlineCulto'
 import {
   aplicarSecoesPadraoVersiculos,
@@ -455,7 +457,9 @@ export function Playlist() {
         </p>
       ) : (
         <ol className="space-y-2">
-          {playlist.itens.map((item, index) => (
+          {playlist.itens.map((item, index) => {
+            const medleyTitulo = tituloDestinoMedley(item, playlist.itens)
+            return (
             <li key={item.id}>
               <article
                 draggable={isRascunho}
@@ -496,16 +500,30 @@ export function Playlist() {
                     <p className="mt-0.5 text-sm font-medium text-[var(--crash-cifra)]">
                       Tom: {tomExibido(item)}
                     </p>
+                    {medleyTitulo && (
+                      <p className="mt-2 text-xs font-semibold text-[var(--crash-cifra)]">
+                        🔗 MEDLEY → {medleyTitulo}
+                      </p>
+                    )}
                   </div>
-                  {isRascunho && (
-                    <button
-                      type="button"
-                      onClick={() => solicitarRemoverItem(item)}
-                      className="shrink-0 rounded-md px-2 py-1 text-xs text-red-400/70 transition hover:bg-red-950/40 hover:text-red-400"
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Link
+                      to={`/musica/${item.musica_id}/editar`}
+                      state={{ returnTo: `/playlist/${id}` }}
+                      className={`${btnCifraOutlineClassName} px-3 py-1.5 text-xs`}
                     >
-                      Remover
-                    </button>
-                  )}
+                      Editar cifra
+                    </Link>
+                    {isRascunho && (
+                      <button
+                        type="button"
+                        onClick={() => solicitarRemoverItem(item)}
+                        className="rounded-md px-2 py-1 text-xs text-red-400/70 transition hover:bg-red-950/40 hover:text-red-400"
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {isRascunho && (
@@ -534,8 +552,14 @@ export function Playlist() {
                   onToggle={() => toggleMedley(index)}
                 />
               )}
+              {!isRascunho && medleyTitulo && (
+                <p className="my-2 text-center text-xs font-semibold text-[var(--crash-cifra)]">
+                  🔗 MEDLEY
+                </p>
+              )}
             </li>
-          ))}
+            )
+          })}
         </ol>
       )}
 

@@ -67,7 +67,9 @@ import {
   updateMusicaBpm,
 } from '../services/musicas'
 import { resolveVersiculosForTeleprompter } from '../lib/resolveVersiculosTeleprompter'
+import { resolverProximaMusicaCulto } from '../lib/playlistCultoNav'
 import { fetchTimbreByMusica } from '../services/timbres'
+import { fetchPlaylistCompleta } from '../services/playlists'
 
 /** Mesmo critério de exibição do BlocoSecao (evita índice de linha divergente). */
 function linhaTemConteudo(line) {
@@ -239,6 +241,7 @@ export function Teleprompter() {
   const [youtubeSync, setYoutubeSync] = useState(() => loadYoutubeSync())
   const [youtubeMinimized, setYoutubeMinimized] = useState(() => loadYoutubeMinimized())
   const [youtubePos, setYoutubePos] = useState(() => loadYoutubePosition())
+  const [playlistCulto, setPlaylistCulto] = useState(null)
   const contentRef = useRef(null)
   const landscapeTrackRef = useRef(null)
   const landscapeViewportRef = useRef(
@@ -402,6 +405,35 @@ export function Teleprompter() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!playlistId) {
+      setPlaylistCulto(null)
+      return
+    }
+    let cancelled = false
+    fetchPlaylistCompleta(playlistId)
+      .then((data) => {
+        if (!cancelled) setPlaylistCulto(data)
+      })
+      .catch(() => {
+        if (!cancelled) setPlaylistCulto(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [playlistId])
+
+  useEffect(() => {
+    setActiveSection(0)
+    setActiveLineKey(null)
+    scrollAccumRef.current = 0
+  }, [musicaId])
+
+  const proximaMusicaCulto = useMemo(
+    () => resolverProximaMusicaCulto(playlistCulto, musicaId),
+    [playlistCulto, musicaId],
+  )
 
   useEffect(() => {
     if (!musica || String(musica.id) !== String(musicaId)) return
@@ -727,6 +759,29 @@ export function Teleprompter() {
     console.log('[nav] botão clicado:', 'anterior')
     scrollToSection(activeSection - 1)
   }
+
+  const irParaProximaMusicaCulto = useCallback(() => {
+    if (!proximaMusicaCulto || !playlistId) return
+    if (equipeSessao.isLider && equipeSessao.equipeId) {
+      equipeSessao.atualizarSessao({
+        playlist_id: playlistId,
+        musica_id: proximaMusicaCulto.musicaId,
+        secao_index: 0,
+        tocando: !pausedRef.current,
+        tom_offset: offsetSessao,
+        bpm: bpmRef.current,
+      })
+    }
+    navigate(`/teleprompter/musica/${proximaMusicaCulto.musicaId}?playlist=${playlistId}`)
+  }, [
+    proximaMusicaCulto,
+    playlistId,
+    equipeSessao.isLider,
+    equipeSessao.equipeId,
+    equipeSessao.atualizarSessao,
+    offsetSessao,
+    navigate,
+  ])
 
   function togglePause() {
     const next = !pausedRef.current
@@ -1270,6 +1325,25 @@ export function Teleprompter() {
         }}
         onPositionChange={handleYoutubePosition}
       />
+
+      {playlistId && proximaMusicaCulto && (
+        <div
+          className="fixed left-0 right-0 z-[55] flex justify-center px-4"
+          style={{ bottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 8 }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              irParaProximaMusicaCulto()
+            }}
+            className="max-w-full truncate rounded-xl border border-[var(--crash-cifra)] bg-black/90 px-4 py-2.5 text-sm font-semibold text-[var(--crash-cifra)] shadow-lg backdrop-blur transition hover:bg-[var(--crash-cifra)] hover:text-black"
+          >
+            {proximaMusicaCulto.isMedley ? 'Medley' : 'Próxima música'} →{' '}
+            {proximaMusicaCulto.titulo}
+          </button>
+        </div>
+      )}
 
       <BarraInferiorTeleprompter
         pausado={paused}

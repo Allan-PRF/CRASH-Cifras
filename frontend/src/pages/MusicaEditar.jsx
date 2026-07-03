@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
@@ -67,6 +67,9 @@ function cloneEditorSnapshot(secoes, intro) {
 export function MusicaEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const voltarPara =
+    typeof location.state?.returnTo === 'string' ? location.state.returnTo : null
   const [meta, setMeta] = useState(null)
   const [intro, setIntro] = useState({ mao_esquerda: '', mao_direita: '' })
   const [versiculoPrefs, setVersiculoPrefs] = useState(() => versiculoPrefsFromMusica(null))
@@ -314,7 +317,7 @@ export function MusicaEditar() {
           className="text-sm [&_a]:text-white/90 [&_a:hover]:text-[var(--crash-cifra)] [&>span:last-child]:font-medium [&>span:last-child]:text-[var(--crash-cifra)]"
         />
         <PageBackButton
-          to={meta?.ministro_id ? `/ministro/${meta.ministro_id}` : '/'}
+          to={voltarPara ?? (meta?.ministro_id ? `/ministro/${meta.ministro_id}` : '/')}
           variant="cifra"
         />
       </div>
