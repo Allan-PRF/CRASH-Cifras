@@ -300,6 +300,7 @@ export function Playlist() {
             { label: 'Evento' },
           ]}
           backTo="/historico"
+          backVariant="cifra"
         />
         <div className={`space-y-3 p-6 ${cardClassName}`}>
           <h1 className="text-xl font-bold text-white">Este evento não existe mais</h1>
@@ -334,6 +335,7 @@ export function Playlist() {
           { label: playlist.nome },
         ]}
         backTo="/playlist"
+        backVariant="cifra"
       />
 
       <header>
