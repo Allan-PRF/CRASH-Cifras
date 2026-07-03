@@ -120,10 +120,24 @@ export function isVersiculoModoManual(prefs) {
 
 /** Mescla prefs da música com prefs do evento (evento sobrescreve só o que faltar na música). */
 export function mesclarVersiculoPrefs(prefsMusica, prefsEvento, versaoUsuario = 'NVI') {
-  const musica = normalizarVersiculoPrefs(prefsMusica)
   const eventoMomentos = prefsEvento
     ? parseMomentosAtivos(prefsEvento.momentos_ativos)
     : { verso: false, refrao: false, ponte: false }
+
+  // Evento sem nenhum momento ativo: não herda versículos da música.
+  if (prefsEvento && quantidadeFromMomentosAtivos(eventoMomentos) === 0) {
+    return {
+      versao_biblica:
+        (typeof prefsEvento.versao_biblica === 'string' && prefsEvento.versao_biblica.trim()) ||
+        versaoUsuario ||
+        'NVI',
+      quantidade_versiculos: 0,
+      momentos_ativos: eventoMomentos,
+      modo: 'ia',
+    }
+  }
+
+  const musica = normalizarVersiculoPrefs(prefsMusica)
   const musicaMomentos = musica?.momentos_ativos ?? {
     verso: false,
     refrao: false,

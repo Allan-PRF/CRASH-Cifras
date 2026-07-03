@@ -21,6 +21,7 @@ import { cacheCultoPreparado, removeCultoPreparadoFromCache } from '../lib/offli
 import {
   aplicarSecoesPadraoVersiculos,
   mesclarVersiculoPrefs,
+  quantidadeFromMomentosAtivos,
   versiculosFromManualPrefs,
 } from '@crash-cifras/shared/versiculos-config'
 import { gerarVersiculos } from '../lib/palavraLocal'
@@ -327,6 +328,7 @@ export function Playlist() {
   const firstItem = playlist.itens[0]
   const canPrepare = isRascunho && playlist.itens.length > 0 && !preparing
   const canStart = isPreparado && firstItem
+  const versiculosNoEvento = quantidadeFromMomentosAtivos(prefsVersiculosEvento.momentos_ativos)
 
   return (
     <section className="space-y-8">
@@ -579,11 +581,16 @@ export function Playlist() {
               disabled={!canPrepare}
               className={`w-full ${btnPrimaryClassName} py-3 text-base`}
             >
-              {preparing ? 'Preparando evento…' : 'Gerar versículos e preparar evento'}
+              {preparing
+                ? 'Preparando evento…'
+                : versiculosNoEvento > 0
+                  ? 'Gerar versículos e preparar evento'
+                  : 'Preparar evento'}
             </button>
             <p className="text-xs text-[var(--crash-texto-sec)]">
-              Gera versículos em cache no Supabase para cada música (revise em “Revisar
-              versículos”).
+              {versiculosNoEvento > 0
+                ? 'Gera versículos em cache no Supabase para cada música (revise em “Revisar versículos”).'
+                : 'Sem versículos bíblicos neste evento — após preparar, use Iniciar Evento para ir ao teleprompter.'}
             </p>
           </>
         ) : (
@@ -616,9 +623,11 @@ export function Playlist() {
         )}
 
         <div className="flex flex-wrap gap-2 border-t border-[var(--crash-borda)] pt-4">
-          <Link to={`/playlist/${id}/versiculos`} className={btnSecondaryClassName}>
-            Revisar versículos
-          </Link>
+          {versiculosNoEvento > 0 ? (
+            <Link to={`/playlist/${id}/versiculos`} className={btnSecondaryClassName}>
+              Revisar versículos
+            </Link>
+          ) : null}
           <Link to={`/playlist/${id}/preview`} className={btnSecondaryClassName}>
             Preview arranjo
           </Link>

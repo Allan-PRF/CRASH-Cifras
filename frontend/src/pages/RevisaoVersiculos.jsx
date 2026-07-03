@@ -206,10 +206,25 @@ export function RevisaoVersiculos() {
           <h1 className="text-2xl font-bold text-white">Revisão de versículos</h1>
           <p className="text-sm text-[var(--crash-texto-sec)]">{playlist.nome}</p>
         </div>
-        <Link to={`/playlist/${id}/preview`} className={btnSecondaryClassName}>
-          Preview arranjo
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/playlist/${id}`} className={btnPrimaryClassName}>
+            Voltar ao evento
+          </Link>
+          <Link to={`/playlist/${id}/preview`} className={btnSecondaryClassName}>
+            Preview arranjo
+          </Link>
+        </div>
       </header>
+
+      {playlist.itens.every((item) => {
+        const record = recordsByMusic.get(item.musica_id)
+        return !record || quantidadeFromMomentosAtivos(record.momentos_ativos) === 0
+      }) && (
+        <p className={`p-4 text-sm leading-relaxed text-[var(--crash-texto-sec)] ${cardClassName}`}>
+          Este evento está sem versículos bíblicos. Volte ao evento e use{' '}
+          <strong className="text-white">Iniciar Evento</strong> para abrir o teleprompter.
+        </p>
+      )}
 
       <div className="space-y-4">
         {playlist.itens.map((item) => {
@@ -235,7 +250,7 @@ export function RevisaoVersiculos() {
                     </p>
                   )}
                 </div>
-                {!record && (
+                {!record && quantidadeFromMomentosAtivos(momentosAtivos) > 0 && (
                   <button
                     type="button"
                     onClick={() => ensureRecord(item)}
