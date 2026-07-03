@@ -1,23 +1,27 @@
 import { api } from '../lib/api'
-import { supabase } from '../lib/supabase'
+import { getAuthBearerToken } from '../lib/authSession'
+
+const EQUIPE_VAZIA = { equipe: null, membros: [], meuTipo: null }
 
 async function authHeaders() {
-  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
-  const session = refreshed?.session ?? (await supabase.auth.getSession()).data.session
-
-  if (refreshError && !session?.access_token) {
-    throw new Error('Sessão expirada. Faça login novamente.')
-  }
-  if (!session?.access_token) {
+  const token = await getAuthBearerToken()
+  if (!token) {
     throw new Error('Faça login para gerenciar sua equipe')
   }
-  return { Authorization: `Bearer ${session.access_token}` }
+  return { Authorization: `Bearer ${token}` }
 }
 
+/**
+ * Equipe do usuário — falha silenciosa (lista de eventos não depende disso).
+ */
 export async function fetchMinhaEquipe() {
-  const headers = await authHeaders()
-  const { data } = await api.get('/equipes/minha', { headers })
-  return data
+  try {
+    const headers = await authHeaders()
+    const { data } = await api.get('/equipes/minha', { headers })
+    return data ?? EQUIPE_VAZIA
+  } catch {
+    return EQUIPE_VAZIA
+  }
 }
 
 export async function criarEquipe(nome, instrumento) {

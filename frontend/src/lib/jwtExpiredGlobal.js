@@ -19,9 +19,7 @@ export function messageLooksLikeJwtExpired(value) {
       messageLooksLikeJwtExpired(obj.details) ||
       messageLooksLikeJwtExpired(obj.hint) ||
       messageLooksLikeJwtExpired(obj.error) ||
-      obj.code === 'PGRST303' ||
-      obj.code === 401 ||
-      obj.code === '401'
+      obj.code === 'PGRST303'
     )
   }
 
@@ -30,8 +28,46 @@ export function messageLooksLikeJwtExpired(value) {
     m.includes('jwt expired') ||
     m.includes('jwt has expired') ||
     m.includes('invalid jwt') ||
-    m.includes('token expired')
+    m.includes('token expired') ||
+    m.includes('session expired')
   )
+}
+
+/** Mensagens 401 da API que indicam sessão inválida (não erro transitório genérico). */
+export function api401IndicatesInvalidSession(error) {
+  if (error?.response?.status !== 401) return false
+
+  const serverMsg =
+    error.response?.data?.error ||
+    error.response?.data?.message ||
+    error.message
+
+  if (messageLooksLikeJwtExpired(serverMsg)) return true
+
+  const m = String(serverMsg || '').toLowerCase()
+  return (
+    m.includes('token de autenticação ausente') ||
+    m.includes('token de autenticacao ausente') ||
+    m.includes('token inválido') ||
+    m.includes('token invalido') ||
+    m.includes('faça login') ||
+    m.includes('faca login') ||
+    m.includes('sessão expirada') ||
+    m.includes('sessao expirada')
+  )
+}
+
+/** Erro de API/Supabase que deve disparar refresh global ou logout. */
+export function shouldHandleJwtExpiredGlobally(error) {
+  if (api401IndicatesInvalidSession(error)) return true
+
+  const serverMsg =
+    error?.response?.data?.error ||
+    error?.response?.data?.message ||
+    error?.message ||
+    error
+
+  return messageLooksLikeJwtExpired(serverMsg)
 }
 
 /**
@@ -105,15 +141,7 @@ function attachApiInterceptor() {
     api.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const serverMsg =
-          error.response?.data?.error ||
-          error.response?.data?.message ||
-          error.message
-
-        if (
-          error.response?.status === 401 ||
-          messageLooksLikeJwtExpired(serverMsg)
-        ) {
+        if (shouldHandleJwtExpiredGlobally(error)) {
           await handleJwtExpiredGlobal()
           return new Promise(() => {})
         }
