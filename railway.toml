@@ -4,7 +4,7 @@ builder = "NIXPACKS"
 buildCommand = "echo 'backend: dependencias instaladas na fase install'"
 
 [deploy]
-startCommand = "npm run start -w backend"
+startCommand = "node backend/server.js"
 healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"

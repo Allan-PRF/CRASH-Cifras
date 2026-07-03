@@ -51,6 +51,6 @@ app.use((err, req, res, _next) => {
   res.status(status).json({ error: message, requestId: req.id })
 })
 
-app.listen(env.port, () => {
+app.listen(env.port, '0.0.0.0', () => {
   console.log(`CRASH Cifras API — porta ${env.port} (${env.nodeEnv})`)
 })
