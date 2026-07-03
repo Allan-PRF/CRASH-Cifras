@@ -1,4 +1,10 @@
 # Railway/Nixpacks — yt-dlp via youtube-dl-exec (postinstall baixa o binário).
 # Python já vem no ambiente Railway; não adicionar nixPkgs python* (colide no build).
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["echo 'backend: sem build do frontend no Railway'"]
+
 [variables]
 YOUTUBE_DL_SKIP_PYTHON_CHECK = "1"

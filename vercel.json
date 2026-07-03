@@ -3,7 +3,7 @@
   "buildCommand": "npm run build --workspaces=false",
   "devCommand": "npm run dev -w frontend",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm run vercel:install",
+  "installCommand": "npm ci && node scripts/ensure-rolldown-binding.mjs",
   "framework": null,
   "headers": [
     {
