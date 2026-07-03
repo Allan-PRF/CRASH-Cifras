@@ -14,6 +14,7 @@
     "./validate-youtube-url": "./validateYoutubeUrl.js",
     "./referral": "./referral.js",
     "./acervo": "./acervo.js",
-    "./evento": "./evento.js"
+    "./evento": "./evento.js",
+    "./cifra-evento": "./cifra-evento.js"
   }
 }

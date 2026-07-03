@@ -17,6 +17,11 @@ import {
   prepararVersiculoPrefsParaSalvar,
   quantidadeFromMomentosAtivos,
 } from '@crash-cifras/shared/versiculos-config'
+import {
+  buildCifraEventoSnapshot,
+  cifraEventoTemConteudo,
+  secoesFromCifraEvento,
+} from '@crash-cifras/shared/cifra-evento'
 import { musicaBreadcrumbItems } from '../lib/pageNavItems'
 import { fetchUserSettings } from '../services/settings'
 import {
@@ -30,6 +35,7 @@ import {
   upsertSecao,
 } from '../services/musicas'
 import { enviarFeedbackAcervo, restaurarCifraMotor } from '../services/acervo'
+import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
 function secaoTemConteudo(linhas) {
@@ -70,6 +76,11 @@ export function MusicaEditar() {
   const location = useLocation()
   const voltarPara =
     typeof location.state?.returnTo === 'string' ? location.state.returnTo : null
+  const editEventoItemId =
+    location.state?.editScope === 'evento' && location.state?.playlistItemId
+      ? location.state.playlistItemId
+      : null
+  const editandoCifraEvento = Boolean(editEventoItemId)
   const [meta, setMeta] = useState(null)
   const [intro, setIntro] = useState({ mao_esquerda: '', mao_direita: '' })
   const [versiculoPrefs, setVersiculoPrefs] = useState(() => versiculoPrefsFromMusica(null))
@@ -128,22 +139,38 @@ export function MusicaEditar() {
 
   const load = useCallback(() => {
     setLoading(true)
-    fetchMusicaCompleta(id)
-      .then((data) => {
+    const itemPromise = editEventoItemId
+      ? fetchPlaylistItem(editEventoItemId)
+      : Promise.resolve(null)
+
+    Promise.all([fetchMusicaCompleta(id), itemPromise])
+      .then(([data, playlistItem]) => {
         setMeta(data)
-        setIntro(data.intro || { mao_esquerda: '', mao_direita: '' })
         setVersiculoPrefs(versiculoPrefsFromMusica(data.versiculo_prefs))
-        const todas = data.secoes || []
-        setIntroSecaoIds(
-          todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
-        )
-        setSecoes(secoesParaEditor(todas))
+
+        const usarCifraEvento =
+          editandoCifraEvento && cifraEventoTemConteudo(playlistItem?.cifra_evento)
+
+        if (usarCifraEvento) {
+          const cifra = playlistItem.cifra_evento
+          setIntro(cifra.intro || { mao_esquerda: '', mao_direita: '' })
+          setIntroSecaoIds([])
+          setSecoes(secoesParaEditor(secoesFromCifraEvento(cifra)))
+        } else {
+          setIntro(data.intro || { mao_esquerda: '', mao_direita: '' })
+          const todas = data.secoes || []
+          setIntroSecaoIds(
+            todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
+          )
+          setSecoes(secoesParaEditor(todas))
+        }
+
         setUndoStack([])
         setOffsetVisual(0)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, editEventoItemId, editandoCifraEvento])
 
   useEffect(() => {
     load()
@@ -226,16 +253,43 @@ export function MusicaEditar() {
     })
   }
 
+  async function handleRestaurarVersaoMinistroEvento() {
+    if (!editEventoItemId) return
+    setSaving(true)
+    setError('')
+    try {
+      await updatePlaylistItem(editEventoItemId, { cifra_evento: null })
+      await load()
+      setToastMotor('Versão da pasta do ministro restaurada neste evento.')
+    } catch (err) {
+      setError(err.message || 'Não foi possível restaurar a versão do ministro.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSave() {
     if (!meta) return
     setSaving(true)
     setError('')
     try {
-      const bpm =
-        meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
-
       const introAtual = introEditorRef.current?.flush() ?? intro
       const introToSave = normalizarIntroParaCopia(introAtual)
+
+      if (editandoCifraEvento && editEventoItemId) {
+        await updatePlaylistItem(editEventoItemId, {
+          cifra_evento: buildCifraEventoSnapshot({
+            intro: introToSave || { mao_esquerda: '', mao_direita: '' },
+            secoes,
+          }),
+        })
+        setUndoStack([])
+        navigate(voltarPara ?? '/')
+        return
+      }
+
+      const bpm =
+        meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
 
       const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
       if (
@@ -322,7 +376,20 @@ export function MusicaEditar() {
         />
       </div>
 
-      {meta.import_status === 'pending' && (
+      {editandoCifraEvento && (
+        <div
+          className="flex gap-3 rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4"
+          role="status"
+        >
+          <p className="text-sm leading-relaxed text-white">
+            <strong className="text-[var(--crash-cifra)]">Edição só deste evento.</strong>{' '}
+            A pasta do ministro não será alterada. Outros eventos continuam usando a cifra
+            original do ministro.
+          </p>
+        </div>
+      )}
+
+      {meta.import_status === 'pending' && !editandoCifraEvento && (
         <div
           className="flex gap-3 rounded-xl border border-amber-600/35 bg-amber-950/25 p-4"
           role="status"
@@ -353,9 +420,10 @@ export function MusicaEditar() {
         type="text"
         value={meta.titulo}
         onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
+        readOnly={editandoCifraEvento}
         aria-label="Título da música"
         placeholder="Título da música"
-        className={`${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]`}
+        className={`${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]${editandoCifraEvento ? ' cursor-default opacity-90' : ''}`}
       />
 
       <div
@@ -376,7 +444,7 @@ export function MusicaEditar() {
         <button
           type="button"
           onClick={() => setRestaurarMotorOpen(true)}
-          disabled={!temLinhaAcervo || restaurandoMotor}
+          disabled={!temLinhaAcervo || restaurandoMotor || editandoCifraEvento}
           className={btnCifraOutlineClassName}
           title={
             temLinhaAcervo
@@ -389,7 +457,7 @@ export function MusicaEditar() {
         <button
           type="button"
           onClick={() => setComunidadeOpen(true)}
-          disabled={!temLinhaAcervo}
+          disabled={!temLinhaAcervo || editandoCifraEvento}
           className={btnCifraOutlineClassName}
           title={
             temLinhaAcervo
@@ -402,6 +470,16 @@ export function MusicaEditar() {
         <button type="button" onClick={addSecao} className={btnPrimaryClassName}>
           + Seção
         </button>
+        {editandoCifraEvento && (
+          <button
+            type="button"
+            onClick={handleRestaurarVersaoMinistroEvento}
+            disabled={saving}
+            className={btnCifraOutlineClassName}
+          >
+            Usar cifra do ministro
+          </button>
+        )}
       </div>
 
       <CifraEditorFolhaMaquete
@@ -421,13 +499,15 @@ export function MusicaEditar() {
         }}
       />
 
-      <AnotacaoMusicaEditorBloco musicaId={id} />
+      {!editandoCifraEvento && <AnotacaoMusicaEditorBloco musicaId={id} />}
 
-      <VersiculoMusicaPrefsEditor
-        prefs={versiculoPrefs}
-        onChange={setVersiculoPrefs}
-        versaoPadraoUsuario={versaoPadraoUsuario}
-      />
+      {!editandoCifraEvento && (
+        <VersiculoMusicaPrefsEditor
+          prefs={versiculoPrefs}
+          onChange={setVersiculoPrefs}
+          versaoPadraoUsuario={versaoPadraoUsuario}
+        />
+      )}
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -437,7 +517,11 @@ export function MusicaEditar() {
         disabled={saving}
         className={`w-full ${btnPrimaryClassName}`}
       >
-        {saving ? 'Salvando…' : 'Salvar e visualizar'}
+        {saving
+          ? 'Salvando…'
+          : editandoCifraEvento
+            ? 'Salvar cifra deste evento'
+            : 'Salvar e visualizar'}
       </button>
 
       <ConfirmDeleteModal

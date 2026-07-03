@@ -24,6 +24,10 @@ import {
   quantidadeFromMomentosAtivos,
   versiculosFromManualPrefs,
 } from '@crash-cifras/shared/versiculos-config'
+import {
+  aplicarCifraEventoNaMusica,
+  cifraEventoTemConteudo,
+} from '@crash-cifras/shared/cifra-evento'
 import { gerarVersiculos } from '../lib/palavraLocal'
 import {
   prefsEventoPadrao,
@@ -231,7 +235,8 @@ export function Playlist() {
       const versiculosPreparados = []
       const timbresPreparados = []
       for (const item of playlist.itens) {
-        const musica = await fetchMusicaCompleta(item.musica_id)
+        let musica = await fetchMusicaCompleta(item.musica_id)
+        musica = aplicarCifraEventoNaMusica(musica, item.cifra_evento)
         musicasPreparadas.push(musica)
         const prefs = mesclarVersiculoPrefs(
           musica.versiculo_prefs,
@@ -507,11 +512,20 @@ export function Playlist() {
                         🔗 MEDLEY → {medleyTitulo}
                       </p>
                     )}
+                    {cifraEventoTemConteudo(item.cifra_evento) && (
+                      <p className="mt-1 text-xs text-[var(--crash-texto-sec)]">
+                        Cifra ajustada neste evento
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <Link
                       to={`/musica/${item.musica_id}/editar`}
-                      state={{ returnTo: `/playlist/${id}` }}
+                      state={{
+                        returnTo: `/playlist/${id}`,
+                        editScope: 'evento',
+                        playlistItemId: item.id,
+                      }}
                       className={`${btnCifraOutlineClassName} px-3 py-1.5 text-xs`}
                     >
                       Editar cifra

@@ -42,6 +42,7 @@ const ITEM_SELECT = `
   ordem_secoes,
   tipo,
   medley_proxima_id,
+  cifra_evento,
   musicas (
     id,
     titulo,
@@ -188,6 +189,17 @@ export async function addMusicaToPlaylist(playlistId, musicaId) {
       tipo: 'normal',
     })
     .select(ITEM_SELECT)
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function fetchPlaylistItem(itemId) {
+  const { data, error } = await supabase
+    .from('playlist_itens')
+    .select(ITEM_SELECT)
+    .eq('id', itemId)
     .single()
 
   if (error) throw error

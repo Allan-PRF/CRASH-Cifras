@@ -68,6 +68,7 @@ import {
 } from '../services/musicas'
 import { resolveVersiculosForTeleprompter } from '../lib/resolveVersiculosTeleprompter'
 import { resolverProximaMusicaCulto } from '../lib/playlistCultoNav'
+import { aplicarCifraEventoNaMusica } from '@crash-cifras/shared/cifra-evento'
 import { fetchTimbreByMusica } from '../services/timbres'
 import { fetchPlaylistCompleta } from '../services/playlists'
 
@@ -202,6 +203,7 @@ export function Teleprompter() {
   const navigate = useNavigate()
   const { settings, setSettings } = useUserSettings()
   const [musica, setMusica] = useState(null)
+  const [musicaServidor, setMusicaServidor] = useState(null)
   const [versiculosRecord, setVersiculosRecord] = useState(null)
   const [timbreRecord, setTimbreRecord] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -397,10 +399,25 @@ export function Teleprompter() {
     setLoading(true)
     setError('')
     fetchMusicaCompleta(musicaId)
-      .then(setMusica)
+      .then(setMusicaServidor)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [musicaId])
+
+  useEffect(() => {
+    if (!musicaServidor) {
+      setMusica(null)
+      return
+    }
+    let next = musicaServidor
+    if (playlistId && playlistCulto?.itens?.length) {
+      const item = playlistCulto.itens.find(
+        (it) => String(it.musica_id) === String(musicaId),
+      )
+      next = aplicarCifraEventoNaMusica(musicaServidor, item?.cifra_evento)
+    }
+    setMusica(next)
+  }, [musicaServidor, playlistCulto, playlistId, musicaId])
 
   useEffect(() => {
     load()
