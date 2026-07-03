@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 const navItems = [
   { to: '/', label: 'Início', end: true },
   { to: '/playlist', label: 'Eventos' },
-  { to: '/historico', label: 'Histórico' },
+  // { to: '/historico', label: 'Histórico' }, // oculto: histórico Supabase ainda não ligado; offline redundante com Eventos
 ]
 
 const navLinkClassName = ({ isActive }) =>
