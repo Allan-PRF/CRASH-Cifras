@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { PageBackButton } from '../components/layout/PageBackButton'
+import { PageNav } from '../components/layout/PageNav'
 import { expandirOrdemSecoes } from '../lib/diretorLocal'
 import { fetchMusicaCompleta } from '../services/musicas'
 import { fetchPlaylistCompleta, isPlaylistNotFoundError } from '../services/playlists'
@@ -63,20 +65,30 @@ export function PreviewArranjo() {
   }
 
   if (error || !playlist) {
-    return <p className="text-red-400">{error || 'Playlist não encontrada'}</p>
+    return (
+      <section className="space-y-4">
+        <PageBackButton to={`/playlist/${id}`} variant="cifra" label="← Voltar" />
+        <p className="text-red-400">{error || 'Playlist não encontrada'}</p>
+      </section>
+    )
   }
 
   return (
     <section className="space-y-6">
+      <PageNav
+        breadcrumbItems={[
+          { label: 'Início', to: '/' },
+          { label: 'Eventos', to: '/playlist' },
+          { label: playlist.nome, to: `/playlist/${id}` },
+          { label: 'Preview arranjo' },
+        ]}
+        backTo={`/playlist/${id}`}
+        backVariant="cifra"
+      />
+
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link
-            to={`/playlist/${id}`}
-            className="text-xs text-[var(--crash-texto-sec)] hover:text-white"
-          >
-            ← Voltar à playlist
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold text-white">Preview do arranjo</h1>
+          <h1 className="text-2xl font-bold text-white">Preview do arranjo</h1>
           <p className="text-sm text-[var(--crash-texto-sec)]">{playlist.nome}</p>
         </div>
         {playlist.itens[0] && (
