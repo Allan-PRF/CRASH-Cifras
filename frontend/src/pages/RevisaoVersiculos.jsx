@@ -198,6 +198,7 @@ export function RevisaoVersiculos() {
           { label: 'Versículos' },
         ]}
         backTo={`/playlist/${id}`}
+        backVariant="cifra"
       />
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
