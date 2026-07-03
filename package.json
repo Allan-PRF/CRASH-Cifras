@@ -13,7 +13,8 @@
     "dev:api": "npm run dev -w backend",
     "build": "npm run build -w @crash-cifras/frontend",
     "start": "npm run start -w backend",
-    "lint": "npm run lint -w frontend"
+    "lint": "npm run lint -w frontend",
+    "vercel:install": "npm ci && node scripts/ensure-rolldown-binding.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

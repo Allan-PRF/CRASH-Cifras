@@ -3,7 +3,7 @@
   "buildCommand": "npm run build --workspaces=false",
   "devCommand": "npm run dev -w frontend",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm run vercel:install",
   "framework": null,
   "headers": [
     {
