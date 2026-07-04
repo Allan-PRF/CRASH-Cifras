@@ -50,6 +50,7 @@ export function Assinatura() {
           { label: 'Assinatura' },
         ]}
         backTo="/"
+        backVariant="cifra"
       />
 
       <header className="rounded-2xl border border-[var(--crash-cifra)] bg-black/50 p-6">
