@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd .. && npm ci",
+  "installCommand": "cd .. && npm ci && node scripts/ensure-rollup-binding.mjs",
   "buildCommand": "cd .. && npm run build -w @crash-cifras/frontend",
   "outputDirectory": "dist",
   "framework": null,

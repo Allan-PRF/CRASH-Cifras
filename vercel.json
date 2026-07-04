@@ -3,7 +3,7 @@
   "buildCommand": "npm run build -w @crash-cifras/frontend",
   "devCommand": "npm run dev -w frontend",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm ci && node scripts/ensure-rollup-binding.mjs",
   "framework": null,
   "headers": [
     {

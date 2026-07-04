@@ -34,7 +34,11 @@
     "globals": "^17.6.0",
     "tailwindcss": "^4.3.0",
     "terser": "^5.48.0",
-    "vite": "^7.3.6",
+    "vite": "7.3.6",
     "vite-plugin-pwa": "^1.3.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.60.4",
+    "@rollup/rollup-win32-x64-msvc": "4.60.4"
   }
 }
