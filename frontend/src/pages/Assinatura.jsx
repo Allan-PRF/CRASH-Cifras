@@ -147,7 +147,7 @@ export function Assinatura() {
 
         <article className="flex flex-col rounded-2xl border border-dashed border-zinc-600 bg-zinc-950/80 p-5 opacity-90">
           <span className="self-start rounded-full border border-zinc-600 bg-zinc-800/80 px-2.5 py-0.5 text-xs font-semibold text-zinc-400">
-            Em breve · Junho 2025
+            Em breve
           </span>
           <h2 className="mt-3 text-2xl font-bold text-zinc-300">{PLANO_EQUIPE.nome}</h2>
           <p className="mt-2 text-sm text-zinc-500">{PLANO_EQUIPE.descricao}</p>
