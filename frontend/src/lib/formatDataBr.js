@@ -37,6 +37,56 @@ export function isoDateFromDisplayBr(display) {
   return `${y}-${m}-${d}`
 }
 
+/** Data de hoje no fuso local → yyyy-mm-dd */
+export function hojeIsoLocal() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Extrai yyyy-mm-dd de data_culto (ISO ou timestamptz). */
+export function isoDatePartFromEvento(dataCulto) {
+  if (!dataCulto) return null
+  const part = String(dataCulto).slice(0, 10)
+  return ISO_DATE.test(part) ? part : null
+}
+
+/** true = hoje ou futuro; sem data também conta como futuro (não some da lista). */
+export function isEventoFuturoOuHoje(dataCulto) {
+  const iso = isoDatePartFromEvento(dataCulto)
+  if (!iso) return true
+  return iso >= hojeIsoLocal()
+}
+
+/**
+ * Separa playlists em próximos (asc, sem data no topo) e anteriores (desc).
+ * @param {Array<{ data_culto?: string | null }>} playlists
+ */
+export function partitionPlaylistsPorData(playlists) {
+  const proximos = []
+  const anteriores = []
+  for (const p of playlists) {
+    if (isEventoFuturoOuHoje(p.data_culto)) proximos.push(p)
+    else anteriores.push(p)
+  }
+  proximos.sort((a, b) => {
+    const aa = isoDatePartFromEvento(a.data_culto)
+    const bb = isoDatePartFromEvento(b.data_culto)
+    if (!aa && !bb) return 0
+    if (!aa) return -1
+    if (!bb) return 1
+    return aa.localeCompare(bb)
+  })
+  anteriores.sort((a, b) => {
+    const aa = isoDatePartFromEvento(a.data_culto) || ''
+    const bb = isoDatePartFromEvento(b.data_culto) || ''
+    return bb.localeCompare(aa)
+  })
+  return { proximos, anteriores }
+}
+
 /** Máscara enquanto digita: dd/mm/aaaa */
 export function applyDataEventoMask(raw) {
   const digits = String(raw || '').replace(/\D/g, '').slice(0, 8)

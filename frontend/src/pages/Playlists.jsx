@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PlaylistCriarStepHighlight } from '../components/playlist/PlaylistFlowSteps'
+import { PlaylistListaPorData } from '../components/playlist/PlaylistListaPorData'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import { FormField } from '../components/ui/FormField'
 import {
   btnPrimaryClassName,
-  cardClassName,
   cardMutedClassName,
   inputClassName,
 } from '../components/ui/inputClasses'
 import {
   applyDataEventoMask,
-  formatDataEvento,
   isoDateFromDisplayBr,
+  partitionPlaylistsPorData,
 } from '../lib/formatDataBr'
 import { useAuth } from '../hooks/useAuth'
 import {
@@ -34,6 +34,11 @@ export function Playlists() {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [equipeId, setEquipeId] = useState(null)
+
+  const { proximos, anteriores } = useMemo(
+    () => partitionPlaylistsPorData(playlists),
+    [playlists],
+  )
 
   function load() {
     setLoading(true)
@@ -158,71 +163,30 @@ export function Playlists() {
         </div>
       )}
 
-      {!loading && playlists.length > 0 && (() => {
-        const minhas = playlists.filter((p) => p.user_id === user?.id)
-        const daEquipe = playlists.filter((p) => p.user_id !== user?.id && p.equipe_id)
-        return (
-          <>
-            {minhas.length > 0 && (
-              <>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--crash-texto-sec)]">
-                  Suas playlists
-                </h2>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {minhas.map((playlist) => (
-                    <li key={playlist.id} className={`relative p-4 pr-16 ${cardClassName}`}>
-                      <Link to={`/playlist/${playlist.id}`} className="block transition hover:opacity-95">
-                        <p className="font-semibold text-white">{playlist.nome}</p>
-                        <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-                          {formatDataEvento(playlist.data_culto)}
-                          {playlist.status === 'preparado' && (
-                            <span className="ml-2 text-[var(--crash-cifra)]">· Preparado</span>
-                          )}
-                        </p>
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); solicitarExcluirPlaylist(playlist) }}
-                        className="absolute right-3 top-3 rounded-md px-2 py-1 text-xs text-red-400/70 transition hover:bg-red-950/40 hover:text-red-400"
-                        aria-label={`Excluir playlist ${playlist.nome}`}
-                      >
-                        Excluir
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {daEquipe.length > 0 && (
-              <>
-                <h2 className="mt-4 text-sm font-semibold uppercase tracking-wide text-[var(--crash-texto-sec)]">
-                  Playlists da equipe
-                </h2>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {daEquipe.map((playlist) => (
-                    <li key={playlist.id} className={`relative p-4 ${cardClassName}`}>
-                      <Link to={`/playlist/${playlist.id}`} className="block transition hover:opacity-95">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded bg-green-900/40 px-1.5 py-0.5 text-[10px] font-bold uppercase text-green-400">
-                            Equipe
-                          </span>
-                          <p className="font-semibold text-white">{playlist.nome}</p>
-                        </div>
-                        <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-                          {formatDataEvento(playlist.data_culto)}
-                          {playlist.status === 'preparado' && (
-                            <span className="ml-2 text-[var(--crash-cifra)]">· Preparado</span>
-                          )}
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </>
-        )
-      })()}
+      {!loading && proximos.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-white">Próximos eventos</h2>
+          <PlaylistListaPorData
+            playlists={proximos}
+            userId={user?.id}
+            modo="cards"
+            onExcluir={solicitarExcluirPlaylist}
+          />
+        </section>
+      )}
+
+      {!loading && anteriores.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-white">Eventos anteriores</h2>
+          <PlaylistListaPorData
+            playlists={anteriores}
+            userId={user?.id}
+            modo="tabela"
+            onExcluir={solicitarExcluirPlaylist}
+          />
+        </section>
+      )}
+
       <ConfirmDeleteModal
         open={!!confirmDelete}
         message={confirmDelete?.message}
