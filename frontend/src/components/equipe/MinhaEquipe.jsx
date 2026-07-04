@@ -23,6 +23,7 @@ import {
   removerMembro,
   sairEquipe,
 } from '../../services/equipes'
+import { buildEquipeInviteUrl } from '../../lib/siteUrl'
 
 function StatusDot({ online }) {
   return (
@@ -119,7 +120,7 @@ function EquipePainel({ equipe, membros, meuTipo, onReload }) {
   }
 
   function copiarCodigo() {
-    const url = `${window.location.origin}/conta?equipe=${equipe.codigo}`
+    const url = buildEquipeInviteUrl(equipe.codigo)
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)

@@ -3,11 +3,8 @@ import {
   isValidReferralCode,
   sanitizeReferrerDisplayName,
 } from '@crash-cifras/shared/referral'
+import { getPublicSiteUrl } from '../lib/siteUrl'
 import { supabase } from '../lib/supabase'
-
-function referralSiteUrl() {
-  return import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin
-}
 
 function unwrapRpcScalar(value) {
   if (Array.isArray(value)) return value[0] ?? null
@@ -92,7 +89,7 @@ export async function fetchReferralStats() {
   const code = profile.referral_code
   return {
     code,
-    link: buildReferralLink(code, referralSiteUrl()),
+    link: buildReferralLink(code, getPublicSiteUrl()),
     displayName: sanitizeReferrerDisplayName(profile.display_name),
     totalIndicacoes: totalIndicacoes ?? 0,
     mesesAcumulados: settings?.meses_bonus_acumulados ?? 0,
@@ -122,6 +119,6 @@ export async function fetchPublicReferrer(codigo) {
   return {
     displayName: sanitizeReferrerDisplayName(row.display_name),
     code: row.referral_code,
-    link: buildReferralLink(row.referral_code, referralSiteUrl()),
+    link: buildReferralLink(row.referral_code, getPublicSiteUrl()),
   }
 }

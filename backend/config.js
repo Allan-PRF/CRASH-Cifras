@@ -8,6 +8,15 @@ config({ path: resolve(__dirname, '../.env') })
 
 const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 
+function resolvePublicSiteUrl() {
+  for (const raw of [process.env.FRONTEND_URL, process.env.CLIENT_ORIGIN]) {
+    if (!raw) continue
+    const url = raw.replace(/\/$/, '')
+    if (!url.includes('vercel.app')) return url
+  }
+  return 'https://crashcifras.com.br'
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 3001,
@@ -27,10 +36,7 @@ export const env = {
   cronSecret: process.env.CRON_SECRET || '',
   resendApiKey: process.env.RESEND_API_KEY || '',
   emailFrom: process.env.EMAIL_FROM || 'CRASH Cifras <noreply@crashcifras.com>',
-  publicSiteUrl:
-    process.env.FRONTEND_URL ||
-    process.env.CLIENT_ORIGIN ||
-    'https://crashcifras.com.br',
+  publicSiteUrl: resolvePublicSiteUrl(),
   corsOrigins: [
     clientOrigin,
     'http://localhost:4173',

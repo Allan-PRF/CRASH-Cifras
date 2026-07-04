@@ -22,10 +22,4 @@ export function clearReferralCode() {
   sessionStorage.removeItem(LEGACY_STORAGE_KEY)
 }
 
-export function getPublicSiteUrl() {
-  return (
-    import.meta.env.VITE_PUBLIC_SITE_URL ||
-    import.meta.env.VITE_CLIENT_ORIGIN ||
-    window.location.origin
-  ).replace(/\/$/, '')
-}
+export { getPublicSiteUrl, buildEquipeInviteUrl, CANONICAL_SITE_URL } from './siteUrl'

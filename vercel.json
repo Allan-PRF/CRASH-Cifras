@@ -65,6 +65,20 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "crash-cifras-frontend.vercel.app" }],
+      "destination": "https://crashcifras.com.br/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "crashcifras.vercel.app" }],
+      "destination": "https://crashcifras.com.br/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

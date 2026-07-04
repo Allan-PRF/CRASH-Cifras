@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
 import { fetchMinhaEquipe } from '../../services/equipes'
+import { buildEquipeInviteUrl } from '../../lib/siteUrl'
 
 function StatusDot({ online }) {
   return (
@@ -43,7 +44,7 @@ export function HomeEquipeResumo() {
 
   function copiarCodigo() {
     if (!equipe) return
-    const url = `${window.location.origin}/conta?equipe=${equipe.codigo}`
+    const url = buildEquipeInviteUrl(equipe.codigo)
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
