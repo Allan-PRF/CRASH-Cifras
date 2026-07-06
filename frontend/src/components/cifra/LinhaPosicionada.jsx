@@ -1,14 +1,14 @@
 import { memo } from 'react'
 import { MONO } from '../../lib/monoCharWidth'
 
-export function estiloMono(fonteLetra, fontWeight = 400) {
+export function estiloMono(fonteLetra, fontWeight = 400, lineHeightRatio = 1.25) {
   return {
     fontFamily: MONO,
     fontSize: fonteLetra,
     fontWeight,
     letterSpacing: 0,
     fontVariantNumeric: 'tabular-nums',
-    lineHeight: 1.25,
+    lineHeight: lineHeightRatio,
   }
 }
 
@@ -20,6 +20,7 @@ export const LinhaPosicionada = memo(function LinhaPosicionada({
   color,
   fontWeight = 700,
   minCols = 0,
+  lineHeightRatio = 1.25,
 }) {
   if (!items.length) return null
 
@@ -33,8 +34,8 @@ export const LinhaPosicionada = memo(function LinhaPosicionada({
     <div
       className="relative m-0 max-w-full overflow-x-auto"
       style={{
-        ...estiloMono(fonteLetra, fontWeight),
-        minHeight: `${fonteLetra * 1.25}px`,
+        ...estiloMono(fonteLetra, fontWeight, lineHeightRatio),
+        minHeight: `${fonteLetra * lineHeightRatio}px`,
         minWidth: widthCols > 0 ? widthCols * charWidthPx : undefined,
         color,
       }}

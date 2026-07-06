@@ -67,6 +67,11 @@ import {
   updateMusicaBpm,
 } from '../services/musicas'
 import { resolveVersiculosForTeleprompter } from '../lib/resolveVersiculosTeleprompter'
+import { useIsMobile } from '../hooks/useIsMobile'
+import {
+  scaleTeleprompterFont,
+  teleprompterLineHeightRatio,
+} from '../lib/teleprompterMobile'
 import { resolverProximaMusicaCulto } from '../lib/playlistCultoNav'
 import { aplicarCifraEventoNaMusica } from '@crash-cifras/shared/cifra-evento'
 import { fetchTimbreByMusica } from '../services/timbres'
@@ -381,8 +386,11 @@ export function Teleprompter() {
 
   const layout = LAYOUT_POR_ORIENTACAO[orientacao] ?? LAYOUT_POR_ORIENTACAO.landscape
   const fontSteps = layout.fontSteps
-  const fonteLetra = fontSteps[fontIndex]?.value ?? fontSteps[1].value
+  const isMobile = useIsMobile()
+  const fonteBase = fontSteps[fontIndex]?.value ?? fontSteps[1].value
+  const fonteLetra = scaleTeleprompterFont(fonteBase, orientacao, isMobile)
   const fonteLetraLandscape = Math.round(fonteLetra * LANDSCAPE_FONT_SCALE)
+  const lineHeightRatio = teleprompterLineHeightRatio(isMobile)
   const fontLabel = fontSteps[fontIndex]?.label ?? 'M'
 
   useEffect(() => {
@@ -1131,7 +1139,9 @@ export function Teleprompter() {
 
       {isFixo ? (
         <main
-          className="flex h-[100svh] flex-col justify-center overflow-hidden px-2 pt-20 sm:px-6"
+          className={`flex h-[100svh] flex-col justify-center px-2 pt-20 sm:px-6 ${
+            isMobile ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
+          }`}
           style={{ paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16 }}
         >
           <div className="mx-auto w-full max-w-5xl">
@@ -1164,6 +1174,7 @@ export function Teleprompter() {
                         fonteLetra={fonteLetra}
                         sectionKey={sk}
                         lineGapClassName={layout.lineGap}
+                        lineHeightRatio={lineHeightRatio}
                       />
                     </div>
                   )
@@ -1178,6 +1189,7 @@ export function Teleprompter() {
           showChords={showChords}
           showGrades={showGrades}
           fonteLetra={fonteLetraLandscape}
+          lineHeightRatio={lineHeightRatio}
           tomGraus={tomGraus}
           onViewportWidth={(w) => {
             landscapeViewportRef.current = w
@@ -1274,6 +1286,7 @@ export function Teleprompter() {
                   sectionKey={sk}
                   lineGapClassName={layout.lineGap}
                   onLineRef={registerLineRef}
+                  lineHeightRatio={lineHeightRatio}
                 />
               </section>
             )

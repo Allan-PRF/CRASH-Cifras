@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { LinhaCifraLinha } from '../cifra/LinhaCifra'
+import { useIsMobile } from '../../hooks/useIsMobile'
+import {
+  LANDSCAPE_MARQUEE_BOTTOM_MOBILE,
+  LANDSCAPE_MARQUEE_TOP_MOBILE,
+} from '../../lib/teleprompterMobile'
 import { LANDSCAPE_PREVIEW_FONT_SCALE } from '../../lib/teleprompterLandscapeMarquee'
 
-/** Faixa abaixo do mini player (top 70px + ~134px altura) e acima do card bíblico. */
+/** Faixa abaixo do mini player (desktop) e acima do card bíblico. */
 const LANDSCAPE_MARQUEE_TOP = 250
 const LANDSCAPE_MARQUEE_BOTTOM = 100
 
@@ -16,17 +21,21 @@ export function TeleprompterLandscapeMarquee({
   showChords,
   showGrades,
   fonteLetra,
+  lineHeightRatio = 1.25,
   tomGraus,
   onViewportWidth,
   onTrackRef,
   onClick,
 }) {
   const viewportRef = useRef(null)
+  const isMobile = useIsMobile()
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 800,
   )
 
   const fontePreview = Math.round(fonteLetra * LANDSCAPE_PREVIEW_FONT_SCALE)
+  const marqueeTop = isMobile ? LANDSCAPE_MARQUEE_TOP_MOBILE : LANDSCAPE_MARQUEE_TOP
+  const marqueeBottom = isMobile ? LANDSCAPE_MARQUEE_BOTTOM_MOBILE : LANDSCAPE_MARQUEE_BOTTOM
 
   useEffect(() => {
     const el = viewportRef.current
@@ -60,8 +69,8 @@ export function TeleprompterLandscapeMarquee({
         ref={viewportRef}
         className="pointer-events-auto absolute left-0 right-0 overflow-hidden"
         style={{
-          top: LANDSCAPE_MARQUEE_TOP,
-          bottom: LANDSCAPE_MARQUEE_BOTTOM,
+          top: marqueeTop,
+          bottom: marqueeBottom,
         }}
       >
         <div
@@ -84,6 +93,7 @@ export function TeleprompterLandscapeMarquee({
                     mostrarAcordes={showChords}
                     mostrarGrau={showGrades}
                     fonteLetra={fontePreview}
+                    lineHeightRatio={lineHeightRatio}
                   />
                 ) : (
                   <div aria-hidden className="min-h-[1px]" />
@@ -96,6 +106,7 @@ export function TeleprompterLandscapeMarquee({
                   mostrarAcordes={showChords}
                   mostrarGrau={showGrades}
                   fonteLetra={fonteLetra}
+                  lineHeightRatio={lineHeightRatio}
                 />
               </div>
             </div>
