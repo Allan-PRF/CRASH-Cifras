@@ -236,6 +236,7 @@ export function MiniPlayerYoutube({
         height: H,
         opacity: 1,
         zIndex: 1,
+        pointerEvents: 'none',
       }
 
   const applyVideoPauseState = useCallback((shouldPause) => {
@@ -434,7 +435,7 @@ export function MiniPlayerYoutube({
           <YoutubePillIcon playing={pillPlaying} />
         </button>
       ) : (
-        <div className="relative h-full w-full overflow-hidden rounded-xl border border-[var(--crash-cifra)]/40 bg-black/80 shadow-2xl shadow-black/60 backdrop-blur-md">
+        <div className="relative z-[2] h-full w-full overflow-hidden rounded-xl border border-[var(--crash-cifra)]/40 bg-black/80 shadow-2xl shadow-black/60 backdrop-blur-md">
           {apiErro ? (
             <iframe
               title="YouTube"
