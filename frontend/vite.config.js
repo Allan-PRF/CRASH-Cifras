@@ -20,7 +20,13 @@ export default defineConfig(({ mode }) => {
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'pwa-icon.svg'],
+      includeAssets: [
+        'favicon-32.png',
+        'apple-touch-icon.png',
+        'pwa-icon-192.png',
+        'pwa-icon-512.png',
+        'pwa-icon-512-maskable.png',
+      ],
       manifest: {
         name: 'CRASH Cifras',
         short_name: 'CRASH',
@@ -35,15 +41,21 @@ export default defineConfig(({ mode }) => {
         categories: ['music', 'entertainment'],
         icons: [
           {
-            src: '/pwa-icon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: '/pwa-icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-icon.svg',
+            src: '/pwa-icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/pwa-icon-512-maskable.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
