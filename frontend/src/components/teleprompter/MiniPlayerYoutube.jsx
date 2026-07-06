@@ -16,13 +16,6 @@ const RADIUS = 12
 
 const MINI_SIZE = 40
 
-const PLAYER_CONTAINER_STYLE = {
-  width: `${W}px`,
-  height: `${H}px`,
-  position: 'relative',
-  overflow: 'hidden',
-}
-
 const HOST_PARENT_CSS =
   'position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:none;overflow:hidden;'
 
@@ -120,6 +113,15 @@ function embedSrc(videoId, { fallback = false } = {}) {
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params}`
 }
 
+function readPlayerTime(player) {
+  try {
+    const t = player?.getCurrentTime?.()
+    return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : 0
+  } catch {
+    return 0
+  }
+}
+
 export function MiniPlayerYoutube({
   videoId,
   teleprompterPaused,
@@ -135,6 +137,8 @@ export function MiniPlayerYoutube({
   const playerReadyRef = useRef(false)
   const teleprompterPausedRef = useRef(teleprompterPaused)
   const syncVideoRef = useRef(syncVideo)
+  const savedTimeRef = useRef(0)
+  const activeVideoIdRef = useRef(null)
   const dragRef = useRef(null)
   const [videoPaused, setVideoPaused] = useState(true)
   const [apiErro, setApiErro] = useState(false)
@@ -154,7 +158,10 @@ export function MiniPlayerYoutube({
     top: `${pos.top}px`,
     right: `${pos.right}px`,
     zIndex: 45,
-    borderRadius: `${RADIUS}px`,
+    width: minimized ? MINI_SIZE : W,
+    height: minimized ? MINI_SIZE : H,
+    overflow: 'hidden',
+    borderRadius: minimized ? MINI_SIZE : RADIUS,
   }
 
   const applyVideoPauseState = useCallback((shouldPause) => {
@@ -174,7 +181,12 @@ export function MiniPlayerYoutube({
   }, [])
 
   useEffect(() => {
-    if (!enabled || !videoId || minimized) return undefined
+    if (!enabled || !videoId) return undefined
+
+    if (activeVideoIdRef.current !== videoId) {
+      savedTimeRef.current = 0
+      activeVideoIdRef.current = videoId
+    }
 
     let cancelado = false
     playerReadyRef.current = false
@@ -185,6 +197,8 @@ export function MiniPlayerYoutube({
       requestAnimationFrame(() => aplicarIframePlayer(player, hostRef.current))
       window.setTimeout(() => aplicarIframePlayer(player, hostRef.current), 100)
     }
+
+    const resumeTime = savedTimeRef.current
 
     loadYoutubeIframeApi()
       .then((YT) => {
@@ -205,6 +219,7 @@ export function MiniPlayerYoutube({
             disablekb: 1,
             fs: 0,
             playsinline: 1,
+            start: resumeTime > 0 ? Math.floor(resumeTime) : undefined,
           },
           events: {
             onReady: (event) => {
@@ -213,6 +228,15 @@ export function MiniPlayerYoutube({
               playerRef.current = p
               playerReadyRef.current = true
               reforcarEstilos(p)
+
+              if (resumeTime > 0) {
+                try {
+                  p.seekTo(resumeTime, true)
+                } catch {
+                  // ignore
+                }
+              }
+
               if (!syncVideoRef.current) return
               try {
                 if (teleprompterPausedRef.current) {
@@ -238,6 +262,8 @@ export function MiniPlayerYoutube({
 
     return () => {
       cancelado = true
+      const t = readPlayerTime(playerRef.current)
+      if (t > 0) savedTimeRef.current = t
       playerReadyRef.current = false
       try {
         playerRef.current?.destroy?.()
@@ -246,7 +272,7 @@ export function MiniPlayerYoutube({
       }
       playerRef.current = null
     }
-  }, [enabled, videoId, minimized])
+  }, [enabled, videoId])
 
   useEffect(() => {
     if (!syncVideo || !playerReadyRef.current) return
@@ -310,29 +336,6 @@ export function MiniPlayerYoutube({
 
   if (!enabled || !videoId) return null
 
-  if (minimized) {
-    return (
-      <button
-        type="button"
-        onClick={togglePlayLocal}
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) onPointerDown(e)
-        }}
-        className="flex touch-none select-none items-center justify-center rounded-full bg-red-600 text-[11px] font-black text-white shadow-lg ring-2 ring-black/40 transition hover:bg-red-500 active:cursor-grabbing"
-        style={{
-          ...shellStyle,
-          width: MINI_SIZE,
-          height: MINI_SIZE,
-          borderRadius: MINI_SIZE,
-        }}
-        aria-label="Expandir player YouTube"
-        title="YouTube"
-      >
-        YT
-      </button>
-    )
-  }
-
   return (
     <div
       style={shellStyle}
@@ -340,52 +343,79 @@ export function MiniPlayerYoutube({
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div
-        style={PLAYER_CONTAINER_STYLE}
-        className="overflow-hidden rounded-xl border border-white/20 bg-black/80 shadow-2xl backdrop-blur-md"
-      >
-        {apiErro ? (
-          <iframe
-            title="YouTube"
-            src={embedSrc(videoId, { fallback: true })}
-            ref={(el) => {
-              if (el) el.style.cssText = IFRAME_CSS
-            }}
-            allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-          />
-        ) : (
-          <div ref={hostRef} />
-        )}
-
-        <div
-          className="absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between bg-black/80 px-2 active:cursor-grabbing"
-          style={{ height: HEADER_H }}
-          onPointerDown={onPointerDown}
+      {minimized ? (
+        <button
+          type="button"
+          onClick={togglePlayLocal}
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) onPointerDown(e)
+          }}
+          className="relative z-10 flex h-full w-full items-center justify-center rounded-full bg-red-600 text-[11px] font-black text-white shadow-lg ring-2 ring-black/40 transition hover:bg-red-500 active:cursor-grabbing"
+          aria-label="Expandir player YouTube"
+          title="YouTube"
         >
-          <span className="text-[10px] font-bold text-red-500">YT</span>
-          <button
-            type="button"
-            onClick={handleMinimize}
-            className="rounded px-1 text-[10px] text-white/80 hover:bg-white/10"
-            aria-label="Minimizar"
-          >
-            −
-          </button>
-        </div>
+          YT
+        </button>
+      ) : (
+        <div className="relative h-full w-full overflow-hidden rounded-xl border border-white/20 bg-black/80 shadow-2xl backdrop-blur-md">
+          {apiErro ? (
+            <iframe
+              title="YouTube"
+              src={embedSrc(videoId, { fallback: true })}
+              ref={(el) => {
+                if (el) el.style.cssText = IFRAME_CSS
+              }}
+              className="absolute inset-0 h-full w-full"
+              allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+            />
+          ) : null}
 
-        {!apiErro && (
-          <button
-            type="button"
-            onClick={togglePlayLocal}
-            className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
-            aria-label={videoPaused ? 'Play vídeo' : 'Pause vídeo'}
+          <div
+            className="absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between bg-black/80 px-2 active:cursor-grabbing"
+            style={{ height: HEADER_H }}
+            onPointerDown={onPointerDown}
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-base text-white ring-2 ring-[var(--crash-cifra)]">
-              {videoPaused ? '▶' : '⏸'}
-            </span>
-          </button>
-        )}
-      </div>
+            <span className="text-[10px] font-bold text-red-500">YT</span>
+            <button
+              type="button"
+              onClick={handleMinimize}
+              className="rounded px-1 text-[10px] text-white/80 hover:bg-white/10"
+              aria-label="Minimizar"
+            >
+              −
+            </button>
+          </div>
+
+          {!apiErro && (
+            <button
+              type="button"
+              onClick={togglePlayLocal}
+              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
+              aria-label={videoPaused ? 'Play vídeo' : 'Pause vídeo'}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-base text-white ring-2 ring-[var(--crash-cifra)]">
+                {videoPaused ? '▶' : '⏸'}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Host único e permanente — minimizar só esconde visualmente; pause usa pauseVideo. */}
+      {!apiErro && (
+        <div
+          aria-hidden={minimized}
+          className="pointer-events-none absolute left-0 top-0"
+          style={{
+            width: W,
+            height: H,
+            opacity: minimized ? 0 : 1,
+            zIndex: minimized ? 0 : 1,
+          }}
+        >
+          <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
+        </div>
+      )}
     </div>
   )
 }
