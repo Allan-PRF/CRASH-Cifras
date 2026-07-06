@@ -188,6 +188,8 @@ export function MiniPlayerYoutube({
           width: PILL_SIZE,
           height: PILL_SIZE,
           overflow: 'hidden',
+          borderRadius: '50%',
+          isolation: 'isolate',
         }
       : {
           position: 'fixed',
@@ -199,6 +201,8 @@ export function MiniPlayerYoutube({
           width: PILL_SIZE,
           height: PILL_SIZE,
           overflow: 'hidden',
+          borderRadius: '50%',
+          isolation: 'isolate',
         }
     : {
         position: 'fixed',
@@ -209,6 +213,29 @@ export function MiniPlayerYoutube({
         height: H,
         overflow: 'hidden',
         borderRadius: RADIUS,
+      }
+
+  /** Iframe fora da tela quando minimizado — evita vazar vídeo sobre a pílula. */
+  const hostWrapperStyle = minimized
+    ? {
+        position: 'fixed',
+        left: -9999,
+        top: 0,
+        width: W,
+        height: H,
+        overflow: 'hidden',
+        opacity: 0,
+        visibility: 'hidden',
+        pointerEvents: 'none',
+      }
+    : {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: W,
+        height: H,
+        opacity: 1,
+        zIndex: 1,
       }
 
   const applyVideoPauseState = useCallback((shouldPause) => {
@@ -400,7 +427,7 @@ export function MiniPlayerYoutube({
         <button
           type="button"
           onClick={expandPlayer}
-          className="relative z-10 flex h-full w-full items-center justify-center rounded-full border-2 border-[var(--crash-cifra)]/70 bg-black/85 text-[var(--crash-cifra)] shadow-lg shadow-black/50 backdrop-blur-sm transition hover:border-[var(--crash-cifra)] hover:bg-black/95 active:scale-95"
+          className="relative z-20 flex h-full w-full items-center justify-center rounded-full border-2 border-[var(--crash-cifra)]/70 bg-black/85 text-[var(--crash-cifra)] shadow-lg shadow-black/50 backdrop-blur-sm transition hover:border-[var(--crash-cifra)] hover:bg-black/95 active:scale-95"
           aria-label="Expandir vídeo do YouTube"
           title={pillPlaying ? 'YouTube tocando — toque para expandir' : 'YouTube pausado — toque para expandir'}
         >
@@ -456,16 +483,7 @@ export function MiniPlayerYoutube({
 
       {/* Host permanente — minimizar só esconde; áudio/vídeo segue no ponto atual. */}
       {!apiErro && (
-        <div
-          aria-hidden={minimized}
-          className="pointer-events-none absolute left-0 top-0"
-          style={{
-            width: W,
-            height: H,
-            opacity: minimized ? 0 : 1,
-            zIndex: minimized ? 0 : 1,
-          }}
-        >
+        <div aria-hidden={minimized} style={hostWrapperStyle}>
           <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
         </div>
       )}
