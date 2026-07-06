@@ -24,21 +24,66 @@ export function BarraSuperiorTeleprompter({
   onOpenSettings,
   backTo,
 }) {
+  const tituloMusica = (
+    <>
+      <span className="text-[var(--crash-cifra)]">🎵</span>{' '}
+      <span className="font-semibold">{musica.titulo}</span>
+      {secaoAtual && (
+        <>
+          <span className="mx-2 text-[var(--crash-texto-sec)]">·</span>
+          <span>{secaoAtual.nome}</span>
+        </>
+      )}
+    </>
+  )
+
+  const mobileOrientButton = (
+    <button
+      type="button"
+      onClick={onToggleOrientacao}
+      className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-[var(--crash-cifra)] bg-black/80 px-3 py-2 text-sm text-[var(--crash-cifra)]"
+      aria-label={`Alternar orientação: ${orientacaoLabel}`}
+    >
+      {orientacaoIcon}
+    </button>
+  )
+
+  const mobileSettingsButton = (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-white/15 bg-black/80 px-3 py-2 text-sm text-white"
+      aria-label="Configurações do teleprompter"
+    >
+      ⚙️
+    </button>
+  )
+
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-black/85 px-4 py-2 text-[13px] font-medium text-white backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-        <PageBackButton to={backTo} variant="cifra" className="shrink-0" />
-        <div className="min-w-0 flex-1 truncate">
-          <span className="text-[var(--crash-cifra)]">🎵</span>{' '}
-          <span className="font-semibold">{musica.titulo}</span>
-          {secaoAtual && (
-            <>
-              <span className="mx-2 text-[var(--crash-texto-sec)]">·</span>
-              <span>{secaoAtual.nome}</span>
-            </>
-          )}
+    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-black/85 px-3 py-2 text-[13px] font-medium text-white backdrop-blur sm:px-4">
+      {/* Mobile: linha 1 = controles; linha 2 = título */}
+      <div className="mx-auto max-w-7xl sm:hidden">
+        <div className="flex items-center justify-between gap-2">
+          <PageBackButton to={backTo} variant="cifra" className="shrink-0 !px-3 !py-1.5 !text-sm" />
+          <div className="flex shrink-0 items-center gap-2">
+            <TransporTomControle
+              tomOriginal={tomOriginal}
+              offsetVisual={offsetSessao}
+              onOffsetVisualChange={onOffsetSessaoChange}
+              variant="teleprompter"
+            />
+            {mobileOrientButton}
+            {mobileSettingsButton}
+          </div>
         </div>
-        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+        <div className="mt-1.5 min-w-0 truncate text-sm leading-snug">{tituloMusica}</div>
+      </div>
+
+      {/* Desktop: layout original numa linha */}
+      <div className="mx-auto hidden max-w-7xl items-center justify-between gap-3 sm:flex">
+        <PageBackButton to={backTo} variant="cifra" className="shrink-0" />
+        <div className="min-w-0 flex-1 truncate">{tituloMusica}</div>
+        <div className="flex shrink-0 items-center gap-3">
           <span className="text-[var(--crash-texto-sec)]">{progresso}</span>
           <TransporTomControle
             tomOriginal={tomOriginal}

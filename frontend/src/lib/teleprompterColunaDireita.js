@@ -33,6 +33,10 @@ export const TELEPROMPTER_ANOTACAO_ICON_ALTURA = 40
 export const TELEPROMPTER_YOUTUBE_PILL_GAP_ANOTACAO = 12
 export const TELEPROMPTER_YOUTUBE_PILL_RIGHT_MOBILE = TELEPROMPTER_CANTO_TOP_RIGHT
 
+/** Mobile: badge AO VIVO acima da bolinha YouTube no canto direito. */
+export const TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE =
+  TELEPROMPTER_YOUTUBE_PILL_BOTTOM + TELEPROMPTER_YOUTUBE_PILL_SIZE + 12
+
 /** Altura estimada do card bíblico (referência). */
 export const RODAPE_VERSICULO_ALTURA = 100
 

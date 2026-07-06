@@ -11,7 +11,8 @@ export const TELEPROMPTER_MOBILE_LINE_HEIGHT = 1.5
 const MOBILE_FONT_REF_WIDTH = 390
 
 /** Faixa do letreiro landscape — desktop mantém 250/100 em TeleprompterLandscapeMarquee. */
-export const LANDSCAPE_MARQUEE_TOP_MOBILE = 88
+export const TELEPROMPTER_HEADER_ALTURA_MOBILE = 88
+export const LANDSCAPE_MARQUEE_TOP_MOBILE = TELEPROMPTER_HEADER_ALTURA_MOBILE
 export const LANDSCAPE_MARQUEE_BOTTOM_MOBILE = 96
 
 /**

@@ -8,7 +8,10 @@ import {
   momentosAtivosFromRecord,
   normalizarVersiculoPrefs,
 } from '@crash-cifras/shared/versiculos-config'
-import { BlocoSecao } from '../components/cifra/LinhaCifra'
+import {
+  TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE,
+  TELEPROMPTER_CANTO_TOP_RIGHT,
+} from '../lib/teleprompterColunaDireita'
 import {
   RodapePalavra,
   TELEPROMPTER_ANOTACAO_BOTTOM,
@@ -1127,19 +1130,36 @@ export function Teleprompter() {
       />
 
       {(equipeSessao.isLider || equipeSeguindo) && (
-        <div className="fixed left-1/2 top-12 z-30 -translate-x-1/2">
-          <EquipeLiveIndicator
-            isLider={equipeSessao.isLider}
-            membrosOnline={equipeSessao.membrosOnline}
-            liderNome={equipeSessao.liderNome}
-            seguindo={equipeSeguindo}
-          />
-        </div>
+        <>
+          <div className="fixed left-1/2 top-12 z-30 hidden -translate-x-1/2 sm:block">
+            <EquipeLiveIndicator
+              isLider={equipeSessao.isLider}
+              membrosOnline={equipeSessao.membrosOnline}
+              liderNome={equipeSessao.liderNome}
+              seguindo={equipeSeguindo}
+            />
+          </div>
+          <div
+            className="fixed z-[44] sm:hidden"
+            style={{
+              right: TELEPROMPTER_CANTO_TOP_RIGHT,
+              bottom: TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE,
+            }}
+          >
+            <EquipeLiveIndicator
+              variant="compact"
+              isLider={equipeSessao.isLider}
+              membrosOnline={equipeSessao.membrosOnline}
+              liderNome={equipeSessao.liderNome}
+              seguindo={equipeSeguindo}
+            />
+          </div>
+        </>
       )}
 
       {isFixo ? (
         <main
-          className={`flex h-[100svh] flex-col justify-center px-2 pt-20 sm:px-6 ${
+          className={`flex h-[100svh] flex-col justify-center px-2 pt-[5.5rem] sm:px-6 sm:pt-20 ${
             isMobile ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
           }`}
           style={{ paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16 }}
@@ -1205,7 +1225,7 @@ export function Teleprompter() {
       <main
         ref={contentRef}
         onClick={handleContentClick}
-        className="h-[100vh] overflow-y-auto overflow-x-hidden px-4 pt-20 sm:px-6"
+        className="h-[100vh] overflow-y-auto overflow-x-hidden px-4 pt-[5.5rem] sm:px-6 sm:pt-20"
         style={{
           paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16,
           scrollBehavior: 'smooth',
@@ -1308,30 +1328,6 @@ export function Teleprompter() {
           </span>
         </div>
       )}
-
-      <div className="fixed left-4 top-16 z-[35] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 sm:hidden">
-        <TransporTomControle
-          tomOriginal={musica.tom_original}
-          offsetVisual={offsetSessao}
-          onOffsetVisualChange={setOffsetSessao}
-          variant="teleprompter"
-        />
-        <button
-          type="button"
-          onClick={toggleOrientacao}
-          className="rounded-lg border border-[var(--crash-cifra)] bg-black/80 px-3 py-2 text-sm text-[var(--crash-cifra)]"
-          aria-label="Alternar orientação"
-        >
-          {layout.icon}
-        </button>
-        <button
-          type="button"
-          onClick={() => setPanelOpen(true)}
-          className="rounded-lg border border-white/15 bg-black/80 px-3 py-2 text-sm text-white"
-        >
-          ⚙️
-        </button>
-      </div>
 
       {modoEvento && !paused && !isFixo && (
         <div className="pointer-events-none fixed left-4 top-28 z-20 hidden items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-1.5 text-xs text-[var(--crash-cifra)] sm:flex">
