@@ -334,7 +334,7 @@ export function LinhaAcordesEditor({
               }}
               onBlur={handleBlur}
               placeholder={mode === 'insert' ? 'Novo acorde…' : undefined}
-              className={`mb-2 w-full rounded border bg-black px-2 py-1.5 font-mono text-sm text-white outline-none ${
+              className={`mb-2 w-full rounded border bg-black px-2 py-1.5 font-cifra-mono text-sm text-white outline-none ${
                 erro
                   ? 'border-red-500'
                   : 'border-[var(--crash-cifra)]/50 focus:border-[var(--crash-cifra)]'

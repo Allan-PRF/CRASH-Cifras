@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { useCifraMonoFontReady } from '../../hooks/useCifraMonoFontReady'
 import {
   alignChordsToLyricLine,
   isCompactFixedChordPos,
@@ -48,23 +49,25 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
     [rawLyric],
   )
 
+  const monoFontReady = useCifraMonoFontReady()
+
   const fonteAcorde = visualizacao ? 14 : fonteLetra
   const fonteLetraLinha = visualizacao ? 16 : fonteLetra
   const fonteGrau = visualizacao ? 12 : fonteLetra
 
   const chordCharWidthPx = useMemo(
     () => measureMonoCharWidth(fonteAcorde, tema.teleprompter.cifra.fontWeight),
-    [fonteAcorde],
+    [fonteAcorde, monoFontReady],
   )
 
   const lyricCharWidthPx = useMemo(
     () => measureMonoCharWidth(fonteLetraLinha, destaque ? 600 : 400),
-    [fonteLetraLinha, destaque],
+    [fonteLetraLinha, destaque, monoFontReady],
   )
 
   const grauCharWidthPx = useMemo(
     () => measureMonoCharWidth(fonteGrau, tema.teleprompter.grau.fontWeight),
-    [fonteGrau],
+    [fonteGrau, monoFontReady],
   )
 
   const chordItems = useMemo(
@@ -96,7 +99,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
 
   return (
     <div
-      className={`max-w-full font-mono ${visualizacao ? 'mb-0 overflow-x-hidden' : 'mb-1 overflow-x-auto'}`}
+      className={`max-w-full font-cifra-mono ${visualizacao ? 'mb-0 overflow-x-hidden' : 'mb-1 overflow-x-auto'}`}
     >
       {mostrarAcordes && (
         <LinhaPosicionada

@@ -31,7 +31,7 @@ export const IntroducaoEditor = forwardRef(function IntroducaoEditor(
     : 'mb-1 block text-xs font-medium text-[var(--crash-texto-sec)]'
 
   const textareaClassName = isFolha
-    ? 'w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-1 font-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
+    ? 'w-full resize-none border-0 border-b border-white/10 bg-transparent px-0 py-1 font-cifra-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
     : `${inputOrangeClassName} text-sm`
 
   const campos = (

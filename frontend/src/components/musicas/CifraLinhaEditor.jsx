@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useCifraMonoFontReady } from '../../hooks/useCifraMonoFontReady'
 import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { LinhaPosicionada } from '../cifra/LinhaPosicionada.jsx'
 import { LinhaAcordesEditor } from './LinhaAcordesEditor.jsx'
@@ -24,15 +25,16 @@ export function CifraLinhaEditor({
   const isFolha = variant === 'folha'
   const editableChords = editableChordsProp ?? isFolha
   const { lyricLine, chords } = useMemo(() => normalizeChordLine(line), [line])
+  const monoFontReady = useCifraMonoFontReady()
 
   const chordCharWidthPx = useMemo(
     () => measureMonoCharWidth(FONTE_ACORDE, tema.teleprompter.cifra.fontWeight),
-    [],
+    [monoFontReady],
   )
 
   const lyricCharWidthPx = useMemo(
     () => measureMonoCharWidth(FONTE_LETRA, 400),
-    [],
+    [monoFontReady],
   )
 
   const chordItems = useMemo(
@@ -133,8 +135,8 @@ export function CifraLinhaEditor({
         spellCheck
         className={
           isFolha
-            ? 'relative z-0 mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
-            : `${inputOrangeClassName} mt-0.5 w-full resize-none overflow-x-auto font-mono text-base leading-snug`
+            ? 'relative z-0 mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-cifra-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'
+            : `${inputOrangeClassName} mt-0.5 w-full resize-none overflow-x-auto font-cifra-mono text-base leading-snug`
         }
         style={{
           minWidth: minCols > 0 ? minCols * lyricCharWidthPx : undefined,
