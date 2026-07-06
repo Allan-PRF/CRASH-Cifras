@@ -1,4 +1,5 @@
 import { Outlet, Link, NavLink, useLocation } from 'react-router-dom'
+import { PwaInstallButton } from '../pwa/PwaInstallButton'
 import { PwaUpdatePrompt } from '../PwaUpdatePrompt'
 import { TrialAccessRedirect, TrialBanner } from '../assinatura/TrialBanner'
 import { AuthenticatedNoIndex } from '../seo/AuthenticatedNoIndex'
@@ -31,28 +32,31 @@ export function AppShell() {
       <AuthenticatedNoIndex />
       <header className="sticky top-0 z-10 border-b border-[var(--crash-borda)] bg-black/90 backdrop-blur">
         {user && <TrialBanner />}
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-          <Link to="/" className="text-lg font-bold tracking-tight text-white">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-2 px-4">
+          <Link to="/" className="shrink-0 text-lg font-bold tracking-tight text-white">
             CRASH <span className="text-[var(--crash-cifra)]">Cifras</span>
           </Link>
-          <nav className="flex items-center gap-4">
-            {navItems.map(({ to, label, end }) => (
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
+            <PwaInstallButton />
+            <nav className="flex shrink-0 items-center gap-4">
+              {navItems.map(({ to, label, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={navLinkClassName}
+                >
+                  {label}
+                </NavLink>
+              ))}
               <NavLink
-                key={to}
-                to={to}
-                end={end}
+                to={user ? '/conta' : '/login'}
                 className={navLinkClassName}
               >
-                {label}
+                {user ? 'Conta' : 'Entrar'}
               </NavLink>
-            ))}
-            <NavLink
-              to={user ? '/conta' : '/login'}
-              className={navLinkClassName}
-            >
-              {user ? 'Conta' : 'Entrar'}
-            </NavLink>
-          </nav>
+            </nav>
+          </div>
         </div>
       </header>
 

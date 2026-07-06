@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReferralModal } from '../components/referral/ReferralModal'
 import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
-import { InstallPwaPrompt } from '../components/InstallPwaPrompt'
 import { NovidadeBanner } from '../components/novidades/NovidadeBanner'
 import { MinistroFormModal } from '../components/ministros/MinistroFormModal'
 import { MinistroTable } from '../components/ministros/MinistroTable'
@@ -143,8 +142,6 @@ export function Home() {
           Plataforma de cifras e eventos para músicos
         </p>
       </header>
-
-      <InstallPwaPrompt />
 
       {!user && (
         <Link

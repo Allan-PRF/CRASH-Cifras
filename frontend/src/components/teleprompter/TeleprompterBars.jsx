@@ -1,6 +1,7 @@
 import { TELEPROMPTER_BARRA_INFERIOR_ALTURA } from './RodapePalavra'
 
 import { TransporTomControle } from '../cifra/TransporTomControle'
+import { PwaInstallButton } from '../pwa/PwaInstallButton'
 import { PageBackButton } from '../layout/PageBackButton'
 import { FUNCIONALIDADE_TOOLTIPS } from '../../lib/funcionalidadeTooltips'
 import { InfoTooltip } from '../ui/InfoTooltip'
@@ -66,6 +67,7 @@ export function BarraSuperiorTeleprompter({
         <div className="flex items-center justify-between gap-2">
           <PageBackButton to={backTo} variant="cifra" className="shrink-0 !px-3 !py-1.5 !text-sm" />
           <div className="flex shrink-0 items-center gap-2">
+            <PwaInstallButton variant="compact" />
             <TransporTomControle
               tomOriginal={tomOriginal}
               offsetVisual={offsetSessao}
@@ -137,6 +139,7 @@ export function BarraSuperiorTeleprompter({
           <span className={pausado ? 'text-[var(--crash-cifra)]' : 'text-green-400'}>
             {pausado ? '⏸' : '▶'}
           </span>
+          <PwaInstallButton variant="compact" />
           <button
             type="button"
             onClick={onOpenSettings}
