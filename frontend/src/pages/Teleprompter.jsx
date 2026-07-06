@@ -1074,11 +1074,7 @@ export function Teleprompter() {
   })
 
   function handleContentClick(event) {
-    if (event.target.closest?.('button, a')) return
-    if (showVerses && versiculoAtual && versiculoRodapeVisivel) {
-      setVersiculoRodapeVisivel(false)
-      return
-    }
+    if (event.target.closest?.('button, a, [data-teleprompter-versiculo]')) return
     togglePause()
   }
 
@@ -1464,6 +1460,7 @@ export function Teleprompter() {
         versiculo={versiculoAtual}
         visivel={rodapeAtivo}
         layout={isLandscape ? 'landscape' : 'portrait'}
+        onDismiss={() => setVersiculoRodapeVisivel(false)}
       />
     </div>
   )

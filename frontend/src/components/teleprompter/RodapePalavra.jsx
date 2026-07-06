@@ -22,7 +22,7 @@ export {
   TELEPROMPTER_VERSICULO_TOP,
 }
 
-export function RodapePalavra({ versiculo, visivel, layout = 'portrait' }) {
+export function RodapePalavra({ versiculo, visivel, layout = 'portrait', onDismiss }) {
   if (!visivel || !versiculo) return null
 
   const referencia = versiculo.referencia?.trim() || '—'
@@ -50,9 +50,24 @@ export function RodapePalavra({ versiculo, visivel, layout = 'portrait' }) {
 
   return (
     <footer
-      className="pointer-events-none fixed z-40 flex max-h-[min(50vh,320px)] flex-col overflow-hidden rounded-xl border border-[var(--crash-cifra)]/50 bg-black/80 p-3 text-left shadow-2xl backdrop-blur-md"
+      data-teleprompter-versiculo
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation()
+        onDismiss?.()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          event.stopPropagation()
+          onDismiss?.()
+        }
+      }}
+      className="fixed z-40 flex max-h-[min(50vh,320px)] cursor-pointer flex-col overflow-hidden rounded-xl border border-[var(--crash-cifra)]/50 bg-black/80 p-3 text-left shadow-2xl backdrop-blur-md transition hover:border-[var(--crash-cifra)]/70"
       style={posStyle}
       aria-live="polite"
+      aria-label={`Versículo ${referencia}. Toque para fechar.`}
     >
       <p className="shrink-0 text-xs font-bold leading-snug text-[var(--crash-cifra)]">
         📖 {referencia}
