@@ -1,13 +1,15 @@
 import { TONS_MAIORES, TONS_MENORES } from '../../lib/tons'
 import { transposeKey } from '../../lib/transpose'
 
-function TomButton({ tom, tomAtual, onClick }) {
+function TomButton({ tom, tomAtual, onClick, compact }) {
   const ativo = tom === tomAtual
   return (
     <button
       type="button"
       onClick={() => onClick(tom)}
-      className={`rounded-lg border py-2 text-sm font-semibold transition ${
+      className={`rounded-lg border font-semibold transition ${
+        compact ? 'px-1 py-1.5 text-xs' : 'py-2 text-sm'
+      } ${
         ativo
           ? 'border-[var(--crash-cifra)] bg-[var(--crash-cifra)] text-black'
           : 'border-[var(--crash-borda)] text-white hover:border-[var(--crash-cifra)]'
@@ -31,6 +33,7 @@ export function TranspositorTom({
   permitirVazio = false,
   onClear,
   compacto = false,
+  mobileCompact = false,
 }) {
   function semitom(delta) {
     if (!tomAtual) return
@@ -38,8 +41,12 @@ export function TranspositorTom({
     if (next) onSelectTom(next)
   }
 
+  const gridClass = mobileCompact
+    ? 'grid grid-cols-3 gap-1.5'
+    : 'grid grid-cols-4 gap-2 sm:grid-cols-6'
+
   return (
-    <div className="space-y-4">
+    <div className={mobileCompact ? 'space-y-3' : 'space-y-4'}>
       {!compacto && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           {tomAtual ? (
@@ -81,7 +88,9 @@ export function TranspositorTom({
             type="button"
             disabled={!tomAtual}
             onClick={() => semitom(-1)}
-            className="min-w-9 rounded-lg border border-[var(--crash-borda)] px-2 py-1.5 text-base font-bold text-white transition hover:border-[var(--crash-cifra)] disabled:opacity-40"
+            className={`rounded-lg border border-[var(--crash-borda)] font-bold text-white transition hover:border-[var(--crash-cifra)] disabled:opacity-40 ${
+              mobileCompact ? 'min-w-8 px-2 py-1 text-sm' : 'min-w-9 px-2 py-1.5 text-base'
+            }`}
             title="½ tom abaixo"
             aria-label="Meio tom abaixo"
           >
@@ -92,7 +101,9 @@ export function TranspositorTom({
             type="button"
             disabled={!tomAtual}
             onClick={() => semitom(1)}
-            className="min-w-9 rounded-lg border border-[var(--crash-borda)] px-2 py-1.5 text-base font-bold text-white transition hover:border-[var(--crash-cifra)] disabled:opacity-40"
+            className={`rounded-lg border border-[var(--crash-borda)] font-bold text-white transition hover:border-[var(--crash-cifra)] disabled:opacity-40 ${
+              mobileCompact ? 'min-w-8 px-2 py-1 text-sm' : 'min-w-9 px-2 py-1.5 text-base'
+            }`}
             title="½ tom acima"
             aria-label="Meio tom acima"
           >
@@ -119,13 +130,14 @@ export function TranspositorTom({
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--crash-texto-sec)]">
           Maiores
         </p>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+        <div className={gridClass}>
           {TONS_MAIORES.map((tom) => (
             <TomButton
               key={tom}
               tom={tom}
               tomAtual={tomAtual}
               onClick={onSelectTom}
+              compact={mobileCompact}
             />
           ))}
         </div>
@@ -135,13 +147,14 @@ export function TranspositorTom({
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--crash-texto-sec)]">
           Menores
         </p>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+        <div className={gridClass}>
           {TONS_MENORES.map((tom) => (
             <TomButton
               key={tom}
               tom={tom}
               tomAtual={tomAtual}
               onClick={onSelectTom}
+              compact={mobileCompact}
             />
           ))}
         </div>
