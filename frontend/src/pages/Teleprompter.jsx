@@ -11,6 +11,7 @@ import {
 import { BlocoSecao } from '../components/cifra/LinhaCifra'
 import {
   TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE,
+  TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE,
   TELEPROMPTER_CANTO_TOP_RIGHT,
 } from '../lib/teleprompterColunaDireita'
 import {
@@ -1397,7 +1398,7 @@ export function Teleprompter() {
             : 'border-white/10 bg-black/50 opacity-70 hover:opacity-90'
         }`}
         style={{
-          bottom: TELEPROMPTER_ANOTACAO_BOTTOM,
+          bottom: isMobile ? TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE : TELEPROMPTER_ANOTACAO_BOTTOM,
           right: TELEPROMPTER_ANOTACAO_RIGHT,
         }}
         aria-label="Ver anotações da música"

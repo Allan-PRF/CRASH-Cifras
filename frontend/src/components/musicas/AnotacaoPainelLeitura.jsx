@@ -1,11 +1,18 @@
 import {
   TELEPROMPTER_ANOTACAO_BOTTOM,
+  TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE,
   TELEPROMPTER_ANOTACAO_ICON_ALTURA,
   TELEPROMPTER_ANOTACAO_RIGHT,
 } from '../../lib/teleprompterColunaDireita'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 /** Painel discreto de leitura (teleprompter) — só abre ao clicar no ícone. */
 export function AnotacaoPainelLeitura({ open, conteudo, onClose }) {
+  const isMobile = useIsMobile()
+  const anotacaoBottom = isMobile
+    ? TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE
+    : TELEPROMPTER_ANOTACAO_BOTTOM
+
   if (!open) return null
 
   const texto = String(conteudo || '').trim()
@@ -24,8 +31,7 @@ export function AnotacaoPainelLeitura({ open, conteudo, onClose }) {
         aria-labelledby="anotacao-painel-titulo"
         className="fixed z-[60] max-h-[min(40vh,18rem)] w-[min(calc(100vw-6rem),22rem)] overflow-y-auto rounded-xl border border-white/15 bg-black/90 p-4 text-sm text-white shadow-2xl backdrop-blur-md"
         style={{
-          bottom:
-            TELEPROMPTER_ANOTACAO_BOTTOM + TELEPROMPTER_ANOTACAO_ICON_ALTURA + 8,
+          bottom: anotacaoBottom + TELEPROMPTER_ANOTACAO_ICON_ALTURA + 8,
           right: TELEPROMPTER_ANOTACAO_RIGHT,
         }}
       >

@@ -55,14 +55,20 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   const fonteLetraLinha = visualizacao ? 16 : fonteLetra
   const fonteGrau = visualizacao ? 12 : fonteLetra
 
+  const pesoLetra = destaque
+    ? tema.teleprompter.letra.fontWeightDestaque
+    : visualizacao
+      ? 400
+      : tema.teleprompter.letra.fontWeight
+
   const chordCharWidthPx = useMemo(
     () => measureMonoCharWidth(fonteAcorde, tema.teleprompter.cifra.fontWeight),
     [fonteAcorde, monoFontReady],
   )
 
   const lyricCharWidthPx = useMemo(
-    () => measureMonoCharWidth(fonteLetraLinha, destaque ? 600 : 400),
-    [fonteLetraLinha, destaque, monoFontReady],
+    () => measureMonoCharWidth(fonteLetraLinha, pesoLetra),
+    [fonteLetraLinha, pesoLetra, monoFontReady],
   )
 
   const grauCharWidthPx = useMemo(
@@ -95,7 +101,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
     (mostrarAcordes && chords.length > 0) || lyricLine.trim() || (mostrarGrau && chords.length > 0)
   if (!temConteudo) return null
 
-  const monoLetra = estiloMono(fonteLetraLinha, destaque ? 600 : 400, lineHeightRatio)
+  const monoLetra = estiloMono(fonteLetraLinha, pesoLetra, lineHeightRatio)
 
   return (
     <div
@@ -116,7 +122,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
         className={`m-0 max-w-full whitespace-pre-wrap ${visualizacao ? 'text-base leading-snug' : ''}`}
         style={{
           ...monoLetra,
-          color: destaque ? tema.cores.cifra : tema.cores.letra,
+          color: destaque ? tema.cores.cifra : '#FFFFFF',
           minWidth:
             !visualizacao && minCols > 0 ? minCols * lyricCharWidthPx : undefined,
         }}

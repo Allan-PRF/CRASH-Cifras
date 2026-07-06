@@ -24,10 +24,13 @@ export const TELEPROMPTER_VERSICULO_RIGHT = TELEPROMPTER_CANTO_TOP_RIGHT
 export const TELEPROMPTER_VERSICULO_MAX_WIDTH = 280
 export const TELEPROMPTER_VERSICULO_MAX_HEIGHT = 320
 
-/** Ícone 📝 — canto inferior direito (inalterado). */
+/** Ícone 📝 — canto inferior direito (desktop). */
 export const TELEPROMPTER_ANOTACAO_BOTTOM = TELEPROMPTER_BARRA_INFERIOR_ALTURA
 export const TELEPROMPTER_ANOTACAO_RIGHT = 80
 export const TELEPROMPTER_ANOTACAO_ICON_ALTURA = 40
+
+/** Mobile: 📝 alinhado à bolinha YouTube (mesma base vertical). */
+export const TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE = TELEPROMPTER_YOUTUBE_PILL_BOTTOM
 
 /** Mobile: pílula no canto inferior direito — à direita do 📝 (📝 fica mais à esquerda). */
 export const TELEPROMPTER_YOUTUBE_PILL_GAP_ANOTACAO = 12
