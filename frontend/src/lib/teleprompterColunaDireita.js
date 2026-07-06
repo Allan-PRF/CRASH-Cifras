@@ -29,12 +29,9 @@ export const TELEPROMPTER_ANOTACAO_BOTTOM = TELEPROMPTER_BARRA_INFERIOR_ALTURA
 export const TELEPROMPTER_ANOTACAO_RIGHT = 80
 export const TELEPROMPTER_ANOTACAO_ICON_ALTURA = 40
 
-/** Mobile: pílula à esquerda do botão de anotações (📝), com folga entre os dois. */
+/** Mobile: pílula no canto inferior direito — à direita do 📝 (📝 fica mais à esquerda). */
 export const TELEPROMPTER_YOUTUBE_PILL_GAP_ANOTACAO = 12
-export const TELEPROMPTER_YOUTUBE_PILL_RIGHT_MOBILE =
-  TELEPROMPTER_ANOTACAO_RIGHT +
-  TELEPROMPTER_ANOTACAO_ICON_ALTURA +
-  TELEPROMPTER_YOUTUBE_PILL_GAP_ANOTACAO
+export const TELEPROMPTER_YOUTUBE_PILL_RIGHT_MOBILE = TELEPROMPTER_CANTO_TOP_RIGHT
 
 /** Altura estimada do card bíblico (referência). */
 export const RODAPE_VERSICULO_ALTURA = 100
