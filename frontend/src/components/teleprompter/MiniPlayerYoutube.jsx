@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  TELEPROMPTER_YOUTUBE_HEADER,
+  TELEPROMPTER_YOUTUBE_PILL_BOTTOM,
+  TELEPROMPTER_YOUTUBE_PILL_LEFT,
+  TELEPROMPTER_YOUTUBE_PILL_SIZE,
   TELEPROMPTER_YOUTUBE_RIGHT,
   TELEPROMPTER_YOUTUBE_TOP,
-  TELEPROMPTER_YOUTUBE_HEADER,
   TELEPROMPTER_YOUTUBE_VIDEO_HEIGHT,
   TELEPROMPTER_YOUTUBE_WIDTH,
   teleprompterYoutubePosPadrao,
@@ -13,8 +16,7 @@ const W = TELEPROMPTER_YOUTUBE_WIDTH
 const H = TELEPROMPTER_YOUTUBE_VIDEO_HEIGHT
 const HEADER_H = TELEPROMPTER_YOUTUBE_HEADER
 const RADIUS = 12
-
-const MINI_SIZE = 40
+const PILL_SIZE = TELEPROMPTER_YOUTUBE_PILL_SIZE
 
 const HOST_PARENT_CSS =
   'position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:none;overflow:hidden;'
@@ -122,6 +124,24 @@ function readPlayerTime(player) {
   }
 }
 
+function YoutubePillIcon({ playing }) {
+  return (
+    <span className="relative flex items-center justify-center" aria-hidden>
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5 fill-[var(--crash-cifra)]"
+        role="img"
+      >
+        <path d="M21.58 7.19a2.75 2.75 0 0 0-1.93-1.94C18.26 5 12 5 12 5s-6.26 0-7.65.25a2.75 2.75 0 0 0-1.93 1.94C2.17 8.58 2.17 12 2.17 12s0 3.42.25 4.81a2.75 2.75 0 0 0 1.93 1.94C5.74 19 12 19 12 19s6.26 0 7.65-.25a2.75 2.75 0 0 0 1.93-1.94c.25-1.39.25-4.81.25-4.81s0-3.42-.25-4.81Z" />
+        <path className="fill-black" d="M10 9.5v5l4.5-2.5L10 9.5Z" />
+      </svg>
+      {playing && (
+        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-[var(--crash-cifra)] ring-2 ring-black" />
+      )}
+    </span>
+  )
+}
+
 export function MiniPlayerYoutube({
   videoId,
   teleprompterPaused,
@@ -153,16 +173,28 @@ export function MiniPlayerYoutube({
 
   const pos = clampPosition(position)
 
-  const shellStyle = {
-    position: 'fixed',
-    top: `${pos.top}px`,
-    right: `${pos.right}px`,
-    zIndex: 45,
-    width: minimized ? MINI_SIZE : W,
-    height: minimized ? MINI_SIZE : H,
-    overflow: 'hidden',
-    borderRadius: minimized ? MINI_SIZE : RADIUS,
-  }
+  const shellStyle = minimized
+    ? {
+        position: 'fixed',
+        left: `${TELEPROMPTER_YOUTUBE_PILL_LEFT}px`,
+        bottom: `${TELEPROMPTER_YOUTUBE_PILL_BOTTOM}px`,
+        top: 'auto',
+        right: 'auto',
+        zIndex: 45,
+        width: PILL_SIZE,
+        height: PILL_SIZE,
+        overflow: 'hidden',
+      }
+    : {
+        position: 'fixed',
+        top: `${pos.top}px`,
+        right: `${pos.right}px`,
+        zIndex: 45,
+        width: W,
+        height: H,
+        overflow: 'hidden',
+        borderRadius: RADIUS,
+      }
 
   const applyVideoPauseState = useCallback((shouldPause) => {
     const player = playerRef.current
@@ -289,25 +321,29 @@ export function MiniPlayerYoutube({
     }
   }, [teleprompterPaused, syncVideo])
 
+  function expandPlayer(e) {
+    e.stopPropagation()
+    onToggleMinimized?.(false)
+    saveYoutubeMinimized(false)
+  }
+
+  function handleMinimize(e) {
+    e.stopPropagation()
+    onToggleMinimized?.(true)
+    saveYoutubeMinimized(true)
+  }
+
   function togglePlayLocal(e) {
     e.stopPropagation()
     if (minimized) {
-      onToggleMinimized?.(false)
-      saveYoutubeMinimized(false)
+      expandPlayer(e)
       return
     }
     applyVideoPauseState(!videoPaused)
   }
 
-  function handleMinimize(e) {
-    e.stopPropagation()
-    const next = !minimized
-    onToggleMinimized?.(next)
-    saveYoutubeMinimized(next)
-  }
-
   function onPointerDown(e) {
-    if (e.button !== 0) return
+    if (minimized || e.button !== 0) return
     e.stopPropagation()
     const startY = e.clientY
     const startTop = pos.top
@@ -336,6 +372,8 @@ export function MiniPlayerYoutube({
 
   if (!enabled || !videoId) return null
 
+  const pillPlaying = !videoPaused
+
   return (
     <div
       style={shellStyle}
@@ -346,18 +384,15 @@ export function MiniPlayerYoutube({
       {minimized ? (
         <button
           type="button"
-          onClick={togglePlayLocal}
-          onPointerDown={(e) => {
-            if (e.target === e.currentTarget) onPointerDown(e)
-          }}
-          className="relative z-10 flex h-full w-full items-center justify-center rounded-full bg-red-600 text-[11px] font-black text-white shadow-lg ring-2 ring-black/40 transition hover:bg-red-500 active:cursor-grabbing"
-          aria-label="Expandir player YouTube"
-          title="YouTube"
+          onClick={expandPlayer}
+          className="relative z-10 flex h-full w-full items-center justify-center rounded-full border-2 border-[var(--crash-cifra)]/70 bg-black/85 text-[var(--crash-cifra)] shadow-lg shadow-black/50 backdrop-blur-sm transition hover:border-[var(--crash-cifra)] hover:bg-black/95 active:scale-95"
+          aria-label="Expandir vídeo do YouTube"
+          title={pillPlaying ? 'YouTube tocando — toque para expandir' : 'YouTube pausado — toque para expandir'}
         >
-          YT
+          <YoutubePillIcon playing={pillPlaying} />
         </button>
       ) : (
-        <div className="relative h-full w-full overflow-hidden rounded-xl border border-white/20 bg-black/80 shadow-2xl backdrop-blur-md">
+        <div className="relative h-full w-full overflow-hidden rounded-xl border border-[var(--crash-cifra)]/40 bg-black/80 shadow-2xl shadow-black/60 backdrop-blur-md">
           {apiErro ? (
             <iframe
               title="YouTube"
@@ -371,18 +406,21 @@ export function MiniPlayerYoutube({
           ) : null}
 
           <div
-            className="absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between bg-black/80 px-2 active:cursor-grabbing"
+            className="absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between gap-1 bg-black/85 px-2 active:cursor-grabbing"
             style={{ height: HEADER_H }}
             onPointerDown={onPointerDown}
           >
-            <span className="text-[10px] font-bold text-red-500">YT</span>
+            <span className="truncate text-[10px] font-semibold text-[var(--crash-cifra)]">
+              YouTube
+            </span>
             <button
               type="button"
               onClick={handleMinimize}
-              className="rounded px-1 text-[10px] text-white/80 hover:bg-white/10"
-              aria-label="Minimizar"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--crash-cifra)]/50 bg-black/90 text-sm leading-none text-[var(--crash-cifra)] transition hover:border-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/10"
+              aria-label="Minimizar vídeo"
+              title="Minimizar"
             >
-              −
+              ▾
             </button>
           </div>
 
@@ -401,7 +439,7 @@ export function MiniPlayerYoutube({
         </div>
       )}
 
-      {/* Host único e permanente — minimizar só esconde visualmente; pause usa pauseVideo. */}
+      {/* Host permanente — minimizar só esconde; áudio/vídeo segue no ponto atual. */}
       {!apiErro && (
         <div
           aria-hidden={minimized}
