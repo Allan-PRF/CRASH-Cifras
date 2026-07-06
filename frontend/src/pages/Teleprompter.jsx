@@ -8,6 +8,7 @@ import {
   momentosAtivosFromRecord,
   normalizarVersiculoPrefs,
 } from '@crash-cifras/shared/versiculos-config'
+import { BlocoSecao } from '../components/cifra/LinhaCifra'
 import {
   TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE,
   TELEPROMPTER_CANTO_TOP_RIGHT,
@@ -57,7 +58,6 @@ import {
   saveYoutubePosition,
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
-import { TransporTomControle } from '../components/cifra/TransporTomControle'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
 import { tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
