@@ -1143,6 +1143,7 @@ export function Teleprompter() {
             isMobile ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
           }`}
           style={{ paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16 }}
+          onClick={isMobile ? handleContentClick : undefined}
         >
           <div className="mx-auto w-full max-w-5xl">
             {secoes.length === 0 ? (

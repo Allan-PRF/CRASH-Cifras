@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import {
   TELEPROMPTER_YOUTUBE_HEADER,
   TELEPROMPTER_YOUTUBE_PILL_BOTTOM,
   TELEPROMPTER_YOUTUBE_PILL_LEFT,
+  TELEPROMPTER_YOUTUBE_PILL_RIGHT_MOBILE,
   TELEPROMPTER_YOUTUBE_PILL_SIZE,
   TELEPROMPTER_YOUTUBE_RIGHT,
   TELEPROMPTER_YOUTUBE_TOP,
@@ -172,19 +174,32 @@ export function MiniPlayerYoutube({
   }, [syncVideo])
 
   const pos = clampPosition(position)
+  const isMobile = useIsMobile()
 
   const shellStyle = minimized
-    ? {
-        position: 'fixed',
-        left: `${TELEPROMPTER_YOUTUBE_PILL_LEFT}px`,
-        bottom: `${TELEPROMPTER_YOUTUBE_PILL_BOTTOM}px`,
-        top: 'auto',
-        right: 'auto',
-        zIndex: 45,
-        width: PILL_SIZE,
-        height: PILL_SIZE,
-        overflow: 'hidden',
-      }
+    ? isMobile
+      ? {
+          position: 'fixed',
+          right: `${TELEPROMPTER_YOUTUBE_PILL_RIGHT_MOBILE}px`,
+          bottom: `${TELEPROMPTER_YOUTUBE_PILL_BOTTOM}px`,
+          top: 'auto',
+          left: 'auto',
+          zIndex: 45,
+          width: PILL_SIZE,
+          height: PILL_SIZE,
+          overflow: 'hidden',
+        }
+      : {
+          position: 'fixed',
+          left: `${TELEPROMPTER_YOUTUBE_PILL_LEFT}px`,
+          bottom: `${TELEPROMPTER_YOUTUBE_PILL_BOTTOM}px`,
+          top: 'auto',
+          right: 'auto',
+          zIndex: 45,
+          width: PILL_SIZE,
+          height: PILL_SIZE,
+          overflow: 'hidden',
+        }
     : {
         position: 'fixed',
         top: `${pos.top}px`,

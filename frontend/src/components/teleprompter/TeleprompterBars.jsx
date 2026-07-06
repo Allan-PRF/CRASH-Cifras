@@ -105,6 +105,86 @@ export function BarraSuperiorTeleprompter({
   )
 }
 
+function bpmModoTitle(bpmModoIcon) {
+  if (bpmModoIcon === '▣') return 'Modo fixo — BPM não rola a folha'
+  if (bpmModoIcon === '↔') return 'BPM landscape (só neste aparelho)'
+  return 'BPM oficial da música (banco)'
+}
+
+function BpmControls({
+  bpm,
+  modoEvento,
+  bpmModoIcon,
+  onBpmDown,
+  onBpmUp,
+  layout,
+}) {
+  const labelClass = modoEvento ? 'text-[var(--crash-cifra)]' : 'text-[var(--crash-texto-sec)]'
+  const bpmTitle = bpmModoTitle(bpmModoIcon)
+
+  const downButton = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onBpmDown?.(e)
+      }}
+      className={
+        layout === 'mobile'
+          ? 'flex h-9 min-w-9 flex-1 items-center justify-center rounded-lg hover:bg-white/10'
+          : 'min-h-10 min-w-10 rounded px-2 py-1 hover:bg-white/10'
+      }
+      aria-label="Diminuir BPM"
+    >
+      −
+    </button>
+  )
+
+  const upButton = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onBpmUp?.(e)
+      }}
+      className={
+        layout === 'mobile'
+          ? 'flex h-9 min-w-9 flex-1 items-center justify-center rounded-lg hover:bg-white/10'
+          : 'min-h-10 min-w-10 rounded px-2 py-1 hover:bg-white/10'
+      }
+      aria-label="Aumentar BPM"
+    >
+      +
+    </button>
+  )
+
+  if (layout === 'mobile') {
+    return (
+      <div className="flex shrink-0 flex-col items-center rounded-xl border border-white/10 px-2 py-1 text-sm text-white sm:hidden">
+        <span className={`whitespace-nowrap text-xs font-medium ${labelClass}`} title={bpmTitle}>
+          BPM {bpm || '—'} {bpmModoIcon}
+        </span>
+        <div className="mt-0.5 flex w-full items-center gap-0.5">
+          {downButton}
+          {upButton}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="hidden shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-sm text-white sm:flex">
+      <span className={`whitespace-nowrap ${labelClass}`} title={bpmTitle}>
+        BPM: {bpm || '—'} {bpmModoIcon}
+      </span>
+      {downButton}
+      {upButton}
+    </div>
+  )
+}
+
 export function BarraInferiorTeleprompter({
   pausado,
   bpm,
@@ -126,14 +206,16 @@ export function BarraInferiorTeleprompter({
 
   return (
     <footer
-      className={`fixed bottom-0 left-0 right-0 z-30 flex items-center border-t border-white/10 bg-black/90 px-4 backdrop-blur ${footerClassName}`}
+      className={`fixed bottom-0 left-0 right-0 z-30 flex items-center border-t border-white/10 bg-black/90 px-2 backdrop-blur sm:px-4 ${footerClassName}`}
       style={{ height: TELEPROMPTER_BARRA_INFERIOR_ALTURA }}
     >
-      <div className="mx-auto flex max-w-4xl items-center justify-center gap-2 sm:gap-3">
-        <InfoTooltip
-          text={FUNCIONALIDADE_TOOLTIPS.barraBlocos}
-          label="Sobre a barra de seções"
-        />
+      <div className="mx-auto flex max-w-4xl items-center justify-center gap-1.5 sm:gap-3">
+        <span className="hidden sm:inline-flex">
+          <InfoTooltip
+            text={FUNCIONALIDADE_TOOLTIPS.barraBlocos}
+            label="Sobre a barra de seções"
+          />
+        </span>
         <button
           type="button"
           onClick={(e) => {
@@ -162,7 +244,7 @@ export function BarraInferiorTeleprompter({
             e.stopPropagation()
             onTogglePause?.()
           }}
-          className="min-h-14 min-w-16 rounded-xl bg-[var(--crash-cifra)] px-5 text-xl font-bold text-black transition hover:opacity-90"
+          className="hidden min-h-14 min-w-16 rounded-xl bg-[var(--crash-cifra)] px-5 text-xl font-bold text-black transition hover:opacity-90 sm:inline-flex sm:items-center sm:justify-center"
           aria-label={pausado ? 'Retomar' : 'Pausar'}
         >
           {pausado ? '▶' : '⏸'}
@@ -187,44 +269,22 @@ export function BarraInferiorTeleprompter({
             +
           </button>
         </div>
-        <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-sm text-white">
-          <span
-            className={modoEvento ? 'text-[var(--crash-cifra)]' : 'text-[var(--crash-texto-sec)]'}
-            title={
-              bpmModoIcon === '▣'
-                ? 'Modo fixo — BPM não rola a folha'
-                : bpmModoIcon === '↔'
-                  ? 'BPM landscape (só neste aparelho)'
-                  : 'BPM oficial da música (banco)'
-            }
-          >
-            BPM: {bpm || '—'} {bpmModoIcon}
-          </span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              onBpmDown?.(e)
-            }}
-            className="min-h-10 min-w-10 rounded px-2 py-1 hover:bg-white/10"
-            aria-label="Diminuir BPM"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              onBpmUp?.(e)
-            }}
-            className="min-h-10 min-w-10 rounded px-2 py-1 hover:bg-white/10"
-            aria-label="Aumentar BPM"
-          >
-            +
-          </button>
-        </div>
+        <BpmControls
+          bpm={bpm}
+          modoEvento={modoEvento}
+          bpmModoIcon={bpmModoIcon}
+          onBpmDown={onBpmDown}
+          onBpmUp={onBpmUp}
+          layout="mobile"
+        />
+        <BpmControls
+          bpm={bpm}
+          modoEvento={modoEvento}
+          bpmModoIcon={bpmModoIcon}
+          onBpmDown={onBpmDown}
+          onBpmUp={onBpmUp}
+          layout="desktop"
+        />
       </div>
     </footer>
   )
