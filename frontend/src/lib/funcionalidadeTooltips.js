@@ -4,7 +4,7 @@
  */
 export const FUNCIONALIDADE_TOOLTIPS = {
   teleprompter:
-    'Toque no culto: uma seção por vez (fixo), rolagem vertical/horizontal ou rolagem automática no BPM.',
+    'Toque no culto: rolagem vertical automática no BPM ou manual com o dedo quando pausado.',
   barraBlocos:
     'Mostra em qual parte da música você está. Toque para pular para qualquer seção.',
   cifras:

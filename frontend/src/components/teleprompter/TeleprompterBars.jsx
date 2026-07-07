@@ -23,6 +23,7 @@ export function BarraSuperiorTeleprompter({
   onToggleOrientacao,
   onToggleGraus,
   onOpenSettings,
+  showOrientacaoToggle = true,
   backTo,
 }) {
   const tituloMusica = (
@@ -74,7 +75,7 @@ export function BarraSuperiorTeleprompter({
               onOffsetVisualChange={onOffsetSessaoChange}
               variant="teleprompter"
             />
-            {mobileOrientButton}
+            {showOrientacaoToggle ? mobileOrientButton : null}
             {mobileSettingsButton}
           </div>
         </div>
@@ -101,6 +102,7 @@ export function BarraSuperiorTeleprompter({
               aria-label="Metrônomo visual"
             />
           )}
+          {showOrientacaoToggle && (
           <button
             type="button"
             onClick={onToggleOrientacao}
@@ -121,6 +123,7 @@ export function BarraSuperiorTeleprompter({
               label="Sobre a orientação"
             />
           </button>
+          )}
           <button
             type="button"
             onClick={onToggleGraus}
@@ -248,6 +251,7 @@ export function BarraInferiorTeleprompter({
   onFontUp,
   footerClassName = '',
   bpmModoIcon = '↕',
+  showSectionNav = true,
 }) {
   const buttonClass =
     'min-h-12 min-w-12 rounded-xl border border-white/15 bg-white/5 px-4 text-lg font-semibold text-white transition hover:border-[var(--crash-cifra)] hover:text-[var(--crash-cifra)]'
@@ -264,6 +268,7 @@ export function BarraInferiorTeleprompter({
             label="Sobre a barra de seções"
           />
         </span>
+        {showSectionNav && (
         <button
           type="button"
           onClick={(e) => {
@@ -275,6 +280,7 @@ export function BarraInferiorTeleprompter({
         >
           ⏮
         </button>
+        )}
         <button
           type="button"
           onClick={(e) => {
@@ -297,6 +303,7 @@ export function BarraInferiorTeleprompter({
         >
           {pausado ? '▶' : '⏸'}
         </button>
+        {showSectionNav && (
         <button
           type="button"
           onClick={(e) => {
@@ -308,6 +315,7 @@ export function BarraInferiorTeleprompter({
         >
           ⏭
         </button>
+        )}
         <div className="ml-1 hidden items-center gap-1 rounded-xl border border-white/10 px-2 py-1 text-sm text-white sm:flex">
           <span className="text-[var(--crash-texto-sec)]">Fonte {fontLabel}</span>
           <button type="button" onClick={onFontDown} className="rounded px-2 py-1 hover:bg-white/10">

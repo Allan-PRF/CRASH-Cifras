@@ -80,6 +80,19 @@ import { resolverProximaMusicaCulto } from '../lib/playlistCultoNav'
 import { aplicarCifraEventoNaMusica } from '@crash-cifras/shared/cifra-evento'
 import { fetchTimbreByMusica } from '../services/timbres'
 import { fetchPlaylistCompleta } from '../services/playlists'
+import {
+  ORIENTACOES,
+  TELEPROMPTER_SO_PORTRAIT,
+  loadOrientacaoTeleprompter,
+  orientacaoAlternavel,
+  saveOrientacaoTeleprompter,
+} from '../lib/teleprompterOrientacao'
+import {
+  consumeTapGuardAfterClick,
+  createTouchTapGuard,
+  onTouchMoveForTapGuard,
+  onTouchStartForTapGuard,
+} from '../lib/teleprompterTapScroll'
 
 /** Mesmo critério de exibição do BlocoSecao (evita índice de linha divergente). */
 function linhaTemConteudo(line) {
@@ -92,14 +105,6 @@ function sectionKeyFor(sec, index) {
 }
 
 // ——— Layout / orientação (antes em teleprompterLayout.js) ———
-const TELEPROMPTER_ORIENT_KEY = 'crash-teleprompter-orientacao'
-
-const ORIENTACOES = {
-  LANDSCAPE: 'landscape',
-  PORTRAIT: 'portrait',
-  FIXO: 'fixo',
-}
-
 const ORIENTACOES_ORDEM = [
   ORIENTACOES.LANDSCAPE,
   ORIENTACOES.PORTRAIT,
@@ -155,30 +160,6 @@ const LAYOUT_POR_ORIENTACAO = {
     contentPadY: '',
     descricao: 'Uma seção por tela · sem rolagem · ◄ ► para avançar',
   },
-}
-
-function loadOrientacaoTeleprompter() {
-  try {
-    const saved = localStorage.getItem(TELEPROMPTER_ORIENT_KEY)
-    if (
-      saved === ORIENTACOES.LANDSCAPE ||
-      saved === ORIENTACOES.PORTRAIT ||
-      saved === ORIENTACOES.FIXO
-    ) {
-      return saved
-    }
-  } catch {
-    // ignore
-  }
-  return ORIENTACOES.FIXO
-}
-
-function saveOrientacaoTeleprompter(orientacao) {
-  try {
-    localStorage.setItem(TELEPROMPTER_ORIENT_KEY, orientacao)
-  } catch {
-    // ignore
-  }
 }
 
 /** Scroll linear: altura fixa por linha + BPM → ms por linha. */
@@ -263,9 +244,10 @@ export function Teleprompter() {
   const orientacaoRef = useRef(orientacao)
   const lastBpmClickMsRef = useRef(0)
   const equipeSyncTimerRef = useRef(null)
+  const touchTapGuardRef = useRef(createTouchTapGuard())
 
-  const isLandscape = orientacao === ORIENTACOES.LANDSCAPE
-  const isFixo = orientacao === ORIENTACOES.FIXO
+  const isLandscape = !TELEPROMPTER_SO_PORTRAIT && orientacao === ORIENTACOES.LANDSCAPE
+  const isFixo = !TELEPROMPTER_SO_PORTRAIT && orientacao === ORIENTACOES.FIXO
 
   useEffect(() => {
     orientacaoRef.current = orientacao
@@ -1046,8 +1028,10 @@ export function Teleprompter() {
         event.preventDefault()
         togglePause()
       }
-      if (event.key === 'ArrowLeft') irParaSecaoAnterior()
-      if (event.key === 'ArrowRight') irParaProximaSecao()
+      if (orientacaoAlternavel()) {
+        if (event.key === 'ArrowLeft') irParaSecaoAnterior()
+        if (event.key === 'ArrowRight') irParaProximaSecao()
+      }
       if (event.key === 'ArrowUp') {
         event.preventDefault()
         changeFont(1)
@@ -1059,7 +1043,7 @@ export function Teleprompter() {
       if (event.key.toLowerCase() === 'g') toggleGrades()
       if (event.key.toLowerCase() === 't') setPanelOpen((value) => !value)
       if (event.key.toLowerCase() === 'm') toggleModoEvento()
-      if (event.key.toLowerCase() === 'o') toggleOrientacao()
+      if (orientacaoAlternavel() && event.key.toLowerCase() === 'o') toggleOrientacao()
       if (event.key === '+' || event.key === '=') {
         event.preventDefault()
         handleBpmClick(1, event)
@@ -1076,7 +1060,20 @@ export function Teleprompter() {
 
   function handleContentClick(event) {
     if (event.target.closest?.('button, a, [data-teleprompter-versiculo]')) return
+    if (consumeTapGuardAfterClick(touchTapGuardRef.current)) return
     togglePause()
+  }
+
+  function handlePortraitTouchStart(event) {
+    onTouchStartForTapGuard(touchTapGuardRef.current, event)
+  }
+
+  function handlePortraitTouchMove(event) {
+    onTouchMoveForTapGuard(touchTapGuardRef.current, event)
+  }
+
+  function handlePortraitScroll() {
+    syncScrollAccumFromDom()
   }
 
   if (loading) {
@@ -1123,6 +1120,7 @@ export function Teleprompter() {
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
+        showOrientacaoToggle={orientacaoAlternavel()}
         backTo={teleprompterBackTo}
       />
 
@@ -1154,6 +1152,7 @@ export function Teleprompter() {
         </>
       )}
 
+      {/* Modos fixo / landscape desativados via TELEPROMPTER_SO_PORTRAIT — código mantido para religar */}
       {isFixo ? (
         <main
           className={`flex h-[100svh] flex-col justify-center px-2 pt-[5.5rem] sm:px-6 sm:pt-20 ${
@@ -1222,10 +1221,14 @@ export function Teleprompter() {
       <main
         ref={contentRef}
         onClick={handleContentClick}
-        className="h-[100vh] overflow-y-auto overflow-x-hidden px-4 pt-[5.5rem] sm:px-6 sm:pt-20"
+        onTouchStart={handlePortraitTouchStart}
+        onTouchMove={handlePortraitTouchMove}
+        onScroll={handlePortraitScroll}
+        className="h-[100vh] touch-pan-y overflow-y-auto overflow-x-hidden px-4 pt-[5.5rem] sm:px-6 sm:pt-20"
         style={{
           paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16,
           scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div
@@ -1376,6 +1379,7 @@ export function Teleprompter() {
         modoEvento={modoEvento}
         fontLabel={fontLabel}
         footerClassName={isLandscape ? '!z-[60]' : ''}
+        showSectionNav={orientacaoAlternavel()}
         onPrev={irParaSecaoAnterior}
         onReset={reiniciar}
         onTogglePause={togglePause}
@@ -1432,6 +1436,7 @@ export function Teleprompter() {
         onClose={() => setPanelOpen(false)}
         onToggleModo={toggleModoEvento}
         onToggleOrientacao={toggleOrientacao}
+        showOrientacaoToggle={orientacaoAlternavel()}
         onToggleGraus={toggleGrades}
         onToggleAcordes={toggleChords}
         onToggleVersiculos={toggleVerses}

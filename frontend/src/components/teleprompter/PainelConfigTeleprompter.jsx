@@ -26,6 +26,7 @@ export function PainelConfigTeleprompter({
   onClose,
   onToggleModo,
   onToggleOrientacao,
+  showOrientacaoToggle = true,
   onToggleGraus,
   onToggleAcordes,
   onToggleVersiculos,
@@ -65,10 +66,11 @@ export function PainelConfigTeleprompter({
       <div className="mt-6 space-y-5">
         <ConfigRow
           title="Rolagem automática"
-          description="Letra sobe ou desliza no BPM (4 compassos por linha). Desligado = folha parada ou modo fixo."
+          description="Letra sobe no BPM (4 compassos por linha). Desligado = folha parada para rolar com o dedo."
           active={modoEvento}
           onClick={onToggleModo}
         />
+        {showOrientacaoToggle && (
         <button
           type="button"
           onClick={onToggleOrientacao}
@@ -99,6 +101,7 @@ export function PainelConfigTeleprompter({
           </span>
           <span className="text-xs font-bold text-[var(--crash-cifra)]">Alternar</span>
         </button>
+        )}
         <ConfigRow
           title="Acordes"
           tooltip={FUNCIONALIDADE_TOOLTIPS.cifras}
@@ -212,8 +215,9 @@ export function PainelConfigTeleprompter({
       </div>
 
       <p className="mt-8 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-[var(--crash-texto-sec)]">
-        Atalhos: Espaço pausa/retoma · ←/→ muda seção · ↑/↓ fonte · G graus ·
-        T painel · M rolagem automática · O alterna layout (↔ ↕ ▣).
+        Atalhos: Espaço pausa/retoma · ↑/↓ fonte · G graus · T painel · M rolagem automática
+        {showOrientacaoToggle ? ' · O alterna layout (↔ ↕ ▣)' : ''}
+        {' · '}+/− BPM.
       </p>
     </aside>
   )
