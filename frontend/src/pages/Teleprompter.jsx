@@ -133,10 +133,10 @@ const LAYOUT_POR_ORIENTACAO = {
     shortLabel: 'Portrait',
     icon: '↕',
     fontSteps: [
-      { label: 'P', value: 26 },
-      { label: 'M', value: 30 },
-      { label: 'G', value: 34 },
-      { label: 'GG', value: 38 },
+      { label: 'P', value: 30 },
+      { label: 'M', value: 34 },
+      { label: 'G', value: 38 },
+      { label: 'GG', value: 42 },
     ],
     defaultFontIndex: 1,
     sectionGap: 'space-y-10',
@@ -235,6 +235,7 @@ export function Teleprompter() {
   const [youtubePos, setYoutubePos] = useState(() => loadYoutubePosition())
   const [playlistCulto, setPlaylistCulto] = useState(null)
   const contentRef = useRef(null)
+  const portraitScrollInnerRef = useRef(null)
   const landscapeTrackRef = useRef(null)
   const landscapeViewportRef = useRef(
     typeof window !== 'undefined' ? window.innerWidth : 800,
@@ -260,8 +261,36 @@ export function Teleprompter() {
     }
   }
 
+  /** Portrait: scrollTop inteiro + translateY fracionário evita trepidação do Math.round por frame. */
+  function applyPortraitScroll(y) {
+    const container = contentRef.current
+    const inner = portraitScrollInnerRef.current
+    if (!container) return
+    const clamped = Math.max(0, y)
+    const intY = Math.floor(clamped)
+    const subY = clamped - intY
+    container.scrollTop = intY
+    if (inner) {
+      if (subY > 0.0005) {
+        inner.style.transform = `translate3d(0, ${-subY}px, 0)`
+        inner.style.willChange = 'transform'
+      } else {
+        inner.style.transform = ''
+        inner.style.willChange = ''
+      }
+    }
+  }
+
+  function clearPortraitSubpixelTransform() {
+    const inner = portraitScrollInnerRef.current
+    if (!inner) return
+    inner.style.transform = ''
+    inner.style.willChange = ''
+  }
+
   function syncScrollAccumFromDom() {
     if (orientacaoRef.current === ORIENTACOES.LANDSCAPE) return
+    clearPortraitSubpixelTransform()
     if (contentRef.current) {
       scrollAccumRef.current = contentRef.current.scrollTop
     }
@@ -270,11 +299,11 @@ export function Teleprompter() {
   function setScrollTop(y, { instant = false } = {}) {
     const container = contentRef.current
     if (!container) return
-    const top = Math.round(y)
+    const top = Math.max(0, y)
     scrollAccumRef.current = top
     if (instant) container.style.scrollBehavior = 'auto'
-    container.scrollTop = Math.max(0, top)
-    if (instant) container.style.scrollBehavior = 'smooth'
+    applyPortraitScroll(top)
+    if (instant) container.style.scrollBehavior = 'auto'
   }
 
   useEffect(() => {
@@ -979,11 +1008,7 @@ export function Teleprompter() {
         } else {
           const pixelsPorMs = ALTURA_LINHA / msPorLinha
           scrollAccumRef.current += delta * pixelsPorMs
-          if (contentRef.current) {
-            contentRef.current.scrollTop = Math.round(
-              Math.max(0, scrollAccumRef.current),
-            )
-          }
+          applyPortraitScroll(scrollAccumRef.current)
         }
       } else {
         lastTimeRef.current = null
@@ -1192,6 +1217,8 @@ export function Teleprompter() {
                         sectionKey={sk}
                         lineGapClassName={layout.lineGap}
                         lineHeightRatio={lineHeightRatio}
+                        corAcorde="#FFFFFF"
+                        corLetra="#FFFFFF"
                       />
                     </div>
                   )
@@ -1227,11 +1254,12 @@ export function Teleprompter() {
         className="h-[100vh] touch-pan-y overflow-y-auto overflow-x-hidden px-4 pt-[5.5rem] sm:px-6 sm:pt-20"
         style={{
           paddingBottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 16,
-          scrollBehavior: 'smooth',
+          scrollBehavior: 'auto',
           WebkitOverflowScrolling: 'touch',
         }}
       >
         <div
+          ref={portraitScrollInnerRef}
           className={`mx-auto max-w-7xl ${layout.sectionGap} ${
             modoEvento ? 'pb-[18svh]' : layout.contentPadY
           }`}
@@ -1308,6 +1336,8 @@ export function Teleprompter() {
                   lineGapClassName={layout.lineGap}
                   onLineRef={registerLineRef}
                   lineHeightRatio={lineHeightRatio}
+                  corAcorde="#FFFFFF"
+                  corLetra="#FFFFFF"
                 />
               </section>
             )

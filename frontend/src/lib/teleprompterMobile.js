@@ -5,7 +5,7 @@ export const TELEPROMPTER_MOBILE_FONT_SCALE = {
   landscape: 0.32,
 }
 
-export const TELEPROMPTER_MOBILE_LINE_HEIGHT = 1.5
+export const TELEPROMPTER_MOBILE_LINE_HEIGHT = 1.6
 
 /** Largura de referência para ajuste proporcional (iPhone ~390px). */
 const MOBILE_FONT_REF_WIDTH = 390

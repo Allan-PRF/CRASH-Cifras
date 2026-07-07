@@ -15,7 +15,7 @@ export const tema = {
   },
   teleprompter: {
     cifra: { fontSize: 24, fontWeight: 700 },
-    letra: { fontSizeMin: 32, fontSizeMax: 56, fontWeight: 600, fontWeightDestaque: 700 },
+    letra: { fontSizeMin: 32, fontSizeMax: 56, fontWeight: 700, fontWeightDestaque: 700 },
     grau: { fontSize: 20, fontWeight: 400 },
     versiculo: { fontSize: 15 },
     palavra: { fontSize: 14 },

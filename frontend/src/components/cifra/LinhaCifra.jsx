@@ -24,6 +24,8 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   destaque = false,
   visualizacao = false,
   lineHeightRatio = 1.25,
+  corAcorde = tema.cores.cifra,
+  corLetra = '#FFFFFF',
 }) {
   const { chords: rawChords, lyricLine: rawLyric, chordLine: rawChordLine } = useMemo(
     () => normalizeChordLine(line),
@@ -112,7 +114,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
           items={chordItems}
           fonteLetra={fonteAcorde}
           charWidthPx={chordCharWidthPx}
-          color={tema.cores.cifra}
+          color={corAcorde}
           fontWeight={tema.teleprompter.cifra.fontWeight}
           minCols={minCols}
           lineHeightRatio={lineHeightRatio}
@@ -122,7 +124,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
         className={`m-0 max-w-full whitespace-pre-wrap ${visualizacao ? 'text-base leading-snug' : ''}`}
         style={{
           ...monoLetra,
-          color: destaque ? tema.cores.cifra : '#FFFFFF',
+          color: destaque ? tema.cores.cifra : corLetra,
           minWidth:
             !visualizacao && minCols > 0 ? minCols * lyricCharWidthPx : undefined,
         }}
@@ -167,6 +169,8 @@ const LinhaComRef = memo(function LinhaComRef({
   visualizacao,
   onLineRef,
   lineHeightRatio = 1.25,
+  corAcorde,
+  corLetra,
 }) {
   return (
     <div
@@ -182,6 +186,8 @@ const LinhaComRef = memo(function LinhaComRef({
         fonteLetra={fonteLetra}
         visualizacao={visualizacao}
         lineHeightRatio={lineHeightRatio}
+        corAcorde={corAcorde}
+        corLetra={corLetra}
       />
     </div>
   )
@@ -198,6 +204,8 @@ export const BlocoSecao = memo(function BlocoSecao({
   lineGapClassName,
   onLineRef,
   lineHeightRatio = 1.25,
+  corAcorde,
+  corLetra,
 }) {
   const gapClass = lineGapClassName ?? (visualizacao ? 'space-y-0.5' : 'space-y-2')
   if (!linhas?.lines?.length) {
@@ -227,6 +235,8 @@ export const BlocoSecao = memo(function BlocoSecao({
             visualizacao={visualizacao}
             onLineRef={onLineRef}
             lineHeightRatio={lineHeightRatio}
+            corAcorde={corAcorde}
+            corLetra={corLetra}
           />
         )
       })}
