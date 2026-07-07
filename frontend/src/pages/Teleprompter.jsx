@@ -67,6 +67,7 @@ import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
 import { tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
+import { normalizarAnotacaoEvento } from '../components/playlist/AnotacaoEventoItemBloco'
 import { useEquipeSessao } from '../hooks/useEquipeSessao'
 import { updateUserSettings } from '../services/settings'
 import {
@@ -479,6 +480,13 @@ export function Teleprompter() {
     [playlistCulto, musicaId],
   )
 
+  const playlistItemAtual = useMemo(() => {
+    if (!playlistId || !playlistCulto?.itens?.length) return null
+    return (
+      playlistCulto.itens.find((it) => String(it.musica_id) === String(musicaId)) ?? null
+    )
+  }, [playlistCulto, playlistId, musicaId])
+
   useEffect(() => {
     if (!musica || String(musica.id) !== String(musicaId)) return
     setOffsetSessao(musica.semitone_offset ?? 0)
@@ -698,7 +706,9 @@ export function Teleprompter() {
     setBpm(valor)
   }, [musica?.bpm, musica?.id, orientacao, musica])
 
-  const anotacaoTexto = anotacao?.conteudo?.trim() || ''
+  const anotacaoPastaTexto = anotacao?.conteudo?.trim() || ''
+  const anotacaoEventoTexto = normalizarAnotacaoEvento(playlistItemAtual?.anotacao_evento)
+  const temAnotacao = Boolean(anotacaoEventoTexto || anotacaoPastaTexto)
 
   const progresso = useMemo(() => {
     if (!secoes.length) return '0/0 seções'
@@ -1447,7 +1457,7 @@ export function Teleprompter() {
           setAnotacaoPainelOpen(true)
         }}
         className={`fixed z-[55] flex h-10 w-10 items-center justify-center rounded-full border text-lg shadow-lg backdrop-blur-sm transition ${
-          anotacaoTexto
+          temAnotacao
             ? 'border-white/15 bg-black/70 hover:border-[var(--crash-cifra)]/70 hover:bg-black/85'
             : 'border-white/10 bg-black/50 opacity-70 hover:opacity-90'
         }`}
@@ -1456,14 +1466,15 @@ export function Teleprompter() {
           right: TELEPROMPTER_ANOTACAO_RIGHT,
         }}
         aria-label="Ver anotações da música"
-        title={anotacaoTexto ? 'Anotações' : 'Sem anotações nesta música'}
+        title={temAnotacao ? 'Anotações' : 'Sem anotações nesta música'}
       >
         📝
       </button>
 
       <AnotacaoPainelLeitura
         open={anotacaoPainelOpen}
-        conteudo={anotacaoTexto}
+        conteudoEvento={anotacaoEventoTexto}
+        conteudoPasta={anotacaoPastaTexto}
         onClose={() => setAnotacaoPainelOpen(false)}
       />
 

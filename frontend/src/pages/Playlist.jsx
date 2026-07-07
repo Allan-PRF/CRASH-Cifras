@@ -36,6 +36,10 @@ import {
 import { fetchMusicaCompleta, fetchAnotacoesPorMusicas, fetchMusicasParaPlaylist } from '../services/musicas'
 import { AnotacaoIndicador } from '../components/musicas/AnotacaoIndicador'
 import {
+  AnotacaoEventoItemBloco,
+  normalizarAnotacaoEvento,
+} from '../components/playlist/AnotacaoEventoItemBloco'
+import {
   addMusicaToPlaylist,
   fetchPlaylistCompleta,
   isPlaylistNotFoundError,
@@ -497,9 +501,13 @@ export function Playlist() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-[var(--crash-texto-sec)]">#{index + 1}</p>
-                    <h2 className="mt-0.5 inline-flex items-center gap-2 text-lg font-semibold text-white">
+                    <h2 className="mt-0.5 inline-flex flex-wrap items-center gap-2 text-lg font-semibold text-white">
                       {item.musicas?.titulo}
                       <AnotacaoIndicador conteudo={anotacoesPorMusica[item.musica_id]} />
+                      <AnotacaoIndicador
+                        conteudo={item.anotacao_evento}
+                        rotulo="Nota deste evento"
+                      />
                     </h2>
                     <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
                       {ministroNome(item)}
@@ -541,6 +549,25 @@ export function Playlist() {
                     )}
                   </div>
                 </div>
+
+                {isRascunho ? (
+                  <AnotacaoEventoItemBloco
+                    itemId={item.id}
+                    initialValue={item.anotacao_evento}
+                    onSaved={() => load({ silent: true })}
+                  />
+                ) : (
+                  normalizarAnotacaoEvento(item.anotacao_evento) && (
+                    <div className="mt-3 border-t border-[var(--crash-borda)] pt-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--crash-cifra)]">
+                        📝 Nota deste evento
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                        {item.anotacao_evento}
+                      </p>
+                    </div>
+                  )
+                )}
 
                 {isRascunho && (
                   <details className="mt-3 border-t border-[var(--crash-borda)] pt-3">

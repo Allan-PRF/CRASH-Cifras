@@ -33,7 +33,7 @@ const PLAYLIST_SELECT = `
   updated_at
 `
 
-const ITEM_SELECT = `
+const ITEM_SELECT_CORE = `
   id,
   playlist_id,
   musica_id,
@@ -56,6 +56,60 @@ const ITEM_SELECT = `
     )
   )
 `
+
+const ITEM_SELECT = `
+  ${ITEM_SELECT_CORE.trim()},
+  anotacao_evento
+`
+
+function isMissingAnotacaoEventoColumn(error) {
+  const msg = String(error?.message || error?.details || '').toLowerCase()
+  return msg.includes('anotacao_evento')
+}
+
+async function fetchItensDaPlaylist(playlistId) {
+  let { data, error } = await supabase
+    .from('playlist_itens')
+    .select(ITEM_SELECT)
+    .eq('playlist_id', playlistId)
+    .order('ordem', { ascending: true })
+
+  if (error && isMissingAnotacaoEventoColumn(error)) {
+    ;({ data, error } = await supabase
+      .from('playlist_itens')
+      .select(ITEM_SELECT_CORE)
+      .eq('playlist_id', playlistId)
+      .order('ordem', { ascending: true }))
+    if (!error && data) {
+      data = data.map((row) => ({ ...row, anotacao_evento: null }))
+    }
+  }
+
+  if (error) throw error
+  return data ?? []
+}
+
+async function fetchPlaylistItemRow(id) {
+  let { data, error } = await supabase
+    .from('playlist_itens')
+    .select(ITEM_SELECT)
+    .eq('id', id)
+    .single()
+
+  if (error && isMissingAnotacaoEventoColumn(error)) {
+    ;({ data, error } = await supabase
+      .from('playlist_itens')
+      .select(ITEM_SELECT_CORE)
+      .eq('id', id)
+      .single())
+    if (!error && data) {
+      data = { ...data, anotacao_evento: null }
+    }
+  }
+
+  if (error) throw error
+  return data
+}
 
 export async function fetchPlaylists() {
   const { data, error } = await supabase
@@ -157,15 +211,9 @@ export async function fetchPlaylistCompleta(id) {
   if (error) throw error
   if (!playlist) throw new PlaylistNotFoundError(id)
 
-  const { data: itens, error: itemError } = await supabase
-    .from('playlist_itens')
-    .select(ITEM_SELECT)
-    .eq('playlist_id', id)
-    .order('ordem', { ascending: true })
+  const itens = await fetchItensDaPlaylist(id)
 
-  if (itemError) throw itemError
-
-  return { ...playlist, itens: itens ?? [] }
+  return { ...playlist, itens }
 }
 
 export async function addMusicaToPlaylist(playlistId, musicaId) {
@@ -179,7 +227,7 @@ export async function addMusicaToPlaylist(playlistId, musicaId) {
   if (listError) throw listError
 
   const nextOrder = (existing?.[0]?.ordem ?? 0) + 1
-  const { data, error } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from('playlist_itens')
     .insert({
       playlist_id: playlistId,
@@ -188,34 +236,25 @@ export async function addMusicaToPlaylist(playlistId, musicaId) {
       instrucao_texto: 'Normal — início ao fim',
       tipo: 'normal',
     })
-    .select(ITEM_SELECT)
+    .select('id')
     .single()
 
-  if (error) throw error
-  return data
+  if (insertError) throw insertError
+  return fetchPlaylistItemRow(inserted.id)
 }
 
 export async function fetchPlaylistItem(itemId) {
-  const { data, error } = await supabase
-    .from('playlist_itens')
-    .select(ITEM_SELECT)
-    .eq('id', itemId)
-    .single()
-
-  if (error) throw error
-  return data
+  return fetchPlaylistItemRow(itemId)
 }
 
 export async function updatePlaylistItem(id, updates) {
-  const { data, error } = await supabase
+  const { error: updateError } = await supabase
     .from('playlist_itens')
     .update(updates)
     .eq('id', id)
-    .select(ITEM_SELECT)
-    .single()
 
-  if (error) throw error
-  return data
+  if (updateError) throw updateError
+  return fetchPlaylistItemRow(id)
 }
 
 export async function removePlaylistItem(id) {

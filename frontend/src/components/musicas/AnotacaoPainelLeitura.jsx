@@ -6,8 +6,28 @@ import {
 } from '../../lib/teleprompterColunaDireita'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
+function SecaoAnotacao({ titulo, texto }) {
+  const trimmed = String(texto || '').trim()
+  if (!trimmed) return null
+
+  return (
+    <section className="mt-3 first:mt-0">
+      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--crash-cifra)]">
+        {titulo}
+      </h3>
+      <p className="mt-1.5 whitespace-pre-wrap leading-relaxed text-white/95">{trimmed}</p>
+    </section>
+  )
+}
+
 /** Painel discreto de leitura (teleprompter) — só abre ao clicar no ícone. */
-export function AnotacaoPainelLeitura({ open, conteudo, onClose }) {
+export function AnotacaoPainelLeitura({
+  open,
+  conteudo,
+  conteudoEvento = '',
+  conteudoPasta = '',
+  onClose,
+}) {
   const isMobile = useIsMobile()
   const anotacaoBottom = isMobile
     ? TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE
@@ -15,7 +35,9 @@ export function AnotacaoPainelLeitura({ open, conteudo, onClose }) {
 
   if (!open) return null
 
-  const texto = String(conteudo || '').trim()
+  const evento = String(conteudoEvento || '').trim()
+  const pasta = String(conteudoPasta ?? conteudo ?? '').trim()
+  const temConteudo = Boolean(evento || pasta)
 
   return (
     <>
@@ -48,11 +70,16 @@ export function AnotacaoPainelLeitura({ open, conteudo, onClose }) {
             ✕
           </button>
         </div>
-        <p className="mt-3 whitespace-pre-wrap leading-relaxed text-white/95">
-          {texto || (
-            <span className="text-[var(--crash-texto-sec)]">Nenhuma anotação nesta música.</span>
-          )}
-        </p>
+        {temConteudo ? (
+          <div className="mt-3">
+            <SecaoAnotacao titulo="Nota deste evento" texto={evento} />
+            <SecaoAnotacao titulo="Anotação da pasta" texto={pasta} />
+          </div>
+        ) : (
+          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-[var(--crash-texto-sec)]">
+            Nenhuma anotação nesta música.
+          </p>
+        )}
       </aside>
     </>
   )

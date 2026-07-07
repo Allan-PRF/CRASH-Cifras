@@ -1,5 +1,5 @@
 /** Ícone 📝 com tooltip de preview (playlist, tabela do ministro). */
-export function AnotacaoIndicador({ conteudo, className = '' }) {
+export function AnotacaoIndicador({ conteudo, rotulo = 'Anotação', className = '' }) {
   const text = String(conteudo || '').trim()
   if (!text) return null
 
@@ -19,7 +19,7 @@ export function AnotacaoIndicador({ conteudo, className = '' }) {
         className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max max-w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-white/10 bg-black/95 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-white shadow-lg group-hover:block"
       >
         <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-[var(--crash-cifra)]">
-          Anotação
+          {rotulo}
         </span>
         <span className="block whitespace-pre-wrap">{preview}</span>
       </span>

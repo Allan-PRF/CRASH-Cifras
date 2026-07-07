@@ -15,6 +15,7 @@ export function AnotacaoEditorForm({
   saving = false,
   rows = 8,
   variant = 'modal',
+  placeholder = ANOTACAO_PLACEHOLDER,
   className = '',
   id,
   'aria-describedby': ariaDescribedby,
@@ -30,7 +31,7 @@ export function AnotacaoEditorForm({
       onBlur={onBlur}
       disabled={saving}
       rows={rows}
-      placeholder={ANOTACAO_PLACEHOLDER}
+      placeholder={placeholder}
       className={`${baseClass}${className ? ` ${className}` : ''}`}
     />
   )
