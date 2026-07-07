@@ -158,6 +158,7 @@ export function MiniPlayerYoutube({
   const playerRef = useRef(null)
   const playerReadyRef = useRef(false)
   const teleprompterPausedRef = useRef(teleprompterPaused)
+  const prevTeleprompterPausedRef = useRef(teleprompterPaused)
   const syncVideoRef = useRef(syncVideo)
   const savedTimeRef = useRef(0)
   const activeVideoIdRef = useRef(null)
@@ -235,7 +236,7 @@ export function MiniPlayerYoutube({
         width: W,
         height: H,
         opacity: 1,
-        zIndex: 1,
+        zIndex: 0,
         pointerEvents: 'none',
       }
 
@@ -314,10 +315,7 @@ export function MiniPlayerYoutube({
 
               if (!syncVideoRef.current) return
               try {
-                if (teleprompterPausedRef.current) {
-                  p.pauseVideo()
-                  setVideoPaused(true)
-                } else {
+                if (!teleprompterPausedRef.current) {
                   p.playVideo()
                   setVideoPaused(false)
                 }
@@ -351,14 +349,16 @@ export function MiniPlayerYoutube({
 
   useEffect(() => {
     if (!syncVideo || !playerReadyRef.current) return
+
+    const wasPaused = prevTeleprompterPausedRef.current
+    prevTeleprompterPausedRef.current = teleprompterPaused
+
+    // Sync só no play da rolagem — pause da letra não pausa o vídeo (ensaio).
+    if (!wasPaused || teleprompterPaused) return
+
     try {
-      if (teleprompterPaused) {
-        playerRef.current?.pauseVideo()
-        setVideoPaused(true)
-      } else {
-        playerRef.current?.playVideo()
-        setVideoPaused(false)
-      }
+      playerRef.current?.playVideo()
+      setVideoPaused(false)
     } catch {
       // ignore
     }
@@ -420,10 +420,17 @@ export function MiniPlayerYoutube({
   return (
     <div
       style={shellStyle}
-      className="touch-none select-none"
+      className={`touch-none select-none ${minimized ? '' : 'bg-black'}`}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {/* Vídeo na camada de baixo — sem overlay com blur por cima. */}
+      {!apiErro && (
+        <div aria-hidden={minimized} style={hostWrapperStyle}>
+          <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
+        </div>
+      )}
+
       {minimized ? (
         <button
           type="button"
@@ -435,7 +442,7 @@ export function MiniPlayerYoutube({
           <YoutubePillIcon playing={pillPlaying} />
         </button>
       ) : (
-        <div className="relative z-[2] h-full w-full overflow-hidden rounded-xl border border-[var(--crash-cifra)]/40 bg-black/80 shadow-2xl shadow-black/60 backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden rounded-xl border border-[var(--crash-cifra)]/40 shadow-2xl shadow-black/60">
           {apiErro ? (
             <iframe
               title="YouTube"
@@ -443,13 +450,13 @@ export function MiniPlayerYoutube({
               ref={(el) => {
                 if (el) el.style.cssText = IFRAME_CSS
               }}
-              className="absolute inset-0 h-full w-full"
+              className="pointer-events-auto absolute inset-0 z-0 h-full w-full"
               allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
             />
           ) : null}
 
           <div
-            className="absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between gap-1 bg-black/85 px-2 active:cursor-grabbing"
+            className="pointer-events-auto absolute left-0 right-0 top-0 z-20 flex cursor-grab items-center justify-between gap-1 bg-black/85 px-2 active:cursor-grabbing"
             style={{ height: HEADER_H }}
             onPointerDown={onPointerDown}
           >
@@ -471,7 +478,7 @@ export function MiniPlayerYoutube({
             <button
               type="button"
               onClick={togglePlayLocal}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
+              className="pointer-events-auto absolute inset-0 z-10 flex items-center justify-center bg-black/20 opacity-0 transition hover:opacity-100"
               aria-label={videoPaused ? 'Play vídeo' : 'Pause vídeo'}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-base text-white ring-2 ring-[var(--crash-cifra)]">
@@ -479,13 +486,6 @@ export function MiniPlayerYoutube({
               </span>
             </button>
           )}
-        </div>
-      )}
-
-      {/* Host permanente — minimizar só esconde; áudio/vídeo segue no ponto atual. */}
-      {!apiErro && (
-        <div aria-hidden={minimized} style={hostWrapperStyle}>
-          <div ref={hostRef} style={{ width: '100%', height: '100%' }} />
         </div>
       )}
     </div>
