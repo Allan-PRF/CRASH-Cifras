@@ -1217,7 +1217,6 @@ export function Teleprompter() {
                         sectionKey={sk}
                         lineGapClassName={layout.lineGap}
                         lineHeightRatio={lineHeightRatio}
-                        corAcorde="#FFFFFF"
                         corLetra="#FFFFFF"
                       />
                     </div>
@@ -1336,7 +1335,6 @@ export function Teleprompter() {
                   lineGapClassName={layout.lineGap}
                   onLineRef={registerLineRef}
                   lineHeightRatio={lineHeightRatio}
-                  corAcorde="#FFFFFF"
                   corLetra="#FFFFFF"
                 />
               </section>

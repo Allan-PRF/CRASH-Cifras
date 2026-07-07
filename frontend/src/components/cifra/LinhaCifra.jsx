@@ -53,29 +53,49 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
 
   const monoFontReady = useCifraMonoFontReady()
 
-  const fonteAcorde = visualizacao ? 14 : fonteLetra
-  const fonteLetraLinha = visualizacao ? 16 : fonteLetra
-  const fonteGrau = visualizacao ? 12 : fonteLetra
+  const isTeleprompter = !visualizacao
+  const pesoUniforme = tema.teleprompter.cifra.fontWeight
+
+  const fonteAcorde = isTeleprompter ? fonteLetra : 14
+  const fonteLetraLinha = isTeleprompter ? fonteLetra : 16
+  const fonteGrau = isTeleprompter ? fonteLetra : 12
 
   const pesoLetra = destaque
     ? tema.teleprompter.letra.fontWeightDestaque
-    : visualizacao
-      ? 400
-      : tema.teleprompter.letra.fontWeight
+    : isTeleprompter
+      ? pesoUniforme
+      : 400
+
+  const pesoAcorde = isTeleprompter ? pesoUniforme : tema.teleprompter.cifra.fontWeight
+  const pesoGrau = isTeleprompter ? pesoUniforme : tema.teleprompter.grau.fontWeight
+
+  const charWidthUniformePx = useMemo(
+    () => (isTeleprompter ? measureMonoCharWidth(fonteLetra, pesoUniforme) : null),
+    [fonteLetra, pesoUniforme, monoFontReady, isTeleprompter],
+  )
 
   const chordCharWidthPx = useMemo(
-    () => measureMonoCharWidth(fonteAcorde, tema.teleprompter.cifra.fontWeight),
-    [fonteAcorde, monoFontReady],
+    () =>
+      isTeleprompter
+        ? charWidthUniformePx
+        : measureMonoCharWidth(fonteAcorde, pesoAcorde),
+    [isTeleprompter, charWidthUniformePx, fonteAcorde, pesoAcorde, monoFontReady],
   )
 
   const lyricCharWidthPx = useMemo(
-    () => measureMonoCharWidth(fonteLetraLinha, pesoLetra),
-    [fonteLetraLinha, pesoLetra, monoFontReady],
+    () =>
+      isTeleprompter
+        ? charWidthUniformePx
+        : measureMonoCharWidth(fonteLetraLinha, pesoLetra),
+    [isTeleprompter, charWidthUniformePx, fonteLetraLinha, pesoLetra, monoFontReady],
   )
 
   const grauCharWidthPx = useMemo(
-    () => measureMonoCharWidth(fonteGrau, tema.teleprompter.grau.fontWeight),
-    [fonteGrau, monoFontReady],
+    () =>
+      isTeleprompter
+        ? charWidthUniformePx
+        : measureMonoCharWidth(fonteGrau, pesoGrau),
+    [isTeleprompter, charWidthUniformePx, fonteGrau, pesoGrau, monoFontReady],
   )
 
   const chordItems = useMemo(
@@ -115,7 +135,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
           fonteLetra={fonteAcorde}
           charWidthPx={chordCharWidthPx}
           color={corAcorde}
-          fontWeight={tema.teleprompter.cifra.fontWeight}
+          fontWeight={pesoAcorde}
           minCols={minCols}
           lineHeightRatio={lineHeightRatio}
         />
@@ -137,7 +157,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
           fonteLetra={fonteGrau}
           charWidthPx={grauCharWidthPx}
           color={tema.cores.grau}
-          fontWeight={tema.teleprompter.grau.fontWeight}
+          fontWeight={pesoGrau}
           minCols={minCols}
           lineHeightRatio={lineHeightRatio}
         />
