@@ -158,8 +158,9 @@ export function MiniPlayerYoutube({
   const playerRef = useRef(null)
   const playerReadyRef = useRef(false)
   const teleprompterPausedRef = useRef(teleprompterPaused)
-  const prevTeleprompterPausedRef = useRef(teleprompterPaused)
   const syncVideoRef = useRef(syncVideo)
+  /** Após a 1ª inicialização conjunta, teleprompter não comanda mais o YouTube. */
+  const initialSyncDoneRef = useRef(false)
   const savedTimeRef = useRef(0)
   const activeVideoIdRef = useRef(null)
   const dragRef = useRef(null)
@@ -256,12 +257,27 @@ export function MiniPlayerYoutube({
     }
   }, [])
 
+  const startVideoOnceFromTeleprompter = useCallback(() => {
+    if (!syncVideoRef.current || initialSyncDoneRef.current) return false
+    if (!playerReadyRef.current || !playerRef.current) return false
+    if (teleprompterPausedRef.current) return false
+    try {
+      playerRef.current.playVideo()
+      setVideoPaused(false)
+      initialSyncDoneRef.current = true
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
   useEffect(() => {
     if (!enabled || !videoId) return undefined
 
     if (activeVideoIdRef.current !== videoId) {
       savedTimeRef.current = 0
       activeVideoIdRef.current = videoId
+      initialSyncDoneRef.current = false
     }
 
     let cancelado = false
@@ -314,14 +330,7 @@ export function MiniPlayerYoutube({
               }
 
               if (!syncVideoRef.current) return
-              try {
-                if (!teleprompterPausedRef.current) {
-                  p.playVideo()
-                  setVideoPaused(false)
-                }
-              } catch {
-                // ignore
-              }
+              startVideoOnceFromTeleprompter()
             },
             onStateChange: (event) => {
               if (event.data === YT.PlayerState.PLAYING) setVideoPaused(false)
@@ -348,21 +357,9 @@ export function MiniPlayerYoutube({
   }, [enabled, videoId])
 
   useEffect(() => {
-    if (!syncVideo || !playerReadyRef.current) return
-
-    const wasPaused = prevTeleprompterPausedRef.current
-    prevTeleprompterPausedRef.current = teleprompterPaused
-
-    // Sync só no play da rolagem — pause da letra não pausa o vídeo (ensaio).
-    if (!wasPaused || teleprompterPaused) return
-
-    try {
-      playerRef.current?.playVideo()
-      setVideoPaused(false)
-    } catch {
-      // ignore
-    }
-  }, [teleprompterPaused, syncVideo])
+    if (!syncVideo || teleprompterPaused) return
+    startVideoOnceFromTeleprompter()
+  }, [teleprompterPaused, syncVideo, startVideoOnceFromTeleprompter])
 
   function expandPlayer(e) {
     e.stopPropagation()

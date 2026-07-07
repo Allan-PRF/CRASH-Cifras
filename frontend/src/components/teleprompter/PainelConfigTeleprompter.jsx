@@ -157,8 +157,8 @@ export function PainelConfigTeleprompter({
           title={`Sincronizar com YouTube: ${sincronizarVideo ? 'ON' : 'OFF'}`}
           description={
             sincronizarVideo
-              ? 'Play/pause do teleprompter controla o vídeo.'
-              : 'Teleprompter e YouTube pausam/tocam de forma independente.'
+              ? 'Na 1ª vez que iniciar o teleprompter, o vídeo começa junto; depois ficam independentes.'
+              : 'Teleprompter e YouTube sempre independentes (sem início conjunto).'
           }
           active={sincronizarVideo}
           onClick={onToggleSincronizarVideo}
