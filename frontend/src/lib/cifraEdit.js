@@ -151,3 +151,53 @@ export function insertChordAt(chords, pos, symbol, lineWidth) {
   const clamped = clampChordPos(pos, chord.length, lineWidth)
   return [...(chords || []), { pos: clamped, chord }]
 }
+
+function sortChordsByPos(chords) {
+  return [...chords].sort(
+    (a, b) => a.pos - b.pos || String(a.chord).localeCompare(String(b.chord)),
+  )
+}
+
+/**
+ * Divide uma linha de cifra no índice `splitIndex` (coluna monoespaçada).
+ * Acordes inteiramente antes do corte ficam na linha 1; os demais (incl. atravessando
+ * o corte) vão para a linha 2 com pos recalculado — seguem a sílaba na linha de baixo.
+ *
+ * @param {{ lyricLine?: string, chords?: { pos: number, chord: string }[] }} line
+ * @param {number} splitIndex
+ * @returns {{ ok: true, line1: object, line2: object } | { ok: false, reason: string }}
+ */
+export function splitChordLineAt(line, splitIndex) {
+  const lyric = String(line?.lyricLine ?? '')
+  const chords = (line?.chords ?? []).map((c) => ({ pos: c.pos, chord: c.chord }))
+  const len = lyric.length
+  const i = Math.max(0, Math.min(Math.round(Number(splitIndex) || 0), len))
+
+  if (i >= len) {
+    return { ok: false, reason: 'split_at_end' }
+  }
+
+  const lyric1 = lyric.slice(0, i)
+  const lyric2 = lyric.slice(i)
+
+  const chords1 = []
+  const chords2 = []
+
+  for (const { pos, chord } of chords) {
+    const chordLen = String(chord || '').length
+    const entirelyBefore = pos + chordLen <= i
+
+    if (entirelyBefore) {
+      chords1.push({ pos, chord })
+    } else {
+      const newPos = clampChordPos(pos - i, chordLen, lyric2.length)
+      chords2.push({ pos: newPos, chord })
+    }
+  }
+
+  return {
+    ok: true,
+    line1: serializeChordLine(lyric1, sortChordsByPos(chords1)),
+    line2: serializeChordLine(lyric2, sortChordsByPos(chords2)),
+  }
+}

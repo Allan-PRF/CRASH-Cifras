@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import {
   adjustChordsAfterLyricEdit,
   emptyChordLine,
   serializeChordLine,
+  splitChordLineAt,
 } from '../../lib/cifraEdit'
 import { btnSecondaryClassName } from '../ui/inputClasses'
 import { CifraLinhaEditor } from './CifraLinhaEditor.jsx'
@@ -14,6 +16,7 @@ export function CifraSecaoEditorVisual({
 }) {
   const isFolha = variant === 'folha'
   const lines = linhas?.lines ?? []
+  const [focusLineIndex, setFocusLineIndex] = useState(null)
 
   function emitLines(nextLines) {
     onChange({ lines: nextLines })
@@ -53,6 +56,16 @@ export function CifraSecaoEditorVisual({
     updateLine(index, serializeChordLine(lyric, newChords))
   }
 
+  function handleSplitLine(index, splitIndex) {
+    const result = splitChordLineAt(lines[index], splitIndex)
+    if (!result.ok) return
+    const next = [...lines]
+    next[index] = result.line1
+    next.splice(index + 1, 0, result.line2)
+    emitLines(next)
+    setFocusLineIndex(index + 1)
+  }
+
   return (
     <div className={isFolha ? 'max-w-full space-y-0.5 overflow-x-auto' : 'space-y-2'}>
       {lines.length === 0 ? (
@@ -68,6 +81,13 @@ export function CifraSecaoEditorVisual({
             onLyricChange={(newLyric) => handleLyricChange(index, newLyric)}
             onRemove={() => handleRemoveLine(index)}
             onInsertLineAfter={() => handleInsertLineAfter(index)}
+            onSplitLine={
+              isFolha ? (splitIndex) => handleSplitLine(index, splitIndex) : undefined
+            }
+            focusLyric={focusLineIndex === index}
+            onLyricFocused={() => {
+              if (focusLineIndex === index) setFocusLineIndex(null)
+            }}
             onEditStart={onEditStart}
             editableChords={isFolha}
             onChordsChange={

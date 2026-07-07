@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:transpose": "node scripts/test-transpose.mjs"
+    "test:transpose": "node scripts/test-transpose.mjs",
+    "test:split-line": "node scripts/test-split-line.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCifraMonoFontReady } from '../../hooks/useCifraMonoFontReady'
 import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { LinhaPosicionada } from '../cifra/LinhaPosicionada.jsx'
@@ -16,6 +16,9 @@ export function CifraLinhaEditor({
   onLyricChange,
   onRemove,
   onInsertLineAfter,
+  onSplitLine,
+  focusLyric = false,
+  onLyricFocused,
   onEditStart,
   onChordsChange,
   editableChords: editableChordsProp,
@@ -24,6 +27,8 @@ export function CifraLinhaEditor({
 }) {
   const isFolha = variant === 'folha'
   const editableChords = editableChordsProp ?? isFolha
+  const lyricRef = useRef(null)
+  const [selection, setSelection] = useState({ start: 0, end: 0 })
   const { lyricLine, chords } = useMemo(() => normalizeChordLine(line), [line])
   const monoFontReady = useCifraMonoFontReady()
 
@@ -57,9 +62,39 @@ export function CifraLinhaEditor({
     }
   }
 
+  function syncSelectionFromTextarea() {
+    const el = lyricRef.current
+    if (!el) return
+    setSelection({ start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 })
+  }
+
   function handleFocus() {
     onEditStart?.()
+    syncSelectionFromTextarea()
   }
+
+  const canSplitHere =
+    Boolean(onSplitLine) &&
+    lyricLine.length > 0 &&
+    selection.start === selection.end &&
+    selection.start < lyricLine.length
+
+  useEffect(() => {
+    if (!focusLyric || !lyricRef.current) return
+    const el = lyricRef.current
+    el.focus()
+    el.setSelectionRange(0, 0)
+    setSelection({ start: 0, end: 0 })
+    onLyricFocused?.()
+  }, [focusLyric, onLyricFocused])
+
+  function handleSplitClick() {
+    if (!onSplitLine || !canSplitHere) return
+    onEditStart?.()
+    onSplitLine(selection.start)
+  }
+
+  const showLineActions = isFolha && (canRemove || onSplitLine)
 
   return (
     <div
@@ -69,14 +104,35 @@ export function CifraLinhaEditor({
           : 'group rounded-lg border border-[var(--crash-borda)]/60 bg-black/50 p-2'
       }
     >
-      {canRemove && onRemove && (
-        <div
-          className={
-            isFolha
-              ? 'mb-0.5 flex justify-end opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100'
-              : 'mb-1 flex items-start justify-end gap-2'
-          }
-        >
+      {showLineActions && (
+        <div className="mb-0.5 flex justify-end gap-3 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+          {onSplitLine && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleSplitClick}
+              disabled={!canSplitHere}
+              className="shrink-0 text-xs text-[var(--crash-texto-sec)] opacity-70 hover:text-[var(--crash-cifra)] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
+              aria-label="Dividir linha no cursor"
+              title="Dividir linha no cursor (posicione o cursor no meio da letra)"
+            >
+              ✂ Dividir
+            </button>
+          )}
+          {canRemove && onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="shrink-0 text-xs text-red-400 opacity-70 hover:opacity-100 hover:underline"
+              aria-label="Remover linha"
+            >
+              Remover linha
+            </button>
+          )}
+        </div>
+      )}
+      {canRemove && onRemove && !isFolha && (
+        <div className="mb-1 flex items-start justify-end gap-2">
           <button
             type="button"
             onClick={onRemove}
@@ -127,10 +183,14 @@ export function CifraLinhaEditor({
         )}
 
       <textarea
+        ref={lyricRef}
         value={lyricLine}
         onChange={(e) => onLyricChange(e.target.value)}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
+        onSelect={syncSelectionFromTextarea}
+        onKeyUp={syncSelectionFromTextarea}
+        onClick={syncSelectionFromTextarea}
         rows={1}
         spellCheck
         className={
