@@ -44,11 +44,11 @@ export function MusicaTable({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return musicas
-    return musicas.filter(
-      (m) =>
-        m.titulo?.toLowerCase().includes(q) ||
-        m.artista?.toLowerCase().includes(q),
-    )
+    return musicas.filter((m) => {
+      const titulo = (m.titulo ?? '').toLowerCase()
+      const artista = (m.artista ?? '').toLowerCase()
+      return titulo.includes(q) || artista.includes(q)
+    })
   }, [musicas, query])
 
   const sorted = useMemo(() => {
