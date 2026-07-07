@@ -13,6 +13,10 @@ import {
   TELEPROMPTER_AO_VIVO_BOTTOM_MOBILE,
   TELEPROMPTER_ANOTACAO_BOTTOM_MOBILE,
   TELEPROMPTER_CANTO_TOP_RIGHT,
+  TELEPROMPTER_MEDLEY_BOTTOM_DESKTOP,
+  TELEPROMPTER_MEDLEY_BOTTOM_MOBILE,
+  TELEPROMPTER_MEDLEY_RESERVE_RIGHT_DESKTOP,
+  TELEPROMPTER_MEDLEY_RESERVE_RIGHT_MOBILE,
 } from '../lib/teleprompterColunaDireita'
 import {
   RodapePalavra,
@@ -1383,8 +1387,16 @@ export function Teleprompter() {
 
       {playlistId && proximaMusicaCulto && (
         <div
-          className="fixed left-0 right-0 z-[55] flex justify-center px-4"
-          style={{ bottom: TELEPROMPTER_BARRA_INFERIOR_ALTURA + 8 }}
+          className="fixed z-[54] px-4"
+          style={{
+            bottom: isMobile
+              ? TELEPROMPTER_MEDLEY_BOTTOM_MOBILE
+              : TELEPROMPTER_MEDLEY_BOTTOM_DESKTOP,
+            left: 0,
+            right: isMobile
+              ? TELEPROMPTER_MEDLEY_RESERVE_RIGHT_MOBILE
+              : TELEPROMPTER_MEDLEY_RESERVE_RIGHT_DESKTOP,
+          }}
         >
           <button
             type="button"
@@ -1392,9 +1404,9 @@ export function Teleprompter() {
               e.stopPropagation()
               irParaProximaMusicaCulto()
             }}
-            className="max-w-full truncate rounded-xl border border-[var(--crash-cifra)] bg-black/90 px-4 py-2.5 text-sm font-semibold text-[var(--crash-cifra)] shadow-lg backdrop-blur transition hover:bg-[var(--crash-cifra)] hover:text-black"
+            className="w-full truncate rounded-lg border border-[var(--crash-cifra)]/80 bg-black/85 px-3 py-1.5 text-xs font-semibold text-[var(--crash-cifra)] shadow-md backdrop-blur transition hover:border-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/10 hover:text-white"
           >
-            {proximaMusicaCulto.isMedley ? 'Medley' : 'Próxima música'} →{' '}
+            {proximaMusicaCulto.isMedley ? '🔗 Medley' : 'Próx. música'} →{' '}
             {proximaMusicaCulto.titulo}
           </button>
         </div>
