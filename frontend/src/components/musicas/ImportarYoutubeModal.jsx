@@ -8,16 +8,9 @@ import {
   inputClassName,
 } from '../ui/inputClasses'
 import {
-  attachReconhecimentoVoz,
   classeAvisoVoz,
-  criarSpeechRecognition,
-  iniciarReconhecimentoVoz,
-  logSpeechRecognitionDisponivel,
-  mensagemErroReconhecimentoVoz,
-  mensagemErroStartVoz,
-  MSG_BUSCA_VOZ_INDISPONIVEL,
-  MSG_VOZ_NAO_IDENTIFICOU,
   PLACEHOLDER_BUSCA_VOZ,
+  useVoiceSearch,
 } from '../../lib/voiceSearch'
 import { buscarYoutube, fetchImportJob, importarYoutube } from '../../services/importacao'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
@@ -108,13 +101,22 @@ export function ImportarYoutubeModal({
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
-  const [erroVoz, setErroVoz] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fase, setFase] = useState('form')
   const [avisoFecharMotor, setAvisoFecharMotor] = useState(false)
 
   const motorGerando = job?.status === 'processing'
   const podeFecharModal = !motorGerando && !submitting
+
+  const voice = useVoiceSearch({
+    disabled: submitting,
+    onTranscript: (transcript) => {
+      setQuery(transcript)
+      void executarBuscaRef.current?.(transcript)
+    },
+  })
+
+  const executarBuscaRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -126,6 +128,8 @@ export function ImportarYoutubeModal({
     setSubmitting(false)
     setFase('form')
     setAvisoFecharMotor(false)
+    voice.clearError()
+    voice.stop()
   }, [open, isReimport, youtubeUrlInitial])
 
   useEffect(() => {
@@ -178,8 +182,6 @@ export function ImportarYoutubeModal({
     return () => clearInterval(interval)
   }, [job?.id, job?.status, fase])
 
-  if (!open) return null
-
   async function executarBusca(termo) {
     const termoSafe = termo.trim()
     if (termoSafe.length < 2) return
@@ -197,6 +199,10 @@ export function ImportarYoutubeModal({
       setSearching(false)
     }
   }
+
+  executarBuscaRef.current = executarBusca
+
+  if (!open) return null
 
   async function handleSearch(event) {
     event.preventDefault()
@@ -245,44 +251,6 @@ export function ImportarYoutubeModal({
     if (event.key === 'Enter') {
       event.preventDefault()
       void handleImportLink()
-    }
-  }
-
-  function handleVoiceSearch() {
-    if (!logSpeechRecognitionDisponivel()) {
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    setErroVoz('')
-    let recognition
-    try {
-      recognition = criarSpeechRecognition()
-    } catch {
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    attachReconhecimentoVoz(recognition, {
-      onResult: (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-        if (transcript) {
-          setQuery(transcript)
-          void executarBusca(transcript)
-        } else {
-          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
-        }
-      },
-      onError: (event) => {
-        const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setErroVoz(mensagem)
-      },
-    })
-
-    try {
-      iniciarReconhecimentoVoz(recognition)
-    } catch (err) {
-      setErroVoz(mensagemErroStartVoz(err))
     }
   }
 
@@ -407,7 +375,7 @@ export function ImportarYoutubeModal({
                     value={query}
                     onChange={(e) => {
                       setQuery(e.target.value)
-                      setErroVoz('')
+                      voice.clearError()
                     }}
                     placeholder={PLACEHOLDER_BUSCA_VOZ}
                     className={inputClassName}
@@ -415,17 +383,32 @@ export function ImportarYoutubeModal({
                   />
                   <button
                     type="button"
-                    onClick={handleVoiceSearch}
-                    className={`${btnSecondaryClassName} shrink-0`}
-                    aria-label="Buscar por voz"
+                    onClick={voice.toggle}
+                    className={
+                      voice.listening
+                        ? `${btnSecondaryClassName} shrink-0 animate-pulse border-red-500 bg-red-600 text-white hover:bg-red-500`
+                        : `${btnSecondaryClassName} shrink-0`
+                    }
+                    aria-label={voice.listening ? 'Parar busca por voz' : 'Buscar por voz'}
+                    aria-pressed={voice.listening}
                     disabled={submitting}
+                    title={
+                      voice.supported
+                        ? 'Falar o nome da música'
+                        : 'Navegador sem suporte a voz — use Chrome'
+                    }
                   >
                     🎙️
                   </button>
                 </div>
-                {erroVoz && (
+                {voice.listening && (
+                  <p className="mt-2 text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
+                    Ouvindo… fale o nome da música
+                  </p>
+                )}
+                {voice.error && (
                   <p className={`mt-2 ${classeAvisoVoz}`} role="alert">
-                    {erroVoz}
+                    {voice.error}
                   </p>
                 )}
               </FormField>

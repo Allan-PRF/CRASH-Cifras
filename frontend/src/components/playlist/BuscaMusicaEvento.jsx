@@ -13,17 +13,7 @@ import {
   selectClassName,
 } from '../ui/inputClasses'
 import { sanitizeText } from '../../lib/sanitize'
-import {
-  attachReconhecimentoVoz,
-  classeAvisoVoz,
-  criarSpeechRecognition,
-  iniciarReconhecimentoVoz,
-  logSpeechRecognitionDisponivel,
-  mensagemErroReconhecimentoVoz,
-  mensagemErroStartVoz,
-  MSG_BUSCA_VOZ_INDISPONIVEL,
-  MSG_VOZ_NAO_IDENTIFICOU,
-} from '../../lib/voiceSearch'
+import { classeAvisoVoz, useVoiceSearch } from '../../lib/voiceSearch'
 import { useMinistros } from '../../hooks/useMinistros'
 import { buscarYoutube, importarYoutube } from '../../services/importacao'
 import { addMusicaToPlaylist } from '../../services/playlists'
@@ -70,33 +60,29 @@ export function BuscaMusicaEvento({
   const [importingId, setImportingId] = useState(null)
   const [importingLink, setImportingLink] = useState(false)
   const [erroBusca, setErroBusca] = useState('')
-  const [erroVoz, setErroVoz] = useState('')
   const [avisoAcervo, setAvisoAcervo] = useState('')
   const [erroAdicionar, setErroAdicionar] = useState('')
   const [sucesso, setSucesso] = useState('')
-  const [ouvindo, setOuvindo] = useState(false)
-  const recognitionRef = useRef(null)
 
   const importando = searching || !!importingId || importingLink
   const camposBloqueados = disabled
   const queryTrimmed = query.trim()
   const ehLink = useMemo(() => entradaEhLinkYoutube(query), [query])
 
+  const executarBuscaRef = useRef(null)
+  const voice = useVoiceSearch({
+    disabled: camposBloqueados || (!!importingId || importingLink),
+    onTranscript: (transcript) => {
+      setQuery(transcript)
+      void executarBuscaRef.current?.(transcript)
+    },
+  })
+
   useEffect(() => {
     if (!ministroId && ministros.length === 1) {
       setMinistroId(ministros[0].id)
     }
   }, [ministroId, ministros])
-
-  useEffect(() => {
-    return () => {
-      try {
-        recognitionRef.current?.abort()
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [])
 
   function resetarBuscaAposAdicionar() {
     setQuery('')
@@ -152,6 +138,8 @@ export function BuscaMusicaEvento({
     }
   }
 
+  executarBuscaRef.current = executarBusca
+
   async function handleSubmit(event) {
     event.preventDefault()
     if (!queryTrimmed) {
@@ -165,72 +153,6 @@ export function BuscaMusicaEvento({
     }
 
     await executarBusca(query)
-  }
-
-  function pararReconhecimentoVoz() {
-    try {
-      recognitionRef.current?.stop()
-    } catch {
-      /* ignore */
-    }
-    setOuvindo(false)
-  }
-
-  function handleVoiceSearch() {
-    if (ouvindo) {
-      pararReconhecimentoVoz()
-      return
-    }
-
-    if (!logSpeechRecognitionDisponivel()) {
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    setErroVoz('')
-
-    let recognition
-    try {
-      recognition = criarSpeechRecognition()
-      recognitionRef.current = recognition
-    } catch (err) {
-      console.log('[voz] falha ao criar instância:', err)
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    attachReconhecimentoVoz(recognition, {
-      onStart: () => {
-        setOuvindo(true)
-        setErroVoz('')
-      },
-      onResult: (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-        if (transcript) {
-          setQuery(transcript)
-          void executarBusca(transcript)
-        } else {
-          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
-        }
-      },
-      onError: (event) => {
-        const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setErroVoz(mensagem)
-      },
-      onEnd: () => {
-        setOuvindo(false)
-        recognitionRef.current = null
-      },
-    })
-
-    try {
-      iniciarReconhecimentoVoz(recognition)
-    } catch (err) {
-      console.log('[voz] recognition.start() exceção:', err)
-      setOuvindo(false)
-      recognitionRef.current = null
-      setErroVoz(mensagemErroStartVoz(err))
-    }
   }
 
   async function importarEAdicionarNaPlaylist(
@@ -358,7 +280,7 @@ export function BuscaMusicaEvento({
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value)
-                setErroVoz('')
+                voice.clearError()
                 setErroBusca('')
                 setAvisoAcervo('')
               }}
@@ -370,17 +292,22 @@ export function BuscaMusicaEvento({
             />
             <button
               type="button"
-              onClick={handleVoiceSearch}
-              disabled={camposBloqueados || (importando && !ouvindo)}
-              aria-pressed={ouvindo}
-              aria-label={ouvindo ? 'Parar busca por voz' : 'Buscar por voz'}
+              onClick={voice.toggle}
+              disabled={camposBloqueados || (importando && !voice.listening)}
+              aria-pressed={voice.listening}
+              aria-label={voice.listening ? 'Parar busca por voz' : 'Buscar por voz'}
+              title={
+                voice.supported
+                  ? 'Falar o nome da música'
+                  : 'Navegador sem suporte a voz — use Chrome'
+              }
               className={
-                ouvindo
+                voice.listening
                   ? `${btnBuscaAlturaClassName} min-w-[4.5rem] border border-red-500 bg-red-600 text-white animate-pulse`
                   : `${btnSecondaryClassName} ${btnBuscaAlturaClassName} min-w-[4.5rem] font-medium`
               }
             >
-              Voz
+              🎙️ Voz
             </button>
             <button
               type="submit"
@@ -390,14 +317,14 @@ export function BuscaMusicaEvento({
               {labelAcao}
             </button>
           </div>
-          {ouvindo && (
+          {voice.listening && (
             <p className="text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
-              Ouvindo... fale o nome da música
+              Ouvindo… fale o nome da música
             </p>
           )}
-          {erroVoz && (
+          {voice.error && (
             <p className={classeAvisoVoz} role="alert">
-              {erroVoz}
+              {voice.error}
             </p>
           )}
           {avisoAcervo && (

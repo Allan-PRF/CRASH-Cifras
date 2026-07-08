@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FormField } from '../components/ui/FormField'
 import {
@@ -10,16 +10,9 @@ import {
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { useMinistros } from '../hooks/useMinistros'
 import {
-  attachReconhecimentoVoz,
   classeAvisoVoz,
-  criarSpeechRecognition,
-  iniciarReconhecimentoVoz,
-  logSpeechRecognitionDisponivel,
-  mensagemErroReconhecimentoVoz,
-  mensagemErroStartVoz,
-  MSG_BUSCA_VOZ_INDISPONIVEL,
-  MSG_VOZ_NAO_IDENTIFICOU,
   PLACEHOLDER_BUSCA_VOZ,
+  useVoiceSearch,
 } from '../lib/voiceSearch'
 import { buscarYoutube, importarYoutube } from '../services/importacao'
 
@@ -42,8 +35,16 @@ export function Importar() {
   const [ministroId, setMinistroId] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
-  const [erroVoz, setErroVoz] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const executarBuscaRef = useRef(null)
+  const voice = useVoiceSearch({
+    disabled: submitting || searching,
+    onTranscript: (transcript) => {
+      setQuery(transcript)
+      void executarBuscaRef.current?.(transcript)
+    },
+  })
 
   useEffect(() => {
     if (!ministroId && ministros.length === 1) {
@@ -136,6 +137,8 @@ export function Importar() {
     }
   }
 
+  executarBuscaRef.current = executarBusca
+
   async function handleSearch(event) {
     event.preventDefault()
     await executarBusca(query)
@@ -144,47 +147,6 @@ export function Importar() {
   async function handleImport(youtubeUrlToImport, { titulo = null, artista = null } = {}) {
     setJob(null)
     await runImport(youtubeUrlToImport, { titulo, artista })
-  }
-
-  function handleVoiceSearch() {
-    if (!logSpeechRecognitionDisponivel()) {
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    setErroVoz('')
-
-    let recognition
-    try {
-      recognition = criarSpeechRecognition()
-    } catch (err) {
-      console.log('[voz] falha ao criar instância:', err)
-      setErroVoz(MSG_BUSCA_VOZ_INDISPONIVEL)
-      return
-    }
-
-    attachReconhecimentoVoz(recognition, {
-      onResult: (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-        if (transcript) {
-          setQuery(transcript)
-          void executarBusca(transcript)
-        } else {
-          setErroVoz(MSG_VOZ_NAO_IDENTIFICOU)
-        }
-      },
-      onError: (event) => {
-        const mensagem = mensagemErroReconhecimentoVoz(event.error)
-        if (mensagem) setErroVoz(mensagem)
-      },
-    })
-
-    try {
-      iniciarReconhecimentoVoz(recognition)
-    } catch (err) {
-      console.log('[voz] recognition.start() exceção:', err)
-      setErroVoz(mensagemErroStartVoz(err))
-    }
   }
 
   return (
@@ -214,23 +176,38 @@ export function Importar() {
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value)
-                setErroVoz('')
+                voice.clearError()
               }}
               placeholder={PLACEHOLDER_BUSCA_VOZ}
               className={inputClassName}
             />
             <button
               type="button"
-              onClick={handleVoiceSearch}
-              className={btnSecondaryClassName}
-              aria-label="Buscar por voz"
+              onClick={voice.toggle}
+              className={
+                voice.listening
+                  ? `${btnSecondaryClassName} animate-pulse border-red-500 bg-red-600 text-white hover:bg-red-500`
+                  : btnSecondaryClassName
+              }
+              aria-label={voice.listening ? 'Parar busca por voz' : 'Buscar por voz'}
+              aria-pressed={voice.listening}
+              title={
+                voice.supported
+                  ? 'Falar o nome da música'
+                  : 'Navegador sem suporte a voz — use Chrome'
+              }
             >
               🎙️
             </button>
           </div>
-          {erroVoz && (
+          {voice.listening && (
+            <p className="mt-2 text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
+              Ouvindo… fale o nome da música
+            </p>
+          )}
+          {voice.error && (
             <p className={`mt-2 ${classeAvisoVoz}`} role="alert">
-              {erroVoz}
+              {voice.error}
             </p>
           )}
         </FormField>
