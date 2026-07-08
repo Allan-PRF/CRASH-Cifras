@@ -8,6 +8,10 @@ export const MSG_MICROFONE_INDISPONIVEL =
 export const MSG_MICROFONE_BLOQUEADO =
   'O microfone está bloqueado. Clique no cadeado 🔒 na barra de endereço → Permissões → Microfone → Permitir, e toque no microfone de novo.'
 
+/** Bloqueado pelo cabeçalho Permissions-Policy do servidor (não é permissão do navegador). */
+export const MSG_MICROFONE_BLOQUEADO_PELO_SITE =
+  'O microfone está bloqueado pela política de segurança deste site (Permissions-Policy). Isso é configuração do servidor, não do cadeado do navegador.'
+
 /** Placeholder unificado — campos com busca por texto + voz. */
 export const PLACEHOLDER_BUSCA_VOZ = 'Digite o nome da música ou fale'
 
@@ -105,19 +109,28 @@ export function mensagemErroReconhecimentoVoz(errorCode) {
     case 'aborted':
       return null
     case 'not-allowed':
-    case 'service-not-allowed':
       return MSG_MICROFONE_BLOQUEADO
+    case 'service-not-allowed':
+      return MSG_MICROFONE_BLOQUEADO_PELO_SITE
     case 'audio-capture':
       return MSG_MICROFONE_INDISPONIVEL
     case 'no-speech':
       return MSG_VOZ_NAO_IDENTIFICOU
     case 'network':
-      return 'Busca por voz precisa de internet. Verifique a conexão ou digite o nome.'
+      return 'Busca por voz precisa de internet e acesso aos servidores do Google. Verifique a conexão ou a política CSP do site.'
     case 'language-not-supported':
-      return MSG_VOZ_NAO_IDENTIFICOU
+      return 'Idioma pt-BR não suportado neste navegador para voz. Digite o nome da música.'
     default:
       return MSG_VOZ_NAO_IDENTIFICOU
   }
+}
+
+/** Mensagem para a UI com o código bruto do recognition.onerror (diagnóstico visível). */
+export function formatarErroVozNaTela(errorCode) {
+  if (!errorCode || errorCode === 'aborted') return ''
+  const base = mensagemErroReconhecimentoVoz(errorCode)
+  if (base) return `${base} [erro: ${errorCode}]`
+  return `Falha no reconhecimento de voz [erro: ${errorCode}]`
 }
 
 /**
@@ -276,12 +289,13 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
         }
       },
       onError: (event) => {
-        const mensagem = mensagemErroReconhecimentoVoz(event.error)
+        const code = event?.error || 'desconhecido'
+        const mensagem = formatarErroVozNaTela(code)
         if (mensagem) setError(mensagem)
       },
       onNoMatch: () => {
         if (!transcriptEntregueRef.current) {
-          setError(MSG_VOZ_NAO_IDENTIFICOU)
+          setError(`${MSG_VOZ_NAO_IDENTIFICOU} [erro: no-match]`)
         }
       },
       onEnd: () => {
@@ -307,7 +321,9 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
       console.log('[voz] recognition.start() exceção:', err)
       setListening(false)
       recognitionRef.current = null
-      setError(mensagemErroStartVoz(err))
+      const base = mensagemErroStartVoz(err)
+      const extra = err instanceof Error ? err.name : 'erro'
+      setError(base ? `${base} [start: ${extra}]` : `Falha ao iniciar voz [start: ${extra}]`)
     }
   }, [disabled])
 
