@@ -63,7 +63,8 @@ export function criarSpeechRecognition() {
 
   const recognition = new SpeechRecognition()
   recognition.lang = 'pt-BR'
-  recognition.interimResults = false
+  // interimResults ajuda mobile/Chrome a emitir onresult antes do onend
+  recognition.interimResults = true
   recognition.continuous = false
   recognition.maxAlternatives = 1
 
@@ -74,6 +75,28 @@ export function criarSpeechRecognition() {
   })
 
   return recognition
+}
+
+/** Extrai o melhor transcript do evento onresult (itera a partir de resultIndex). */
+export function extrairTranscriptDoResultado(event) {
+  const results = event?.results
+  if (!results?.length) return ''
+
+  let finalText = ''
+  let interimText = ''
+
+  const from = typeof event.resultIndex === 'number' ? event.resultIndex : 0
+  for (let i = from; i < results.length; i++) {
+    const piece = results[i]?.[0]?.transcript
+    if (!piece) continue
+    if (results[i].isFinal) {
+      finalText += piece
+    } else {
+      interimText += piece
+    }
+  }
+
+  return (finalText || interimText).trim()
 }
 
 /** @param {string} errorCode */
@@ -89,7 +112,7 @@ export function mensagemErroReconhecimentoVoz(errorCode) {
     case 'no-speech':
       return MSG_VOZ_NAO_IDENTIFICOU
     case 'network':
-      return MSG_VOZ_NAO_IDENTIFICOU
+      return 'Busca por voz precisa de internet. Verifique a conexão ou digite o nome.'
     case 'language-not-supported':
       return MSG_VOZ_NAO_IDENTIFICOU
     default:
@@ -98,52 +121,11 @@ export function mensagemErroReconhecimentoVoz(errorCode) {
 }
 
 /**
- * Pede permissão de microfone via getUserMedia (dispara o popup do navegador).
- * Libera o stream na hora — só precisamos do grant para o SpeechRecognition.
- * @returns {Promise<'granted'>}
- */
-export async function garantirPermissaoMicrofone() {
-  if (typeof window === 'undefined') {
-    throw Object.assign(new Error('sem window'), { code: 'unsupported' })
-  }
-
-  if (!window.isSecureContext) {
-    throw Object.assign(new Error('HTTPS necessário'), { code: 'insecure' })
-  }
-
-  if (!navigator.mediaDevices?.getUserMedia) {
-    console.log('[voz] getUserMedia indisponível — seguindo só com SpeechRecognition')
-    return 'granted'
-  }
-
-  console.log('[voz] pedindo permissão do microfone (getUserMedia)')
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    stream.getTracks().forEach((track) => track.stop())
-    console.log('[voz] permissão de microfone concedida')
-    return 'granted'
-  } catch (err) {
-    const name = err?.name || ''
-    console.log('[voz] getUserMedia falhou:', name, err)
-    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-      throw Object.assign(new Error(MSG_MICROFONE_BLOQUEADO), { code: 'not-allowed' })
-    }
-    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-      throw Object.assign(new Error(MSG_MICROFONE_INDISPONIVEL), { code: 'audio-capture' })
-    }
-    throw Object.assign(new Error(MSG_MICROFONE_INDISPONIVEL), {
-      code: 'unknown',
-      cause: err,
-    })
-  }
-}
-
-/**
  * @param {SpeechRecognition} recognition
- * @param {{ onStart?: () => void, onResult?: (e: SpeechRecognitionEvent) => void, onError?: (e: SpeechRecognitionErrorEvent) => void, onEnd?: () => void }} handlers
+ * @param {{ onStart?: () => void, onResult?: (e: SpeechRecognitionEvent) => void, onError?: (e: SpeechRecognitionErrorEvent) => void, onEnd?: () => void, onNoMatch?: () => void }} handlers
  */
 export function attachReconhecimentoVoz(recognition, handlers) {
-  const { onStart, onResult, onError, onEnd } = handlers
+  const { onStart, onResult, onError, onEnd, onNoMatch } = handlers
 
   recognition.onstart = () => {
     console.log('[voz] recognition.onstart')
@@ -151,7 +133,13 @@ export function attachReconhecimentoVoz(recognition, handlers) {
   }
 
   recognition.onresult = (event) => {
-    console.log('[voz] recognition.onresult', event.results)
+    const transcript = extrairTranscriptDoResultado(event)
+    console.log('[voz] recognition.onresult', {
+      resultIndex: event.resultIndex,
+      length: event.results?.length,
+      transcript,
+      results: event.results,
+    })
     onResult?.(event)
   }
 
@@ -164,12 +152,17 @@ export function attachReconhecimentoVoz(recognition, handlers) {
     console.log('[voz] recognition.onend')
     onEnd?.()
   }
+
+  recognition.onnomatch = () => {
+    console.log('[voz] recognition.onnomatch')
+    onNoMatch?.()
+  }
 }
 
 /** @param {SpeechRecognition} recognition */
 export function iniciarReconhecimentoVoz(recognition) {
   recognition.start()
-  console.log('[voz] recognition.start() chamado')
+  console.log('[voz] recognition.start() chamado (síncrono no gesto do clique)')
 }
 
 /** @param {unknown} err */
@@ -185,9 +178,19 @@ export function mensagemErroStartVoz(err) {
   return MSG_VOZ_NAO_IDENTIFICOU
 }
 
+function abortarReconhecimentoAtual(recognitionRef) {
+  try {
+    recognitionRef.current?.abort()
+  } catch {
+    /* ignore */
+  }
+  recognitionRef.current = null
+}
+
 /**
- * Hook compartilhado: permissão → ouvir → transcript.
- * Usado no modal YouTube (pasta do ministro), na página Importar e na busca do evento.
+ * Hook compartilhado: ouvir → transcript.
+ * IMPORTANTE: recognition.start() roda de forma síncrona no clique (sem await antes),
+ * pois Chrome exige gesto do usuário ativo — await getUserMedia quebrava a captura.
  *
  * @param {{ onTranscript: (text: string) => void, disabled?: boolean }} options
  */
@@ -196,20 +199,15 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
   const [error, setError] = useState('')
   const recognitionRef = useRef(null)
   const onTranscriptRef = useRef(onTranscript)
-  const startingRef = useRef(false)
+  const transcriptEntregueRef = useRef(false)
+  const ultimoTranscriptRef = useRef('')
 
   useEffect(() => {
     onTranscriptRef.current = onTranscript
   }, [onTranscript])
 
   useEffect(() => {
-    return () => {
-      try {
-        recognitionRef.current?.abort()
-      } catch {
-        /* ignore */
-      }
-    }
+    return () => abortarReconhecimentoAtual(recognitionRef)
   }, [])
 
   const clearError = useCallback(() => setError(''), [])
@@ -218,16 +216,22 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
     try {
       recognitionRef.current?.stop()
     } catch {
-      /* ignore */
+      try {
+        recognitionRef.current?.abort()
+      } catch {
+        /* ignore */
+      }
     }
     setListening(false)
-    startingRef.current = false
+    recognitionRef.current = null
   }, [])
 
-  const start = useCallback(async () => {
-    if (disabled || startingRef.current) return
+  const start = useCallback(() => {
+    if (disabled) return
 
     setError('')
+    transcriptEntregueRef.current = false
+    ultimoTranscriptRef.current = ''
 
     if (!logSpeechRecognitionDisponivel()) {
       setError(MSG_BUSCA_VOZ_INDISPONIVEL)
@@ -239,23 +243,7 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
       return
     }
 
-    startingRef.current = true
-    setListening(true)
-
-    try {
-      await garantirPermissaoMicrofone()
-    } catch (err) {
-      startingRef.current = false
-      setListening(false)
-      if (err?.code === 'not-allowed') {
-        setError(MSG_MICROFONE_BLOQUEADO)
-      } else if (err?.code === 'insecure') {
-        setError(MSG_BUSCA_VOZ_SEM_HTTPS)
-      } else {
-        setError(err?.message || MSG_MICROFONE_INDISPONIVEL)
-      }
-      return
-    }
+    abortarReconhecimentoAtual(recognitionRef)
 
     let recognition
     try {
@@ -263,8 +251,6 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
       recognitionRef.current = recognition
     } catch (err) {
       console.log('[voz] falha ao criar instância:', err)
-      startingRef.current = false
-      setListening(false)
       setError(MSG_BUSCA_VOZ_INDISPONIVEL)
       return
     }
@@ -275,21 +261,43 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
         setError('')
       },
       onResult: (event) => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim()
-        if (transcript) {
+        const transcript = extrairTranscriptDoResultado(event)
+        if (!transcript) return
+
+        ultimoTranscriptRef.current = transcript
+
+        const lastIdx = event.results.length - 1
+        const isFinal = event.results[lastIdx]?.isFinal
+
+        if (isFinal && !transcriptEntregueRef.current) {
+          transcriptEntregueRef.current = true
+          console.log('[voz] entregando transcript final:', transcript)
           onTranscriptRef.current?.(transcript)
-        } else {
-          setError(MSG_VOZ_NAO_IDENTIFICOU)
         }
       },
       onError: (event) => {
         const mensagem = mensagemErroReconhecimentoVoz(event.error)
         if (mensagem) setError(mensagem)
       },
+      onNoMatch: () => {
+        if (!transcriptEntregueRef.current) {
+          setError(MSG_VOZ_NAO_IDENTIFICOU)
+        }
+      },
       onEnd: () => {
         setListening(false)
-        startingRef.current = false
         recognitionRef.current = null
+
+        if (!transcriptEntregueRef.current && ultimoTranscriptRef.current) {
+          transcriptEntregueRef.current = true
+          console.log('[voz] entregando transcript no onend:', ultimoTranscriptRef.current)
+          onTranscriptRef.current?.(ultimoTranscriptRef.current)
+          return
+        }
+
+        if (!transcriptEntregueRef.current) {
+          console.log('[voz] onend sem transcript')
+        }
       },
     })
 
@@ -297,7 +305,6 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
       iniciarReconhecimentoVoz(recognition)
     } catch (err) {
       console.log('[voz] recognition.start() exceção:', err)
-      startingRef.current = false
       setListening(false)
       recognitionRef.current = null
       setError(mensagemErroStartVoz(err))
@@ -305,11 +312,11 @@ export function useVoiceSearch({ onTranscript, disabled = false }) {
   }, [disabled])
 
   const toggle = useCallback(() => {
-    if (listening || startingRef.current) {
+    if (listening) {
       stop()
       return
     }
-    void start()
+    start()
   }, [listening, start, stop])
 
   return {
