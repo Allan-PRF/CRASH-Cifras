@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import {
   cancelarImportJob,
   fetchImportJob,
@@ -8,6 +9,9 @@ import { clearImportJobRef, loadImportJobRef } from '../../lib/importJobStorage'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor'
 import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado'
 import { btnSecondaryClassName } from '../ui/inputClasses'
+
+const POLL_ATIVOS_MS = 8000
+const POLL_JOB_MS = 4000
 
 function progressoExibido(job) {
   const concluido = job?.status === 'completed' || job?.status === 'done'
@@ -25,9 +29,20 @@ export function ImportacaoEmAndamentoBanner({
   onVerProgresso,
   onConcluido,
 }) {
+  const { session, loading: authLoading } = useAuth()
   const [job, setJob] = useState(null)
   const [cancelando, setCancelando] = useState(false)
   const [erro, setErro] = useState('')
+  const onJobChangeRef = useRef(onJobChange)
+  const onConcluidoRef = useRef(onConcluido)
+
+  useEffect(() => {
+    onJobChangeRef.current = onJobChange
+  }, [onJobChange])
+
+  useEffect(() => {
+    onConcluidoRef.current = onConcluido
+  }, [onConcluido])
 
   const aguardandoMotor = job?.status === 'processing'
   const { progresso: estimado } = useProgressoEstimadoMotor(aguardandoMotor, job?.id)
@@ -35,6 +50,8 @@ export function ImportacaoEmAndamentoBanner({
   const progresso = Math.round(bruto)
 
   useEffect(() => {
+    if (authLoading || !session?.access_token) return undefined
+
     let cancelado = false
 
     async function carregar() {
@@ -46,12 +63,14 @@ export function ImportacaoEmAndamentoBanner({
 
         if (cancelado) return
 
+        setErro('')
+
         if (!candidato && salvos?.jobId) {
           try {
             const antigo = await fetchImportJob(salvos.jobId)
             if (!cancelado && antigo?.status === 'processing') {
               setJob(antigo)
-              onJobChange?.(antigo)
+              onJobChangeRef.current?.(antigo)
               return
             }
           } catch {
@@ -61,48 +80,51 @@ export function ImportacaoEmAndamentoBanner({
 
         if (candidato?.status === 'processing') {
           setJob(candidato)
-          onJobChange?.(candidato)
+          onJobChangeRef.current?.(candidato)
         } else {
           setJob(null)
-          onJobChange?.(null)
+          onJobChangeRef.current?.(null)
           clearImportJobRef(ministroId)
         }
       } catch {
-        if (!cancelado) setErro('Não foi possível verificar importações em andamento.')
+        /* falha transitória — sem banner de erro na pasta vazia */
       }
     }
 
     void carregar()
-    const interval = setInterval(() => void carregar(), 3000)
+    const interval = setInterval(() => void carregar(), POLL_ATIVOS_MS)
     return () => {
       cancelado = true
       clearInterval(interval)
     }
-  }, [ministroId, onJobChange])
+  }, [ministroId, session?.access_token, authLoading])
 
   useEffect(() => {
-    if (!job?.id || job.status !== 'processing') return undefined
+    if (!job?.id || job.status !== 'processing' || authLoading || !session?.access_token) {
+      return undefined
+    }
 
     const interval = setInterval(async () => {
       try {
         const atualizado = await fetchImportJob(job.id)
         setJob(atualizado)
-        onJobChange?.(atualizado)
+        onJobChangeRef.current?.(atualizado)
+        setErro('')
 
         if (atualizado.status === 'completed' || atualizado.status === 'done') {
           clearImportJobRef(ministroId)
-          onConcluido?.(atualizado)
+          onConcluidoRef.current?.(atualizado)
         } else if (atualizado.status === 'failed') {
           clearImportJobRef(ministroId)
           setErro(atualizado.erro || 'Falha na importação.')
         }
       } catch {
-        /* mantém último estado */
+        /* mantém último estado conhecido */
       }
-    }, 2000)
+    }, POLL_JOB_MS)
 
     return () => clearInterval(interval)
-  }, [job?.id, job?.status, ministroId, onJobChange, onConcluido])
+  }, [job?.id, job?.status, ministroId, session?.access_token, authLoading])
 
   if (!job || job.status !== 'processing') {
     if (erro) {
@@ -123,7 +145,7 @@ export function ImportacaoEmAndamentoBanner({
       const cancelado = await cancelarImportJob(job.id)
       clearImportJobRef(ministroId)
       setJob(null)
-      onJobChange?.(null)
+      onJobChangeRef.current?.(null)
       if (cancelado?.status === 'failed') {
         setErro(cancelado.erro || 'Importação cancelada.')
       }

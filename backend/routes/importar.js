@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { rateLimiters } from '../middleware/security.js'
 import youtubedl from 'youtube-dl-exec'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { requireAuth } from '../lib/supabase.js'
@@ -521,7 +522,7 @@ async function importarYoutubePreview(
   return { job: completed, preview }
 }
 
-importarRouter.get('/youtube/search', requireAuth, async (req, res, next) => {
+importarRouter.get('/youtube/search', rateLimiters.youtube, requireAuth, async (req, res, next) => {
   try {
     const query = String(req.query.q || '').trim()
     if (query.length < 2) {
@@ -535,7 +536,7 @@ importarRouter.get('/youtube/search', requireAuth, async (req, res, next) => {
   }
 })
 
-importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
+importarRouter.post('/youtube', rateLimiters.youtube, requireAuth, async (req, res, next) => {
   let canonicalUrl = null
   const contexto = req.body?.contexto === 'evento' ? 'evento' : 'importacao'
   try {
