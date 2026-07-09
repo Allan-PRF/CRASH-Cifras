@@ -5,6 +5,11 @@ import { requireAuth } from '../lib/supabase.js'
 import { resolverPedidoAcervo } from '../lib/acervo.js'
 import { buscarTituloVideoYoutube, parseTituloYoutube } from '../lib/youtubeMetadados.js'
 import { ytdlpOptions } from '../lib/ytdlp.js'
+import { env } from '../config.js'
+import {
+  cancelarImportJobUsuario,
+  expirarImportJobsTravados,
+} from '../lib/importManutencao.js'
 
 export const importarRouter = Router()
 
@@ -655,6 +660,50 @@ importarRouter.post('/youtube', requireAuth, async (req, res, next) => {
   }
 })
 
+/** Jobs em andamento do usuário (opcional: filtrar por ministro via musica). */
+importarRouter.get('/jobs/ativos', requireAuth, async (req, res, next) => {
+  try {
+    const ministroId = String(req.query.ministro_id || '').trim() || null
+
+    const { data: jobs, error } = await req.supabase
+      .from('import_jobs')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .eq('status', 'processing')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    if (!ministroId) {
+      return res.json({ jobs: jobs || [] })
+    }
+
+    const musicaIds = [...new Set((jobs || []).map((j) => j.musica_id).filter(Boolean))]
+    const ministroPorMusica = {}
+
+    if (musicaIds.length) {
+      const { data: musicas, error: mErr } = await req.supabase
+        .from('musicas')
+        .select('id, ministro_id')
+        .in('id', musicaIds)
+
+      if (mErr) throw mErr
+      for (const m of musicas || []) {
+        ministroPorMusica[m.id] = m.ministro_id
+      }
+    }
+
+    const filtrados = (jobs || []).filter((job) => {
+      if (!job.musica_id) return true
+      return ministroPorMusica[job.musica_id] === ministroId
+    })
+
+    res.json({ jobs: filtrados })
+  } catch (err) {
+    next(err)
+  }
+})
+
 importarRouter.get('/jobs/:id', requireAuth, async (req, res, next) => {
   try {
     const { data, error } = await req.supabase
@@ -666,6 +715,38 @@ importarRouter.get('/jobs/:id', requireAuth, async (req, res, next) => {
 
     if (error) throw error
     res.json({ job: data })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/** Cancelamento limpo — libera fila sem zumbi (acervo compartilhado preservado se outros aguardam). */
+importarRouter.post('/jobs/:id/cancelar', requireAuth, async (req, res, next) => {
+  try {
+    const job = await cancelarImportJobUsuario({
+      jobId: req.params.id,
+      userId: req.user.id,
+    })
+    res.json({ ok: true, job })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/** Cron/manutenção — expira jobs zumbis (protegido por CRON_SECRET). */
+importarRouter.post('/manutencao/expirar-travados', async (req, res, next) => {
+  try {
+    if (env.cronSecret && req.headers.authorization !== `Bearer ${env.cronSecret}`) {
+      return res.status(401).json({ error: 'Cron não autorizado' })
+    }
+
+    const result = await expirarImportJobsTravados({
+      timeoutMinutes: env.importJobTimeoutMinutes,
+    })
+    res.json({ ok: true, ...result })
   } catch (err) {
     next(err)
   }

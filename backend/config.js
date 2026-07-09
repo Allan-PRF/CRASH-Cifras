@@ -45,4 +45,8 @@ export const env = {
   ].filter(Boolean),
   workerEnabled: process.env.WORKER_ENABLED === 'true',
   acervoMotorSecret: process.env.ACERVO_MOTOR_SECRET || process.env.CRON_SECRET || '',
+  importJobTimeoutMinutes: Math.max(
+    5,
+    Number(process.env.IMPORT_JOB_TIMEOUT_MINUTES) || 20,
+  ),
 }

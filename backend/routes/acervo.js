@@ -15,6 +15,8 @@ import {
   buscarVersaoAcervoDetalhe,
 } from '../lib/acervo.js'
 import { requireAuth } from '../lib/supabase.js'
+import { expirarImportJobsTravados } from '../lib/importManutencao.js'
+import { env } from '../config.js'
 
 export const acervoRouter = Router()
 
@@ -36,6 +38,7 @@ function requireMotorSecret(req, res, next) {
  */
 acervoRouter.get('/motor/fila', requireMotorSecret, async (req, res, next) => {
   try {
+    await expirarImportJobsTravados({ timeoutMinutes: env.importJobTimeoutMinutes })
     const { pendentes, total, source } = await listarFilaMotor()
     res.json({
       pendentes,

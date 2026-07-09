@@ -28,11 +28,34 @@
    - `RESEND_API_KEY=...` para envio do e-mail de fim de trial
    - `EMAIL_FROM=CRASH Cifras <noreply@seu-dominio.com>`
    - `ANTHROPIC_API_KEY=...` para versículos bíblicos (Claude Haiku)
-   - `WORKER_ENABLED=false` ou `true` quando o worker real estiver pronto
+   - `ACERVO_MOTOR_SECRET=...` (mesmo valor no worker Python do motor)
+   - `IMPORT_JOB_TIMEOUT_MINUTES=20` (jobs processing zumbis expiram automaticamente)
+   - `WORKER_ENABLED=false` (flag legada; o motor Python é serviço separado)
 5. Health check: `/health`.
 6. Configure um cron diário no Railway chamando:
    - `POST https://SEU_BACKEND_RAILWAY/api/trial/enviar-lembretes`
    - Header: `Authorization: Bearer SEU_CRON_SECRET`
+7. (Opcional) Cron a cada 10 min para expirar importações travadas:
+   - `POST https://SEU_BACKEND_RAILWAY/api/importar/manutencao/expirar-travados`
+   - Header: `Authorization: Bearer SEU_CRON_SECRET`
+   - Nota: o backend também expira a cada 5 min em memória e a cada poll do motor.
+
+## Motor Python (worker de cifras) — Railway separado
+
+O pipeline Whisper/Demucs/Claude **não roda dentro do Express**. É um worker Python que:
+
+1. Faz poll em `GET /api/acervo/motor/fila` (header `x-acervo-motor-secret`)
+2. Para cada música `pending`: baixa áudio → pipeline → `POST /api/acervo/motor/completar`
+3. Em erro: `POST /api/acervo/motor/falha`
+
+Variáveis no serviço worker (segundo serviço Railway ou máquina local):
+
+- `CARRO_BACKEND_URL=https://crash-cifras-production.up.railway.app`
+- `ACERVO_MOTOR_SECRET=` (idêntico ao da API)
+- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (pipeline IA)
+- `POLL_INTERVAL=15` (segundos)
+
+Se o worker cair, jobs ficam em `processing` até o timeout (20 min) ou cancelamento manual.
 
 ## Frontend — Vercel
 

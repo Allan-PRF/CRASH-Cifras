@@ -4,6 +4,7 @@ import { PageNav } from '../components/layout/PageNav'
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
 import { MusicaNovaMenu } from '../components/musicas/MusicaNovaMenu'
+import { ImportacaoEmAndamentoBanner } from '../components/musicas/ImportacaoEmAndamentoBanner'
 import { MusicaTable } from '../components/musicas/MusicaTable'
 import { useMinistros } from '../hooks/useMinistros'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
@@ -33,6 +34,8 @@ export function Ministro() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [compartilharMusica, setCompartilharMusica] = useState(null)
   const [buscaMusicas, setBuscaMusicas] = useState('')
+  const [importJobAtivo, setImportJobAtivo] = useState(null)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const { ministros } = useMinistros()
 
   const load = useCallback(() => {
@@ -115,6 +118,13 @@ export function Ministro() {
       </header>
 
       <section className="space-y-4">
+        <ImportacaoEmAndamentoBanner
+          ministroId={id}
+          onJobChange={setImportJobAtivo}
+          onVerProgresso={() => setImportModalOpen(true)}
+          onConcluido={() => load()}
+        />
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative block min-w-0 flex-1 sm:max-w-md">
             <span className="sr-only">Pesquisar músicas salvas</span>
@@ -132,6 +142,9 @@ export function Ministro() {
           <MusicaNovaMenu
             ministroId={id}
             ministroNome={ministro.nome}
+            resumeJob={importJobAtivo}
+            importOpen={importModalOpen}
+            onImportOpenChange={setImportModalOpen}
             onImported={() => load()}
           />
         </div>

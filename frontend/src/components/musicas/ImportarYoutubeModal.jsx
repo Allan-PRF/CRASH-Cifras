@@ -12,7 +12,8 @@ import {
   PLACEHOLDER_BUSCA_VOZ,
   useVoiceSearch,
 } from '../../lib/voiceSearch'
-import { buscarYoutube, fetchImportJob, importarYoutube } from '../../services/importacao'
+import { buscarYoutube, cancelarImportJob, fetchImportJob, importarYoutube } from '../../services/importacao'
+import { clearImportJobRef, saveImportJobRef } from '../../lib/importJobStorage'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
 import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado.js'
 
@@ -91,6 +92,7 @@ export function ImportarYoutubeModal({
   ministroNome,
   musicaId = null,
   youtubeUrlInitial = '',
+  resumeJob = null,
   onClose,
   onImported,
 }) {
@@ -103,10 +105,9 @@ export function ImportarYoutubeModal({
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fase, setFase] = useState('form')
-  const [avisoFecharMotor, setAvisoFecharMotor] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
 
   const motorGerando = job?.status === 'processing'
-  const podeFecharModal = !motorGerando && !submitting
 
   const voice = useVoiceSearch({
     disabled: submitting,
@@ -120,6 +121,18 @@ export function ImportarYoutubeModal({
 
   useEffect(() => {
     if (!open) return
+    if (resumeJob?.id && resumeJob.status === 'processing') {
+      setJob(resumeJob)
+      setFase('importando')
+      setSubmitting(false)
+      setQuery('')
+      setResults([])
+      setYoutubeUrl(youtubeUrlInitial || '')
+      setError('')
+      voice.clearError()
+      voice.stop()
+      return
+    }
     setQuery('')
     setResults([])
     setYoutubeUrl(youtubeUrlInitial || '')
@@ -127,39 +140,29 @@ export function ImportarYoutubeModal({
     setError('')
     setSubmitting(false)
     setFase('form')
-    setAvisoFecharMotor(false)
+    setCancelando(false)
     voice.clearError()
     voice.stop()
-  }, [open, isReimport, youtubeUrlInitial])
-
-  useEffect(() => {
-    if (!motorGerando) setAvisoFecharMotor(false)
-  }, [motorGerando])
-
-  useEffect(() => {
-    if (!open || !motorGerando) return undefined
-    function onKeyDown(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setAvisoFecharMotor(true)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, motorGerando])
+  }, [open, isReimport, youtubeUrlInitial, resumeJob?.id, resumeJob?.status])
 
   useEffect(() => {
     if (!job?.id || fase !== 'importando') return
     if (job.status === 'completed' || job.status === 'done' || job.status === 'failed') {
       if (job.status === 'failed') {
+        clearImportJobRef(ministroId)
         setError(job.erro || 'Falha na importação.')
         setFase('form')
         setSubmitting(false)
         return
       }
+      clearImportJobRef(ministroId)
       setFase('concluido')
       setSubmitting(false)
       return
+    }
+
+    if (ministroId && job.status === 'processing') {
+      saveImportJobRef(ministroId, { jobId: job.id, musicaId: job.musica_id ?? null })
     }
 
     const interval = setInterval(async () => {
@@ -167,9 +170,11 @@ export function ImportarYoutubeModal({
         const atualizado = await fetchImportJob(job.id)
         setJob(atualizado)
         if (atualizado.status === 'completed' || atualizado.status === 'done') {
+          clearImportJobRef(ministroId)
           setFase('concluido')
           setSubmitting(false)
         } else if (atualizado.status === 'failed') {
+          clearImportJobRef(ministroId)
           setError(atualizado.erro || 'Falha na importação.')
           setFase('form')
           setSubmitting(false)
@@ -180,7 +185,7 @@ export function ImportarYoutubeModal({
     }, 1500)
 
     return () => clearInterval(interval)
-  }, [job?.id, job?.status, fase])
+  }, [job?.id, job?.status, job?.musica_id, fase, ministroId])
 
   async function executarBusca(termo) {
     const termoSafe = termo.trim()
@@ -227,8 +232,14 @@ export function ImportarYoutubeModal({
         setError(result.erro || 'Falha na importação.')
         setFase('form')
       } else if (result.status === 'processing') {
+        if (ministroId) {
+          saveImportJobRef(ministroId, {
+            jobId: result.id,
+            musicaId: result.musica_id ?? null,
+          })
+        }
         setFase('importando')
-        setSubmitting(true)
+        setSubmitting(false)
       } else {
         setFase('concluido')
       }
@@ -259,20 +270,31 @@ export function ImportarYoutubeModal({
     onClose()
   }
 
-  function handleCloseRequest() {
-    if (motorGerando) {
-      setAvisoFecharMotor(true)
-      return
+  async function handleCancelarImportacao() {
+    if (!job?.id || cancelando) return
+    setCancelando(true)
+    setError('')
+    try {
+      const cancelado = await cancelarImportJob(job.id)
+      clearImportJobRef(ministroId)
+      setJob(cancelado)
+      setError(cancelado.erro || 'Importação cancelada.')
+      setFase('form')
+    } catch (err) {
+      setError(err.message || 'Não foi possível cancelar.')
+    } finally {
+      setCancelando(false)
+      setSubmitting(false)
     }
+  }
+
+  function handleCloseRequest() {
     if (submitting) return
     onClose()
   }
 
   function handleBackdropClick() {
-    if (!podeFecharModal) {
-      if (motorGerando) setAvisoFecharMotor(true)
-      return
-    }
+    if (submitting) return
     onClose()
   }
 
@@ -280,40 +302,24 @@ export function ImportarYoutubeModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 ${
-        motorGerando ? 'bg-black/90' : 'bg-black/80'
-      }`}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="importar-youtube-title"
-      aria-describedby={motorGerando ? 'importar-youtube-processing-hint' : undefined}
       onClick={handleBackdropClick}
     >
       <div
-        className={`my-4 w-full max-w-2xl rounded-2xl border bg-[var(--crash-fundo-card)] p-6 shadow-xl ${
-          motorGerando
-            ? 'border-[var(--crash-cifra)] ring-2 ring-[var(--crash-cifra)]/50'
-            : 'border-[var(--crash-borda)]'
-        }`}
+        className="my-4 w-full max-w-2xl rounded-2xl border border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {motorGerando && (
           <p
-            id="importar-youtube-processing-hint"
             className="mb-4 rounded-lg border border-[var(--crash-cifra)]/50 bg-[var(--crash-cifra)]/15 px-3 py-2 text-sm text-[var(--crash-cifra)]"
             role="status"
             aria-live="polite"
           >
-            Cifra em geração — mantenha esta janela aberta para acompanhar o progresso.
-          </p>
-        )}
-
-        {avisoFecharMotor && (
-          <p
-            className="mb-4 rounded-lg border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100"
-            role="alert"
-          >
-            Sua cifra está sendo gerada e continuará processando. Você pode acompanhar aqui.
+            A cifra está sendo gerada no servidor — pode fechar esta janela e acompanhar pela pasta do
+            ministro.
           </p>
         )}
 
@@ -333,18 +339,10 @@ export function ImportarYoutubeModal({
           <button
             type="button"
             onClick={handleCloseRequest}
-            disabled={submitting && !motorGerando}
-            className={`rounded-md p-1 transition ${
-              motorGerando
-                ? 'cursor-default text-zinc-500 hover:bg-amber-950/40 hover:text-amber-200'
-                : 'text-zinc-400 hover:bg-white/10 hover:text-white disabled:opacity-50'
-            }`}
-            aria-label={motorGerando ? 'Aviso: cifra em geração' : 'Fechar'}
-            title={
-              motorGerando
-                ? 'A cifra continua sendo gerada — acompanhe nesta janela'
-                : 'Fechar'
-            }
+            disabled={submitting}
+            className="rounded-md p-1 text-zinc-400 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            aria-label="Fechar"
+            title="Fechar"
           >
             ✕
           </button>
@@ -485,6 +483,22 @@ export function ImportarYoutubeModal({
 
         {(fase === 'importando' || fase === 'concluido') && job && (
           <ProgressoImportacao job={job} />
+        )}
+
+        {fase === 'importando' && motorGerando && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCancelarImportacao()}
+              disabled={cancelando}
+              className={btnSecondaryClassName}
+            >
+              {cancelando ? 'Cancelando…' : 'Cancelar importação'}
+            </button>
+            <button type="button" onClick={onClose} className={btnSecondaryClassName}>
+              Continuar em segundo plano
+            </button>
+          </div>
         )}
 
         {fase === 'concluido' && job?.musica_id && (() => {

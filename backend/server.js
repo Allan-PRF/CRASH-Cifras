@@ -1,5 +1,6 @@
 import express from 'express'
 import { env } from './config.js'
+import { expirarImportJobsTravados } from './lib/importManutencao.js'
 import {
   botDetector,
   corsConfig,
@@ -53,4 +54,11 @@ app.use((err, req, res, _next) => {
 
 app.listen(env.port, '0.0.0.0', () => {
   console.log(`CRASH Cifras API — porta ${env.port} (${env.nodeEnv})`)
+
+  const MAINT_MS = 5 * 60 * 1000
+  setInterval(() => {
+    expirarImportJobsTravados({ timeoutMinutes: env.importJobTimeoutMinutes }).catch((err) => {
+      console.error('[import] expirar-travados:', err.message)
+    })
+  }, MAINT_MS)
 })

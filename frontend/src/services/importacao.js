@@ -87,3 +87,16 @@ export async function fetchImportJob(jobId) {
   const { data } = await api.get(`/importar/jobs/${jobId}`, { headers })
   return data.job
 }
+
+export async function fetchImportJobsAtivos({ ministroId = null } = {}) {
+  const headers = await authHeaders()
+  const params = ministroId ? { ministro_id: ministroId } : {}
+  const { data } = await api.get('/importar/jobs/ativos', { headers, params })
+  return data.jobs ?? []
+}
+
+export async function cancelarImportJob(jobId) {
+  const headers = await authHeaders()
+  const { data } = await api.post(`/importar/jobs/${jobId}/cancelar`, {}, { headers })
+  return data.job
+}
