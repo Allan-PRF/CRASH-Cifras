@@ -73,3 +73,18 @@ export async function restaurarVersaoAcervo(musicaId, acervoVersaoId) {
   )
   return data
 }
+
+/**
+ * Etapa B — corrige tom_original na versão motor do acervo (metadado only).
+ * @param {string} acervoVersaoId
+ * @param {string} tomOriginal
+ */
+export async function corrigirTomVersaoMotor({ acervoVersaoId, tomOriginal }) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/motor/corrigir-tom',
+    { acervoVersaoId, tomOriginal },
+    { headers },
+  )
+  return data
+}

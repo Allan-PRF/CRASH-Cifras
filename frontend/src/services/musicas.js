@@ -26,8 +26,14 @@ const MUSICA_SELECT = `
   versiculo_prefs,
   import_status,
   acervo_versao_id,
+  tom_motor_conferido_em,
   created_at,
   updated_at,
+  acervo_versao:acervo_versoes!musicas_acervo_versao_id_fkey (
+    id,
+    origem,
+    tom_original
+  ),
   ministro:ministros!musicas_ministro_id_fkey (
     id,
     nome
@@ -326,6 +332,19 @@ export async function resetOffsetTomPessoal(musicaId, { ministroId, tomOriginal 
     })
     if (mmErr) throw mmErr
   }
+}
+
+/** Etapa C — marca que o usuário confirmou o tom detectado pelo motor. */
+export async function markTomMotorConferido(musicaId) {
+  const { data, error } = await supabase
+    .from('musicas')
+    .update({ tom_motor_conferido_em: new Date().toISOString() })
+    .eq('id', musicaId)
+    .select('tom_motor_conferido_em')
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 export async function deleteMusica(id) {

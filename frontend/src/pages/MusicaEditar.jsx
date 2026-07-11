@@ -7,6 +7,8 @@ import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDrop
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
+import { PropagarTomAcervoModal } from '../components/musicas/PropagarTomAcervoModal'
+import { TomMotorConferenciaBanner } from '../components/musicas/TomMotorConferenciaBanner'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import {
   btnCifraConfirmClassName,
@@ -33,11 +35,12 @@ import {
 import {
   deleteSecao,
   fetchMusicaCompleta,
+  markTomMotorConferido,
   resetOffsetTomPessoal,
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
-import { enviarFeedbackAcervo, restaurarCifraMotor } from '../services/acervo'
+import { corrigirTomVersaoMotor, enviarFeedbackAcervo, restaurarCifraMotor } from '../services/acervo'
 import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
@@ -101,6 +104,9 @@ export function MusicaEditar() {
   const [comunidadeOpen, setComunidadeOpen] = useState(false)
   const [restaurandoMotor, setRestaurandoMotor] = useState(false)
   const [toastMotor, setToastMotor] = useState('')
+  const [confirmandoTomMotor, setConfirmandoTomMotor] = useState(false)
+  const [propagarTomOpen, setPropagarTomOpen] = useState(false)
+  const [tomSelectorTrigger, setTomSelectorTrigger] = useState(0)
   const introEditorRef = useRef(null)
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
@@ -229,6 +235,11 @@ export function MusicaEditar() {
   }, [handleUndo])
 
   const temLinhaAcervo = Boolean(meta?.acervo_versao_id || meta?.youtube_url?.trim())
+  const versaoMotorLigada = meta?.acervo_versao?.origem === 'motor'
+  const mostrarBannerConferenciaTom =
+    !editandoCifraEvento &&
+    versaoMotorLigada &&
+    !meta?.tom_motor_conferido_em
 
   function aplicarResultadoAcervoNaEdicao(result) {
     const todas = result.secoes || []
@@ -285,6 +296,112 @@ export function MusicaEditar() {
     })
   }
 
+  async function handleConfirmarTomMotor() {
+    setConfirmandoTomMotor(true)
+    setError('')
+    try {
+      const result = await markTomMotorConferido(id)
+      setMeta((prev) =>
+        prev ? { ...prev, tom_motor_conferido_em: result.tom_motor_conferido_em } : prev,
+      )
+    } catch (err) {
+      setError(err.message || 'Não foi possível confirmar o tom.')
+    } finally {
+      setConfirmandoTomMotor(false)
+    }
+  }
+
+  async function executarSalvamento({ propagarFonte = false } = {}) {
+    if (!meta) return
+
+    const introAtual = introEditorRef.current?.flush() ?? intro
+    const introToSave = normalizarIntroParaCopia(introAtual)
+
+    if (editandoCifraEvento && editEventoItemId) {
+      await updatePlaylistItem(editEventoItemId, {
+        cifra_evento: buildCifraEventoSnapshot({
+          intro: introToSave || { mao_esquerda: '', mao_direita: '' },
+          secoes,
+        }),
+      })
+      setUndoStack([])
+      navigate(voltarPara ?? '/')
+      return
+    }
+
+    const bpm =
+      meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
+
+    const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
+    if (
+      versiculoPrefs.modo === 'manual' &&
+      quantidadeFromMomentosAtivos(versiculoPrefs.momentos_ativos) > 0 &&
+      !prefsSalvas
+    ) {
+      throw new Error('Modo manual: preencha referência e texto do versículo.')
+    }
+
+    const tomOriginalAlterado =
+      (meta.tom_original ?? null) !== (tomOriginalInicialRef.current ?? null)
+
+    if (propagarFonte && meta.acervo_versao_id && meta.tom_original) {
+      await corrigirTomVersaoMotor({
+        acervoVersaoId: meta.acervo_versao_id,
+        tomOriginal: meta.tom_original,
+      })
+    }
+
+    await updateMusica(id, {
+      titulo: meta.titulo,
+      artista: meta.artista,
+      tomOriginal: meta.tom_original,
+      bpm,
+      intro: introToSave,
+      versiculoPrefs: prefsSalvas,
+      ...(meta.import_status === 'pending' && musicasTemSecaoPreenchida(secoes)
+        ? { importStatus: 'ready' }
+        : {}),
+    })
+
+    if (tomOriginalAlterado) {
+      await resetOffsetTomPessoal(id, {
+        ministroId: meta.ministro_id,
+        tomOriginal: meta.tom_original,
+      })
+    }
+
+    console.log('[versiculos] prefs salvas em musicas.versiculo_prefs:', prefsSalvas)
+    for (const secId of introSecaoIds) {
+      await deleteSecao(secId)
+    }
+    for (let i = 0; i < secoes.length; i++) {
+      const sec = { ...secoes[i], ordem_original: i }
+      await upsertSecao(id, sec)
+    }
+
+    if (meta.acervo_versao_id) {
+      try {
+        await enviarFeedbackAcervo({
+          acervoVersaoId: meta.acervo_versao_id,
+          tomOriginal: meta.tom_original,
+          bpm,
+          secoes: secoes.map((sec, i) => ({
+            slug: sec.slug,
+            nome: sec.nome,
+            ordem_original: i,
+            linhas: sec.linhas,
+          })),
+        })
+      } catch (feedbackErr) {
+        console.warn('[acervo] feedback não enviado:', feedbackErr.message)
+      }
+    }
+
+    tomOriginalInicialRef.current = meta.tom_original ?? null
+    setUndoStack([])
+    navigate(`/teleprompter/musica/${id}`)
+  }
+
   async function handleRestaurarVersaoMinistroEvento() {
     if (!editEventoItemId) return
     setSaving(true)
@@ -304,90 +421,29 @@ export function MusicaEditar() {
     if (!meta) return
     setSaving(true)
     setError('')
+    let aguardandoModalPropagacao = false
     try {
-      const introAtual = introEditorRef.current?.flush() ?? intro
-      const introToSave = normalizarIntroParaCopia(introAtual)
-
-      if (editandoCifraEvento && editEventoItemId) {
-        await updatePlaylistItem(editEventoItemId, {
-          cifra_evento: buildCifraEventoSnapshot({
-            intro: introToSave || { mao_esquerda: '', mao_direita: '' },
-            secoes,
-          }),
-        })
-        setUndoStack([])
-        navigate(voltarPara ?? '/')
-        return
-      }
-
-      const bpm =
-        meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
-
-      const prefsSalvas = prepararVersiculoPrefsParaSalvar(versiculoPrefs)
-      if (
-        versiculoPrefs.modo === 'manual' &&
-        quantidadeFromMomentosAtivos(versiculoPrefs.momentos_ativos) > 0 &&
-        !prefsSalvas
-      ) {
-        setError('Modo manual: preencha referência e texto do versículo.')
-        setSaving(false)
-        return
-      }
       const tomOriginalAlterado =
         (meta.tom_original ?? null) !== (tomOriginalInicialRef.current ?? null)
 
-      await updateMusica(id, {
-        titulo: meta.titulo,
-        artista: meta.artista,
-        tomOriginal: meta.tom_original,
-        bpm,
-        intro: introToSave,
-        versiculoPrefs: prefsSalvas,
-        ...(meta.import_status === 'pending' && musicasTemSecaoPreenchida(secoes)
-          ? { importStatus: 'ready' }
-          : {}),
-      })
-
-      if (tomOriginalAlterado) {
-        await resetOffsetTomPessoal(id, {
-          ministroId: meta.ministro_id,
-          tomOriginal: meta.tom_original,
-        })
+      if (
+        !editandoCifraEvento &&
+        tomOriginalAlterado &&
+        meta.acervo_versao_id &&
+        versaoMotorLigada
+      ) {
+        setPropagarTomOpen(true)
+        aguardandoModalPropagacao = true
+        return
       }
 
-      console.log('[versiculos] prefs salvas em musicas.versiculo_prefs:', prefsSalvas)
-      for (const secId of introSecaoIds) {
-        await deleteSecao(secId)
-      }
-      for (let i = 0; i < secoes.length; i++) {
-        const sec = { ...secoes[i], ordem_original: i }
-        await upsertSecao(id, sec)
-      }
-
-      if (meta.acervo_versao_id) {
-        try {
-          await enviarFeedbackAcervo({
-            acervoVersaoId: meta.acervo_versao_id,
-            tomOriginal: meta.tom_original,
-            bpm,
-            secoes: secoes.map((sec, i) => ({
-              slug: sec.slug,
-              nome: sec.nome,
-              ordem_original: i,
-              linhas: sec.linhas,
-            })),
-          })
-        } catch (feedbackErr) {
-          console.warn('[acervo] feedback não enviado:', feedbackErr.message)
-        }
-      }
-
-      setUndoStack([])
-      navigate(`/teleprompter/musica/${id}`)
+      await executarSalvamento({ propagarFonte: false })
     } catch (err) {
       setError(err.message)
     } finally {
-      setSaving(false)
+      if (!aguardandoModalPropagacao) {
+        setSaving(false)
+      }
     }
   }
 
@@ -459,6 +515,15 @@ export function MusicaEditar() {
         </div>
       )}
 
+      {mostrarBannerConferenciaTom && (
+        <TomMotorConferenciaBanner
+          tomDetectado={meta.tom_original}
+          onConfirmarTom={handleConfirmarTomMotor}
+          onCorrigirTom={() => setTomSelectorTrigger((n) => n + 1)}
+          confirmando={confirmandoTomMotor}
+        />
+      )}
+
       <input
         type="text"
         value={meta.titulo}
@@ -475,6 +540,7 @@ export function MusicaEditar() {
             tomAtual={meta.tom_original}
             triggerLabel="Tom original"
             perguntarTransporAcordes={false}
+            openTrigger={tomSelectorTrigger}
             onApplyTom={(tom) => {
               setMeta((prev) => ({ ...prev, tom_original: tom }))
               setOffsetVisual(0)
@@ -608,6 +674,25 @@ export function MusicaEditar() {
         onVersaoAplicada={(result) => {
           aplicarResultadoAcervoNaEdicao(result)
           setToastMotor('Versão aplicada.')
+        }}
+      />
+
+      <PropagarTomAcervoModal
+        open={propagarTomOpen}
+        tomOriginal={meta.tom_original}
+        onClose={() => {
+          setPropagarTomOpen(false)
+          setSaving(false)
+        }}
+        onPropagar={async () => {
+          setSaving(true)
+          await executarSalvamento({ propagarFonte: true })
+          setSaving(false)
+        }}
+        onManterCopia={async () => {
+          setSaving(true)
+          await executarSalvamento({ propagarFonte: false })
+          setSaving(false)
         }}
       />
     </section>

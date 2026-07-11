@@ -16,6 +16,7 @@ export function TranspositorTomDropdown({
   onApplyTom,
   perguntarTransporAcordes = false,
   triggerLabel = null,
+  openTrigger = 0,
 }) {
   const [open, setOpen] = useState(false)
   const [pendingTom, setPendingTom] = useState(null)
@@ -26,6 +27,10 @@ export function TranspositorTomDropdown({
     setOpen(false)
     setPendingTom(null)
   }
+
+  useEffect(() => {
+    if (openTrigger > 0) setOpen(true)
+  }, [openTrigger])
 
   useEffect(() => {
     if (!open || isMobile) return
