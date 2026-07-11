@@ -16,7 +16,6 @@ import {
 } from '../lib/acervo.js'
 import { requireAuth } from '../lib/supabase.js'
 import { expirarImportJobsTravados } from '../lib/importManutencao.js'
-import { env } from '../config.js'
 
 export const acervoRouter = Router()
 
