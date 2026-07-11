@@ -562,7 +562,12 @@ export async function usuarioPossuiCopiaLigadaAVersao({ userId, acervoVersaoId }
  * Atualiza coluna tom_original, cifra.tom_original, hash_norm e auditoria.
  * cifra.secoes permanece intacta.
  */
-export async function corrigirTomVersaoMotor({ acervoVersaoId, tomOriginal, userId }) {
+export async function corrigirTomVersaoMotor({
+  acervoVersaoId,
+  tomOriginal,
+  userId,
+  permitirReCorrecao = false,
+}) {
   if (!acervoVersaoId) {
     const err = new Error('acervoVersaoId é obrigatório.')
     err.status = 400
@@ -587,6 +592,15 @@ export async function corrigirTomVersaoMotor({ acervoVersaoId, tomOriginal, user
   if (!versao) {
     const err = new Error('Versão motor não encontrada ou não é origem=motor.')
     err.status = 404
+    throw err
+  }
+
+  if (!permitirReCorrecao && versao.tom_original_corrigido_em) {
+    const err = new Error(
+      'O tom desta música já foi corrigido na fonte. Envie um reporte se ainda estiver errado.',
+    )
+    err.status = 409
+    err.code = 'FONTE_JA_CORRIGIDA'
     throw err
   }
 

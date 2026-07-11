@@ -1,11 +1,11 @@
-const ADMIN_EMAIL = 'alanadcms@gmail.com'
+import { env } from '../config.js'
 
 export function requireAdmin(req, res, next) {
   const email = req.user?.email?.toLowerCase()
-  if (email !== ADMIN_EMAIL) {
+  if (email !== env.adminEmail) {
     return res.status(403).json({ error: 'Acesso restrito ao administrador.' })
   }
   next()
 }
 
-export { ADMIN_EMAIL }
+export { env as adminEnv }

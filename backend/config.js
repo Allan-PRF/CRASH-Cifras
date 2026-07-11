@@ -49,4 +49,18 @@ export const env = {
     5,
     Number(process.env.IMPORT_JOB_TIMEOUT_MINUTES) || 20,
   ),
+  /** E-mail do admin (requireAdmin + notificações). Preferir ADMIN_EMAIL no Railway. */
+  adminEmail: (
+    process.env.ADMIN_EMAIL ||
+    process.env.ADMIN_NOTIFY_EMAIL ||
+    'alanadcms@gmail.com'
+  )
+    .trim()
+    .toLowerCase(),
+  /** Destinatário de e-mails operacionais (reportes de tom, etc.). */
+  adminNotifyEmail: (
+    process.env.ADMIN_NOTIFY_EMAIL ||
+    process.env.ADMIN_EMAIL ||
+    'alanadcms@gmail.com'
+  ).trim(),
 }

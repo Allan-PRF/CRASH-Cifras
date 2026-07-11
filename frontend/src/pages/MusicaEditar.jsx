@@ -8,6 +8,8 @@ import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaM
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
 import { PropagarTomAcervoModal } from '../components/musicas/PropagarTomAcervoModal'
+import { FonteTomJaCorrigidaModal } from '../components/musicas/FonteTomJaCorrigidaModal'
+import { ReportTomErradoModal } from '../components/musicas/ReportTomErradoModal'
 import { TomMotorConferenciaBanner } from '../components/musicas/TomMotorConferenciaBanner'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import {
@@ -40,7 +42,7 @@ import {
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
-import { corrigirTomVersaoMotor, enviarFeedbackAcervo, restaurarCifraMotor } from '../services/acervo'
+import { corrigirTomVersaoMotor, enviarFeedbackAcervo, isFonteJaCorrigidaError, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
 import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
@@ -106,6 +108,8 @@ export function MusicaEditar() {
   const [toastMotor, setToastMotor] = useState('')
   const [confirmandoTomMotor, setConfirmandoTomMotor] = useState(false)
   const [propagarTomOpen, setPropagarTomOpen] = useState(false)
+  const [fonteJaCorrigidaOpen, setFonteJaCorrigidaOpen] = useState(false)
+  const [reportTomOpen, setReportTomOpen] = useState(false)
   const [tomReferenciaTrigger, setTomReferenciaTrigger] = useState(0)
   const introEditorRef = useRef(null)
   const introRef = useRef(intro)
@@ -351,6 +355,10 @@ export function MusicaEditar() {
       })
     }
 
+    const marcarConferidoMotor =
+      tomOriginalAlterado && versaoMotorLigada && !meta.tom_motor_conferido_em
+    const conferidoEm = marcarConferidoMotor ? new Date().toISOString() : undefined
+
     await updateMusica(id, {
       titulo: meta.titulo,
       artista: meta.artista,
@@ -358,10 +366,17 @@ export function MusicaEditar() {
       bpm,
       intro: introToSave,
       versiculoPrefs: prefsSalvas,
+      ...(conferidoEm ? { tomMotorConferidoEm: conferidoEm } : {}),
       ...(meta.import_status === 'pending' && musicasTemSecaoPreenchida(secoes)
         ? { importStatus: 'ready' }
         : {}),
     })
+
+    if (conferidoEm) {
+      setMeta((prev) =>
+        prev ? { ...prev, tom_motor_conferido_em: conferidoEm } : prev,
+      )
+    }
 
     if (tomOriginalAlterado) {
       await resetOffsetTomPessoal(id, {
@@ -682,13 +697,73 @@ export function MusicaEditar() {
         }}
         onPropagar={async () => {
           setSaving(true)
-          await executarSalvamento({ propagarFonte: true })
-          setSaving(false)
+          try {
+            await executarSalvamento({ propagarFonte: true })
+            setPropagarTomOpen(false)
+          } catch (err) {
+            if (isFonteJaCorrigidaError(err)) {
+              setPropagarTomOpen(false)
+              setFonteJaCorrigidaOpen(true)
+            } else {
+              setError(err.message)
+            }
+          } finally {
+            setSaving(false)
+          }
         }}
         onManterCopia={async () => {
           setSaving(true)
-          await executarSalvamento({ propagarFonte: false })
+          try {
+            await executarSalvamento({ propagarFonte: false })
+            setPropagarTomOpen(false)
+          } catch (err) {
+            setError(err.message)
+          } finally {
+            setSaving(false)
+          }
+        }}
+      />
+
+      <FonteTomJaCorrigidaModal
+        open={fonteJaCorrigidaOpen}
+        onClose={() => {
+          setFonteJaCorrigidaOpen(false)
           setSaving(false)
+        }}
+        onReportar={() => {
+          setFonteJaCorrigidaOpen(false)
+          setReportTomOpen(true)
+        }}
+        onSalvarCopia={async () => {
+          setSaving(true)
+          try {
+            await executarSalvamento({ propagarFonte: false })
+            setFonteJaCorrigidaOpen(false)
+          } catch (err) {
+            setError(err.message)
+          } finally {
+            setSaving(false)
+          }
+        }}
+      />
+
+      <ReportTomErradoModal
+        open={reportTomOpen}
+        tomAtual={meta.acervo_versao?.tom_original ?? meta.tom_original}
+        onClose={() => {
+          setReportTomOpen(false)
+          setSaving(false)
+        }}
+        onSubmit={async ({ tomSugerido, comentario }) => {
+          await reportarTomErrado({
+            acervoVersaoId: meta.acervo_versao_id,
+            musicaId: id,
+            tomSugerido,
+            comentario,
+          })
+          setToastMotor('Reporte enviado. A equipe será notificada.')
+          await executarSalvamento({ propagarFonte: false })
+          setReportTomOpen(false)
         }}
       />
     </section>

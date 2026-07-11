@@ -88,3 +88,21 @@ export async function corrigirTomVersaoMotor({ acervoVersaoId, tomOriginal }) {
   )
   return data
 }
+
+/** Erro quando a fonte motor já foi corrigida (409). */
+export function isFonteJaCorrigidaError(err) {
+  return err?.code === 'FONTE_JA_CORRIGIDA'
+}
+
+/**
+ * Etapa D — reporte de tom errado na fonte.
+ */
+export async function reportarTomErrado({ acervoVersaoId, musicaId, tomSugerido, comentario }) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/motor/report-tom',
+    { acervoVersaoId, musicaId, tomSugerido, comentario },
+    { headers },
+  )
+  return data
+}

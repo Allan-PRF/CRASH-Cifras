@@ -32,7 +32,8 @@ const MUSICA_SELECT = `
   acervo_versao:acervo_versoes!musicas_acervo_versao_id_fkey (
     id,
     origem,
-    tom_original
+    tom_original,
+    tom_original_corrigido_em
   ),
   ministro:ministros!musicas_ministro_id_fkey (
     id,
@@ -301,6 +302,9 @@ export async function updateMusica(id, fields) {
   if (fields.intro !== undefined) update.intro = fields.intro
   if (fields.versiculoPrefs !== undefined) update.versiculo_prefs = fields.versiculoPrefs
   if (fields.importStatus !== undefined) update.import_status = fields.importStatus
+  if (fields.tomMotorConferidoEm !== undefined) {
+    update.tom_motor_conferido_em = fields.tomMotorConferidoEm
+  }
   const { data, error } = await supabase
     .from('musicas')
     .update(update)

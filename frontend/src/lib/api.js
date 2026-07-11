@@ -21,6 +21,10 @@ api.interceptors.response.use(
       : error.response?.data?.error ||
         error.message ||
         'Erro ao comunicar com o servidor'
-    return Promise.reject(new Error(message))
+    const err = new Error(message)
+    if (error.response?.data?.code) {
+      err.code = error.response.data.code
+    }
+    return Promise.reject(err)
   },
 )

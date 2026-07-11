@@ -17,9 +17,10 @@ import {
   corrigirTomVersaoMotor,
   usuarioPossuiCopiaLigadaAVersao,
 } from '../lib/acervo.js'
-import { ADMIN_EMAIL } from '../middleware/requireAdmin.js'
+import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
 import { expirarImportJobsTravados } from '../lib/importManutencao.js'
+import { criarReportTom, resolverReportTom } from '../lib/reportTom.js'
 
 export const acervoRouter = Router()
 
@@ -170,7 +171,7 @@ acervoRouter.post('/motor/corrigir-tom', requireAuth, async (req, res, next) => 
       return res.status(400).json({ error: 'tomOriginal inválido.' })
     }
 
-    const isAdmin = req.user?.email?.toLowerCase() === ADMIN_EMAIL
+    const isAdmin = req.user?.email?.toLowerCase() === env.adminEmail
     if (!isAdmin) {
       const possuiCopia = await usuarioPossuiCopiaLigadaAVersao({
         userId: req.user.id,
@@ -188,6 +189,40 @@ acervoRouter.post('/motor/corrigir-tom', requireAuth, async (req, res, next) => 
       acervoVersaoId,
       tomOriginal,
       userId: req.user.id,
+      permitirReCorrecao: isAdmin,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+      })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Etapa D — reporte de tom errado na fonte (após correção única).
+ * POST /api/acervo/motor/report-tom
+ */
+acervoRouter.post('/motor/report-tom', requireAuth, async (req, res, next) => {
+  try {
+    const { acervoVersaoId, musicaId, tomSugerido, comentario } = req.body ?? {}
+
+    if (!TODOS_TONS.includes(tomSugerido)) {
+      return res.status(400).json({ error: 'tomSugerido inválido.' })
+    }
+
+    const result = await criarReportTom({
+      acervoVersaoId,
+      musicaId,
+      userId: req.user.id,
+      tomSugerido,
+      comentario,
+      userEmail: req.user.email,
     })
 
     res.json({ ok: true, ...result })
@@ -198,6 +233,28 @@ acervoRouter.post('/motor/corrigir-tom', requireAuth, async (req, res, next) => 
     next(err)
   }
 })
+
+/**
+ * Admin marca report como resolvido (após corrigir fonte manualmente).
+ * PATCH /api/acervo/motor/report-tom/:reportId/resolver
+ */
+acervoRouter.patch(
+  '/motor/report-tom/:reportId/resolver',
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const { reportId } = req.params
+      const result = await resolverReportTom({ reportId })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message })
+      }
+      next(err)
+    }
+  },
+)
 
 /**
  * Fluxo 5.2 — feedback ao salvar cópia pessoal (aceitação / convergência).
