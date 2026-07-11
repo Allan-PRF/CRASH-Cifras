@@ -64,7 +64,7 @@ import {
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
-import { tomParaGrausMusica, transposeLinhas } from '../lib/transpose'
+import { tomParaGrausMusica, getTomExibido, transposeLinhas } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
 import { normalizarAnotacaoEvento } from '../components/playlist/AnotacaoEventoItemBloco'
@@ -234,6 +234,7 @@ export function Teleprompter() {
   const [anotacao, setAnotacao] = useState(null)
   const [anotacaoPainelOpen, setAnotacaoPainelOpen] = useState(false)
   const [offsetSessao, setOffsetSessao] = useState(0)
+  const [tomDestinoSessao, setTomDestinoSessao] = useState(null)
   const [youtubeEnabled, setYoutubeEnabled] = useState(() => loadYoutubePlayerEnabled())
   const [youtubeSync, setYoutubeSync] = useState(() => loadYoutubeSync())
   const [youtubeMinimized, setYoutubeMinimized] = useState(() => loadYoutubeMinimized())
@@ -320,7 +321,14 @@ export function Teleprompter() {
   const metronomeTimerRef = useRef(null)
   const playlistId = searchParams.get('playlist')
   const offset = offsetSessao
-  const tomGraus = tomParaGrausMusica(musica, offsetSessao)
+  const tomExibido = useMemo(
+    () =>
+      musica?.tom_original
+        ? getTomExibido(musica.tom_original, offsetSessao, tomDestinoSessao)
+        : null,
+    [musica?.tom_original, offsetSessao, tomDestinoSessao],
+  )
+  const tomGraus = tomExibido ?? tomParaGrausMusica(musica, offsetSessao, tomDestinoSessao)
 
   const equipeSessao = useEquipeSessao()
   const equipeSeguindo = !equipeSessao.isLider && equipeSessao.sessao != null
@@ -473,6 +481,7 @@ export function Teleprompter() {
     setActiveSection(0)
     setActiveLineKey(null)
     scrollAccumRef.current = 0
+    setTomDestinoSessao(null)
   }, [musicaId])
 
   const proximaMusicaCulto = useMemo(
@@ -489,8 +498,24 @@ export function Teleprompter() {
 
   useEffect(() => {
     if (!musica || String(musica.id) !== String(musicaId)) return
-    setOffsetSessao(musica.semitone_offset ?? 0)
-  }, [musicaId, musica?.id, musica?.semitone_offset])
+    const offset = musica.semitone_offset ?? 0
+    setOffsetSessao(offset)
+    if (
+      offset !== 0 &&
+      musica.tom_exibido &&
+      musica.tom_exibido !== musica.tom_original
+    ) {
+      setTomDestinoSessao(musica.tom_exibido)
+    } else {
+      setTomDestinoSessao(null)
+    }
+  }, [
+    musicaId,
+    musica?.id,
+    musica?.semitone_offset,
+    musica?.tom_exibido,
+    musica?.tom_original,
+  ])
 
   useEffect(() => {
     if (!musicaId || !musica) return
@@ -621,9 +646,10 @@ export function Teleprompter() {
 
   const flatLines = useMemo(() => {
     const items = []
+    const tonDestino = tomExibido ?? undefined
     secoes.forEach((sec, secIdx) => {
       const sk = sectionKeyFor(sec, secIdx)
-      const linhas = transposeLinhas(sec.linhas, offset)
+      const linhas = transposeLinhas(sec.linhas, offset, { tonDestino })
       linhas?.lines?.forEach((line, lineIdx) => {
         if (!linhaTemConteudo(line)) return
         items.push({
@@ -635,14 +661,17 @@ export function Teleprompter() {
       })
     })
     return items
-  }, [secoes, offset])
+  }, [secoes, offset, tomExibido])
 
   const flatLineKeys = useMemo(() => flatLines.map((l) => l.key), [flatLines])
 
   /** Linhas transpostas estáveis — evita re-render das cifras a cada tick/metronomo. */
   const linhasPorSecao = useMemo(
-    () => secoes.map((sec) => transposeLinhas(sec.linhas, offset)),
-    [secoes, offset],
+    () =>
+      secoes.map((sec) =>
+        transposeLinhas(sec.linhas, offset, { tonDestino: tomExibido ?? undefined }),
+      ),
+    [secoes, offset, tomExibido],
   )
 
   const landscapeBlocks = useMemo(() => {
@@ -1156,6 +1185,8 @@ export function Teleprompter() {
         tomOriginal={musica.tom_original}
         offsetSessao={offsetSessao}
         onOffsetSessaoChange={setOffsetSessao}
+        tomDestino={tomDestinoSessao}
+        onTomDestinoChange={setTomDestinoSessao}
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
@@ -1494,6 +1525,8 @@ export function Teleprompter() {
         tomOriginal={musica.tom_original}
         offsetSessao={offsetSessao}
         onOffsetSessaoChange={setOffsetSessao}
+        tomDestino={tomDestinoSessao}
+        onTomDestinoChange={setTomDestinoSessao}
         onClose={() => setPanelOpen(false)}
         onToggleModo={toggleModoEvento}
         onToggleOrientacao={toggleOrientacao}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { TranspositorTom } from './TranspositorTom'
+import { TomSelectorDialogShell } from './TomSelectorDialogShell'
 import { getTomExibido, semitonesBetween } from '../../lib/transpose'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -12,24 +12,39 @@ export function TransporTomControle({
   tomOriginal,
   offsetVisual,
   onOffsetVisualChange,
+  tomDestino = null,
+  onTomDestinoChange,
+  onAplicarTom,
   variant = 'teleprompter',
   className = '',
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const isMobile = useIsMobile()
-  const tomExibido = tomOriginal ? getTomExibido(tomOriginal, offsetVisual) : null
+  const tomExibido = tomOriginal
+    ? getTomExibido(tomOriginal, offsetVisual, tomDestino)
+    : null
   const desabilitado = !tomOriginal
   const isFolha = variant === 'folha'
   const isTeleprompter = variant === 'teleprompter'
-  const mobileTeleprompterModal = isTeleprompter && isMobile
+  const mobileModal = isMobile
+  const podeAplicarTom =
+    isFolha &&
+    Boolean(onAplicarTom) &&
+    Boolean(tomDestino) &&
+    tomDestino !== tomOriginal
 
   function fechar() {
     setOpen(false)
   }
 
+  function resetarTom() {
+    onTomDestinoChange?.(null)
+    onOffsetVisualChange(0)
+  }
+
   useEffect(() => {
-    if (!open) return
+    if (!open || mobileModal) return
 
     function onPointerDown(e) {
       if (e.target.closest?.('[data-transpor-tom-dialog]')) return
@@ -42,24 +57,25 @@ export function TransporTomControle({
       if (e.key === 'Escape') fechar()
     }
 
-    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, mobileModal])
 
   function handleSelectTom(novoTom) {
     if (!tomOriginal || !novoTom) {
-      onOffsetVisualChange(0)
+      resetarTom()
       fechar()
       return
     }
     if (novoTom === tomOriginal) {
-      onOffsetVisualChange(0)
+      resetarTom()
     } else {
       const st = semitonesBetween(tomOriginal, novoTom)
+      onTomDestinoChange?.(novoTom)
       onOffsetVisualChange(st || 0)
     }
     fechar()
@@ -79,50 +95,38 @@ export function TransporTomControle({
     ? 'absolute right-0 z-[80] mt-1 max-h-[min(70svh,28rem)] w-[min(calc(100vw-1rem),22rem)] overflow-y-auto rounded-xl border-2 border-[var(--crash-cifra)]/50 bg-black p-4 shadow-2xl shadow-black'
     : 'absolute left-0 z-50 mt-1 max-h-[min(70svh,28rem)] w-[min(100vw-2rem,22rem)] overflow-y-auto rounded-xl border border-[var(--crash-cifra)]/40 bg-black p-4 shadow-2xl shadow-black/80'
 
-  const mobileModalClass =
-    'fixed left-1/2 top-1/2 z-[101] max-h-[min(80svh,26rem)] w-[min(calc(100vw-1.5rem),18rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border-2 border-[var(--crash-cifra)]/50 bg-black p-3 shadow-2xl shadow-black'
-
   function renderPopover() {
     if (!open || desabilitado) return null
 
-    const dialog = (
+    const grade = (
+      <TranspositorTom
+        tomAtual={tomExibido}
+        onSelectTom={handleSelectTom}
+        compacto
+        mobileCompact={mobileModal}
+      />
+    )
+
+    if (mobileModal) {
+      return (
+        <TomSelectorDialogShell open={open} onClose={fechar} ariaLabel="Selecionar tom de execução">
+          {grade}
+        </TomSelectorDialogShell>
+      )
+    }
+
+    return (
       <div
         role="dialog"
         aria-label="Selecionar tom de execução"
         data-transpor-tom-dialog
-        className={mobileTeleprompterModal ? mobileModalClass : popoverClass}
+        className={popoverClass}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <TranspositorTom
-          tomAtual={tomExibido}
-          onSelectTom={handleSelectTom}
-          compacto
-          mobileCompact={mobileTeleprompterModal}
-        />
+        {grade}
       </div>
     )
-
-    if (mobileTeleprompterModal) {
-      return createPortal(
-        <>
-          <button
-            type="button"
-            data-transpor-tom-dialog
-            className="fixed inset-0 z-[100] bg-black/60"
-            aria-label="Fechar seleção de tom"
-            onClick={(e) => {
-              e.stopPropagation()
-              fechar()
-            }}
-          />
-          {dialog}
-        </>,
-        document.body,
-      )
-    }
-
-    return dialog
   }
 
   const originalButtonClass = isTeleprompter
@@ -175,11 +179,24 @@ export function TransporTomControle({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            onOffsetVisualChange(0)
+            resetarTom()
           }}
           className={originalButtonClass}
         >
           Original
+        </button>
+      )}
+
+      {podeAplicarTom && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onAplicarTom()
+          }}
+          className="rounded-lg bg-[var(--crash-cifra)] px-3 py-1.5 text-xs font-semibold text-black transition hover:opacity-90"
+        >
+          Aplicar tom
         </button>
       )}
 

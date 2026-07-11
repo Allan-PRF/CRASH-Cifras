@@ -7,7 +7,9 @@ import {
   keyPreferSharps,
   normalizeChordSymbol,
   normalizeNoteName,
+  normalizeTomKey,
   reflowChordPositions,
+  semitonesBetween,
   transposeChord,
   transposeKey,
   transposeLinhas,
@@ -76,6 +78,55 @@ console.log('\n=== getTomExibido / transposeKey ===\n')
 assertEqual(getTomExibido('G#m', 1), 'Am', 'G#m +1 → Am (não Gbbm)')
 assertEqual(transposeKey('G#m', 1), 'Am', 'transposeKey G#m +1 → Am')
 assertNoStackedAccidentals(getTomExibido('Ab', 1) || '', 'getTomExibido Ab +1')
+
+assertEqual(semitonesBetween('Fm', 'Em'), -1, 'Fm → Em = -1 semitom (caminho curto)')
+assertEqual(getTomExibido('Fm', 0, 'Em'), 'Em', 'Fm com destino Em → Em (menor explícito)')
+assertEqual(getTomExibido('Fm', -1, 'Em'), 'Em', 'Fm -1 com destino Em → Em')
+assertEqual(normalizeTomKey('Bb'), 'Bb', 'normalizeTomKey Bb')
+assertEqual(normalizeTomKey('Ebm'), 'Ebm', 'normalizeTomKey Ebm')
+
+console.log('\n=== Fm → Em (Era Eu) ===\n')
+
+const fmParaEm = ['Db9', 'Bbm7', 'Ab', 'Cm7', 'Fm7', 'Dbmaj7']
+const esperadoEm = ['C9', 'Am7', 'G', 'Bm7', 'Em7', 'Cmaj7']
+const stFmEm = semitonesBetween('Fm', 'Em')
+for (let i = 0; i < fmParaEm.length; i++) {
+  assertEqual(
+    transposeChord(fmParaEm[i], stFmEm, { tonality: 'Em' }),
+    esperadoEm[i],
+    `${fmParaEm[i]} Fm→Em → ${esperadoEm[i]}`,
+  )
+}
+
+console.log('\n=== C# → Em (motor gerou C#) ===\n')
+
+assertEqual(semitonesBetween('C#', 'Em'), 3, 'C# → Em = +3 semitons')
+assertEqual(getTomExibido('C#', 0, 'Em'), 'Em', 'C# com destino Em → Em (menor)')
+assertEqual(transposeChord('C#', 3, { tonality: 'Em' }), 'E', 'C# +3 → E')
+assertEqual(transposeChord('F#', 3, { tonality: 'Em' }), 'A', 'F# +3 → A')
+assertEqual(transposeChord('G#m', 3, { tonality: 'Em' }), 'Bm', 'G#m +3 → Bm')
+assertEqual(transposeChord('C#maj7', 3, { tonality: 'Em' }), 'Emaj7', 'C#maj7 +3 → Emaj7')
+
+console.log('\n=== Teleprompter espelho (tonDestino explícito) ===\n')
+
+const linhasFm = {
+  lines: [
+    {
+      chordLine: 'Db9  Bbm7',
+      lyricLine: 'teste',
+      chords: [
+        { pos: 0, chord: 'Db9' },
+        { pos: 5, chord: 'Bbm7' },
+      ],
+      segments: [{ text: 'teste' }],
+    },
+  ],
+}
+
+const transposedTp = transposeLinhas(linhasFm, stFmEm, { tonDestino: 'Em' })
+assertEqual(transposedTp.lines[0].chords[0].chord, 'C9', 'teleprompter Fm→Em C9')
+assertEqual(transposedTp.lines[0].chords[1].chord, 'Am7', 'teleprompter Fm→Em Am7')
+assertEqual(getTomExibido('Fm', stFmEm, 'Em'), 'Em', 'rótulo teleprompter Em menor')
 
 console.log('\n=== Reflow de posições ===\n')
 

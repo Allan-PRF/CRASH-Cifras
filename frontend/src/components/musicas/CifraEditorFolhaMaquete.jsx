@@ -33,8 +33,9 @@ function FolhaAlertaTomOriginal() {
         ℹ️
       </span>
       <p className="text-xs leading-relaxed text-sky-100/90 sm:text-sm">
-        As cifras ficam sempre no tom original. Transpor aqui é só para visualizar — não
-        altera a cifra salva. Para tocar em outro tom, use o transpose no teleprompter.
+        Escolha um tom para visualizar ou use <strong className="font-semibold">Aplicar tom</strong>{' '}
+        para reescrever todos os acordes da cifra no tom escolhido. A introdução (mãos) não
+        transponde.
       </p>
     </div>
   )
@@ -62,19 +63,20 @@ function CifraEditorSecaoPreview({
   secao,
   tomOriginal,
   offsetVisual,
+  tomDestino,
 }) {
   const linhasExibidas = useMemo(() => {
     if (!offsetVisual || !secao.linhas) {
       return secao.linhas
     }
-    const tomDestino = getTomExibido(tomOriginal, offsetVisual)
+    const tonDestinoCalc = getTomExibido(tomOriginal, offsetVisual, tomDestino)
     return transposeLinhas(secao.linhas, offsetVisual, {
-      tonDestino: tomDestino ?? undefined,
+      tonDestino: tonDestinoCalc ?? undefined,
     })
-  }, [secao.linhas, offsetVisual, tomOriginal])
+  }, [secao.linhas, offsetVisual, tomOriginal, tomDestino])
 
   const tomGraus = offsetVisual
-    ? getTomExibido(tomOriginal, offsetVisual)
+    ? getTomExibido(tomOriginal, offsetVisual, tomDestino)
     : tomOriginal
 
   return (
@@ -93,6 +95,7 @@ function CifraEditorSecaoBloco({
   secao,
   tomOriginal,
   offsetVisual,
+  tomDestino,
   onSecaoLinhasChange,
   onEditStart,
 }) {
@@ -115,6 +118,7 @@ function CifraEditorSecaoBloco({
             secao={secao}
             tomOriginal={tomOriginal}
             offsetVisual={offsetVisual}
+            tomDestino={tomDestino}
           />
           <p className="mt-2 text-xs text-[var(--crash-texto-sec)]">
             Clique na letra ou use &quot;Original&quot; para editar no tom original.
@@ -143,6 +147,9 @@ export function CifraEditorFolhaMaquete({
   tomOriginal,
   offsetVisual = 0,
   onOffsetVisualChange,
+  tomDestino = null,
+  onTomDestinoChange,
+  onAplicarTom,
   onSecaoLinhasChange,
 }) {
   const listaSecoes = secoes ?? []
@@ -161,9 +168,10 @@ export function CifraEditorFolhaMaquete({
   const handleEditStart = useCallback(() => {
     if (offsetVisual !== 0 && onOffsetVisualChange) {
       onOffsetVisualChange(0)
+      onTomDestinoChange?.(null)
       mostrarAvisoTransposeDesativado()
     }
-  }, [offsetVisual, onOffsetVisualChange, mostrarAvisoTransposeDesativado])
+  }, [offsetVisual, onOffsetVisualChange, onTomDestinoChange, mostrarAvisoTransposeDesativado])
 
   useEffect(() => {
     return () => {
@@ -181,6 +189,9 @@ export function CifraEditorFolhaMaquete({
           tomOriginal={tomOriginal}
           offsetVisual={offsetVisual}
           onOffsetVisualChange={onOffsetVisualChange}
+          tomDestino={tomDestino}
+          onTomDestinoChange={onTomDestinoChange}
+          onAplicarTom={onAplicarTom}
         />
       </div>
 
@@ -204,6 +215,7 @@ export function CifraEditorFolhaMaquete({
                 secao={secao}
                 tomOriginal={tomOriginal}
                 offsetVisual={offsetVisual}
+                tomDestino={tomDestino}
                 onEditStart={handleEditStart}
                 onSecaoLinhasChange={(linhas) => onSecaoLinhasChange?.(index, linhas)}
               />

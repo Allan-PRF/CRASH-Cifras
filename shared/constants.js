@@ -1,11 +1,11 @@
 /** Slugs canônicos de seção (PRD + adendos) */
 /** Tons válidos para tom_original (maiores + menores) */
 export const TONS_MAIORES = [
-  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
+  'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B',
 ]
 
 export const TONS_MENORES = [
-  'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm',
+  'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm', 'Bm',
 ]
 
 export const TODOS_TONS = [...TONS_MAIORES, ...TONS_MENORES]

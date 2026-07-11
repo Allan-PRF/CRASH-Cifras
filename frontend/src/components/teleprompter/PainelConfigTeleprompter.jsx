@@ -23,6 +23,8 @@ export function PainelConfigTeleprompter({
   tomOriginal,
   offsetSessao,
   onOffsetSessaoChange,
+  tomDestino = null,
+  onTomDestinoChange,
   onClose,
   onToggleModo,
   onToggleOrientacao,
@@ -137,6 +139,8 @@ export function PainelConfigTeleprompter({
               tomOriginal={tomOriginal}
               offsetVisual={offsetSessao}
               onOffsetVisualChange={onOffsetSessaoChange}
+              tomDestino={tomDestino}
+              onTomDestinoChange={onTomDestinoChange}
               variant="teleprompter"
             />
           </div>

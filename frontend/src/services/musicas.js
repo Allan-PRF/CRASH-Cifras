@@ -306,6 +306,28 @@ export async function updateMusica(id, fields) {
   return data
 }
 
+/**
+ * Zera óculos de tom pessoal após correção de tom_original (musica + musica_ministro).
+ */
+export async function resetOffsetTomPessoal(musicaId, { ministroId, tomOriginal }) {
+  const { error: musicaErr } = await supabase
+    .from('musicas')
+    .update({ semitone_offset: 0 })
+    .eq('id', musicaId)
+
+  if (musicaErr) throw musicaErr
+
+  if (ministroId) {
+    const { error: mmErr } = await supabase.from('musica_ministro').upsert({
+      musica_id: musicaId,
+      ministro_id: ministroId,
+      tom_atual: tomOriginal || null,
+      semitone_offset: 0,
+    })
+    if (mmErr) throw mmErr
+  }
+}
+
 export async function deleteMusica(id) {
   const { error } = await supabase.from('musicas').delete().eq('id', id)
   if (error) throw error

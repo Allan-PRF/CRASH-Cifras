@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { inputOrangeClassName } from '../ui/inputClasses'
 import { TranspositorTom } from './TranspositorTom'
+import { TomSelectorDialogShell } from './TomSelectorDialogShell'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 /**
  * Transpositor compacto: botão inline + popover flutuante.
@@ -18,6 +20,7 @@ export function TranspositorTomDropdown({
   const [open, setOpen] = useState(false)
   const [pendingTom, setPendingTom] = useState(null)
   const rootRef = useRef(null)
+  const isMobile = useIsMobile()
 
   function fechar() {
     setOpen(false)
@@ -25,9 +28,10 @@ export function TranspositorTomDropdown({
   }
 
   useEffect(() => {
-    if (!open) return
+    if (!open || isMobile) return
 
     function onPointerDown(e) {
+      if (e.target.closest?.('[data-transpor-tom-dialog]')) return
       if (rootRef.current && !rootRef.current.contains(e.target)) {
         fechar()
       }
@@ -37,13 +41,13 @@ export function TranspositorTomDropdown({
       if (e.key === 'Escape') fechar()
     }
 
-    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, isMobile])
 
   function aplicar(novoTom, transporAcordes) {
     onApplyTom(novoTom, { transporAcordes })
@@ -77,6 +81,86 @@ export function TranspositorTomDropdown({
 
   const labelTom = tomAtual || '—'
 
+  const popoverClass =
+    'absolute left-0 right-0 z-50 mt-1 max-h-[min(70svh,28rem)] overflow-y-auto rounded-xl border border-orange-500 bg-black p-4 shadow-2xl shadow-black/80 sm:left-0 sm:right-auto sm:w-[min(100vw-2rem,22rem)]'
+
+  function renderDialogContent() {
+    if (pendingTom) {
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-white">Transpor acordes automaticamente?</p>
+          <p className="text-xs text-[var(--crash-texto-sec)]">
+            {tomAtual} → <span className="text-[var(--crash-cifra)]">{pendingTom}</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => aplicar(pendingTom, true)}
+              className="flex-1 rounded-lg bg-[var(--crash-cifra)] px-3 py-2 text-sm font-semibold text-black transition hover:opacity-90"
+            >
+              Sim
+            </button>
+            <button
+              type="button"
+              onClick={() => aplicar(pendingTom, false)}
+              className="flex-1 rounded-lg border border-[var(--crash-borda)] px-3 py-2 text-sm font-medium text-white transition hover:border-[var(--crash-cifra)]"
+            >
+              Não
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPendingTom(null)}
+            className="w-full text-xs text-[var(--crash-texto-sec)] hover:text-white"
+          >
+            ← Voltar
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <TranspositorTom
+        tomAtual={tomAtual}
+        onSelectTom={handleSelectTom}
+        permitirVazio
+        onClear={handleClear}
+        compacto
+        mobileCompact={isMobile}
+      />
+    )
+  }
+
+  function renderPopover() {
+    if (!open) return null
+
+    if (isMobile) {
+      return (
+        <TomSelectorDialogShell
+          open={open}
+          onClose={fechar}
+          ariaLabel="Selecionar tom original"
+          borderClassName="border-orange-500/80"
+        >
+          {renderDialogContent()}
+        </TomSelectorDialogShell>
+      )
+    }
+
+    return (
+      <div
+        role="dialog"
+        aria-label="Selecionar tom"
+        data-transpor-tom-dialog
+        className={popoverClass}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {renderDialogContent()}
+      </div>
+    )
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -105,55 +189,7 @@ export function TranspositorTomDropdown({
         </span>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Selecionar tom"
-          className="absolute left-0 right-0 z-50 mt-1 max-h-[min(70svh,28rem)] overflow-y-auto rounded-xl border border-orange-500 bg-black p-4 shadow-2xl shadow-black/80 sm:left-0 sm:right-auto sm:w-[min(100vw-2rem,22rem)]"
-        >
-          {pendingTom ? (
-            <div className="space-y-4">
-              <p className="text-sm text-white">
-                Transpor acordes automaticamente?
-              </p>
-              <p className="text-xs text-[var(--crash-texto-sec)]">
-                {tomAtual} → <span className="text-[var(--crash-cifra)]">{pendingTom}</span>
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => aplicar(pendingTom, true)}
-                  className="flex-1 rounded-lg bg-[var(--crash-cifra)] px-3 py-2 text-sm font-semibold text-black transition hover:opacity-90"
-                >
-                  Sim
-                </button>
-                <button
-                  type="button"
-                  onClick={() => aplicar(pendingTom, false)}
-                  className="flex-1 rounded-lg border border-[var(--crash-borda)] px-3 py-2 text-sm font-medium text-white transition hover:border-[var(--crash-cifra)]"
-                >
-                  Não
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPendingTom(null)}
-                className="w-full text-xs text-[var(--crash-texto-sec)] hover:text-white"
-              >
-                ← Voltar
-              </button>
-            </div>
-          ) : (
-            <TranspositorTom
-              tomAtual={tomAtual}
-              onSelectTom={handleSelectTom}
-              permitirVazio
-              onClear={handleClear}
-              compacto
-            />
-          )}
-        </div>
-      )}
+      {renderPopover()}
     </div>
   )
 }

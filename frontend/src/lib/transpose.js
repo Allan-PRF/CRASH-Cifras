@@ -128,6 +128,16 @@ function transposeNoteOrChord(symbol, interval, tonality) {
   return symbol
 }
 
+/** Normaliza rótulo de tom preservando modo (m) e grafia enarmônica coerente. */
+export function normalizeTomKey(key) {
+  if (!key?.trim()) return key
+  const minor = isMinorKey(key)
+  const root = keyToNoteName(key)
+  const tonality = minor ? `${root}m` : root
+  const spelled = normalizeNoteName(root, tonality)
+  return minor ? `${spelled}m` : spelled
+}
+
 export function semitonesBetween(fromKey, toKey) {
   if (!fromKey || !toKey) return 0
   const from = Note.get(keyToNoteName(fromKey))
@@ -135,7 +145,10 @@ export function semitonesBetween(fromKey, toKey) {
   if (from.empty || to.empty) return 0
   const dist = Interval.distance(from.name, to.name)
   if (!dist) return 0
-  return Interval.semitones(dist) ?? 0
+  let st = Interval.semitones(dist) ?? 0
+  if (st > 6) st -= 12
+  if (st < -6) st += 12
+  return st
 }
 
 /**
@@ -218,17 +231,23 @@ export function transposeLinhas(linhas, semitones, options = {}) {
 /**
  * Tom para cálculo de graus Nashville (original transposto ou tom exibido da música).
  */
-export function tomParaGrausMusica(musica, semitoneOffset) {
+export function tomParaGrausMusica(musica, semitoneOffset, tomDestinoExplicito = null) {
   if (!musica) return null
   const offset = semitoneOffset ?? musica.semitone_offset ?? 0
   return (
-    getTomExibido(musica.tom_original, offset) ||
+    getTomExibido(musica.tom_original, offset, tomDestinoExplicito) ||
     musica.tom_exibido ||
     null
   )
 }
 
-export function getTomExibido(tomOriginal, semitoneOffset = 0) {
+/**
+ * @param {string|null|undefined} tomOriginal
+ * @param {number} [semitoneOffset]
+ * @param {string|null|undefined} [tomDestinoExplicito] — tom clicado; prevalece sobre offset
+ */
+export function getTomExibido(tomOriginal, semitoneOffset = 0, tomDestinoExplicito = null) {
+  if (tomDestinoExplicito) return normalizeTomKey(tomDestinoExplicito)
   if (!tomOriginal) return null
   if (!semitoneOffset) return tomOriginal
   const interval = Interval.fromSemitones(semitoneOffset)

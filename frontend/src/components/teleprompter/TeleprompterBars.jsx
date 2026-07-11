@@ -20,6 +20,8 @@ export function BarraSuperiorTeleprompter({
   tomOriginal,
   offsetSessao,
   onOffsetSessaoChange,
+  tomDestino = null,
+  onTomDestinoChange,
   onToggleOrientacao,
   onToggleGraus,
   onOpenSettings,
@@ -73,6 +75,8 @@ export function BarraSuperiorTeleprompter({
               tomOriginal={tomOriginal}
               offsetVisual={offsetSessao}
               onOffsetVisualChange={onOffsetSessaoChange}
+              tomDestino={tomDestino}
+              onTomDestinoChange={onTomDestinoChange}
               variant="teleprompter"
             />
             {showOrientacaoToggle ? mobileOrientButton : null}
@@ -92,6 +96,8 @@ export function BarraSuperiorTeleprompter({
             tomOriginal={tomOriginal}
             offsetVisual={offsetSessao}
             onOffsetVisualChange={onOffsetSessaoChange}
+            tomDestino={tomDestino}
+            onTomDestinoChange={onTomDestinoChange}
             variant="teleprompter"
           />
           {mostrarMetronomo && (

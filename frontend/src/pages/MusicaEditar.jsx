@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
+import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDropdown'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
@@ -23,6 +24,7 @@ import {
   secoesFromCifraEvento,
 } from '@crash-cifras/shared/cifra-evento'
 import { musicaBreadcrumbItems } from '../lib/pageNavItems'
+import { semitonesBetween, transposeLinhas } from '../lib/transpose'
 import { fetchUserSettings } from '../services/settings'
 import {
   VersiculoMusicaPrefsEditor,
@@ -31,6 +33,7 @@ import {
 import {
   deleteSecao,
   fetchMusicaCompleta,
+  resetOffsetTomPessoal,
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
@@ -63,10 +66,11 @@ function secoesParaEditor(secoes) {
 
 const UNDO_STACK_LIMIT = 40
 
-function cloneEditorSnapshot(secoes, intro) {
+function cloneEditorSnapshot(secoes, intro, tomOriginal) {
   return {
     secoes: structuredClone(secoes),
     intro: structuredClone(intro),
+    tom_original: tomOriginal ?? null,
   }
 }
 
@@ -91,6 +95,7 @@ export function MusicaEditar() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
+  const [tomDestino, setTomDestino] = useState(null)
   const [undoStack, setUndoStack] = useState([])
   const [restaurarMotorOpen, setRestaurarMotorOpen] = useState(false)
   const [comunidadeOpen, setComunidadeOpen] = useState(false)
@@ -100,9 +105,12 @@ export function MusicaEditar() {
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
   const undoStackRef = useRef(undoStack)
+  const tomOriginalInicialRef = useRef(null)
+  const metaRef = useRef(meta)
   introRef.current = intro
   secoesRef.current = secoes
   undoStackRef.current = undoStack
+  metaRef.current = meta
 
   const pushUndoSnapshot = useCallback((snapshot) => {
     setUndoStack((prev) => [...prev.slice(-(UNDO_STACK_LIMIT - 1)), snapshot])
@@ -111,7 +119,7 @@ export function MusicaEditar() {
   const setSecoesWithHistory = useCallback(
     (updater) => {
       const prev = secoesRef.current
-      pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current))
+      pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current, metaRef.current?.tom_original))
       const next = typeof updater === 'function' ? updater(prev) : updater
       setSecoes(next)
     },
@@ -120,7 +128,7 @@ export function MusicaEditar() {
 
   const setIntroWithHistory = useCallback(
     (nextIntro) => {
-      pushUndoSnapshot(cloneEditorSnapshot(secoesRef.current, introRef.current))
+      pushUndoSnapshot(cloneEditorSnapshot(secoesRef.current, introRef.current, metaRef.current?.tom_original))
       setIntro(nextIntro)
     },
     [pushUndoSnapshot],
@@ -133,9 +141,31 @@ export function MusicaEditar() {
     setUndoStack(stack.slice(0, -1))
     setSecoes(structuredClone(snapshot.secoes))
     setIntro(structuredClone(snapshot.intro))
+    setMeta((prev) => (prev ? { ...prev, tom_original: snapshot.tom_original } : prev))
+    setTomDestino(null)
+    setOffsetVisual(0)
   }, [])
 
   const canUndo = undoStack.length > 0
+
+  const handleAplicarTom = useCallback(() => {
+    const tomBase = metaRef.current?.tom_original
+    if (!tomBase || !tomDestino || tomDestino === tomBase) return
+
+    const st = semitonesBetween(tomBase, tomDestino)
+    pushUndoSnapshot(
+      cloneEditorSnapshot(secoesRef.current, introRef.current, metaRef.current?.tom_original),
+    )
+    setSecoes((prev) =>
+      prev.map((sec) => ({
+        ...sec,
+        linhas: transposeLinhas(sec.linhas, st, { tonDestino: tomDestino }),
+      })),
+    )
+    setMeta((prev) => (prev ? { ...prev, tom_original: tomDestino } : prev))
+    setTomDestino(null)
+    setOffsetVisual(0)
+  }, [tomDestino, pushUndoSnapshot])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -146,6 +176,7 @@ export function MusicaEditar() {
     Promise.all([fetchMusicaCompleta(id), itemPromise])
       .then(([data, playlistItem]) => {
         setMeta(data)
+        tomOriginalInicialRef.current = data.tom_original ?? null
         setVersiculoPrefs(versiculoPrefsFromMusica(data.versiculo_prefs))
 
         const usarCifraEvento =
@@ -167,6 +198,7 @@ export function MusicaEditar() {
 
         setUndoStack([])
         setOffsetVisual(0)
+        setTomDestino(null)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -301,6 +333,9 @@ export function MusicaEditar() {
         setSaving(false)
         return
       }
+      const tomOriginalAlterado =
+        (meta.tom_original ?? null) !== (tomOriginalInicialRef.current ?? null)
+
       await updateMusica(id, {
         titulo: meta.titulo,
         artista: meta.artista,
@@ -312,6 +347,14 @@ export function MusicaEditar() {
           ? { importStatus: 'ready' }
           : {}),
       })
+
+      if (tomOriginalAlterado) {
+        await resetOffsetTomPessoal(id, {
+          ministroId: meta.ministro_id,
+          tomOriginal: meta.tom_original,
+        })
+      }
+
       console.log('[versiculos] prefs salvas em musicas.versiculo_prefs:', prefsSalvas)
       for (const secId of introSecaoIds) {
         await deleteSecao(secId)
@@ -426,6 +469,25 @@ export function MusicaEditar() {
         className={`${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]${editandoCifraEvento ? ' cursor-default opacity-90' : ''}`}
       />
 
+      {!editandoCifraEvento && (
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+          <TranspositorTomDropdown
+            tomAtual={meta.tom_original}
+            triggerLabel="Tom original"
+            perguntarTransporAcordes={false}
+            onApplyTom={(tom) => {
+              setMeta((prev) => ({ ...prev, tom_original: tom }))
+              setOffsetVisual(0)
+              setTomDestino(null)
+            }}
+          />
+          <p className="max-w-md text-xs leading-relaxed text-[var(--crash-texto-sec)]">
+            Tom de referência da cifra. Corrigir aqui não reescreve acordes — só ajusta de
+            onde a transposição parte.
+          </p>
+        </div>
+      )}
+
       <div
         className="sticky top-2 z-10 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[var(--crash-cifra)]/40 bg-black/90 px-3 py-2 shadow-lg shadow-black/50 backdrop-blur-sm"
         role="toolbar"
@@ -490,6 +552,9 @@ export function MusicaEditar() {
         tomOriginal={meta.tom_original}
         offsetVisual={offsetVisual}
         onOffsetVisualChange={setOffsetVisual}
+        tomDestino={tomDestino}
+        onTomDestinoChange={setTomDestino}
+        onAplicarTom={handleAplicarTom}
         onSecaoLinhasChange={(index, linhas) => {
           setSecoesWithHistory((prev) => {
             const next = [...prev]

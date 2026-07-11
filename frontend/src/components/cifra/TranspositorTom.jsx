@@ -7,8 +7,8 @@ function TomButton({ tom, tomAtual, onClick, compact }) {
     <button
       type="button"
       onClick={() => onClick(tom)}
-      className={`rounded-lg border font-semibold transition ${
-        compact ? 'px-1 py-1.5 text-xs' : 'py-2 text-sm'
+      className={`min-h-10 rounded-lg border font-semibold transition touch-manipulation ${
+        compact ? 'px-1 py-2 text-xs' : 'py-2 text-sm'
       } ${
         ativo
           ? 'border-[var(--crash-cifra)] bg-[var(--crash-cifra)] text-black'
@@ -42,7 +42,7 @@ export function TranspositorTom({
   }
 
   const gridClass = mobileCompact
-    ? 'grid grid-cols-3 gap-1.5'
+    ? 'grid grid-cols-4 gap-1.5'
     : 'grid grid-cols-4 gap-2 sm:grid-cols-6'
 
   return (
