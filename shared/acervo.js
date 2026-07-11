@@ -101,6 +101,24 @@ export function hashCifraNorm(cifra) {
   return createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
 }
 
+/** Hash estável só das seções normalizadas (ignora tom_original e bpm). */
+export function hashSecoesNorm(cifra) {
+  const { secoes } = normalizeCifraForHash(cifra)
+  return createHash('sha256').update(JSON.stringify(secoes)).digest('hex')
+}
+
+/**
+ * Atualiza apenas tom_original no snapshot jsonb — secoes, intro e bpm permanecem.
+ * @param {object} cifra
+ * @param {string|null} tomOriginal
+ */
+export function aplicarTomOriginalNaCifra(cifra, tomOriginal) {
+  return {
+    ...cifra,
+    tom_original: tomOriginal || null,
+  }
+}
+
 /**
  * Monta snapshot completo da cifra (campo jsonb em acervo_versoes).
  * @param {object} params

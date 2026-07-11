@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:corrigir-tom": "node scripts/test-corrigir-tom.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",

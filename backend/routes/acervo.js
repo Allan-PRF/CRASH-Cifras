@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { buildCifraSnapshot } from '@crash-cifras/shared'
 import { env } from '../config.js'
+import { TODOS_TONS } from '@crash-cifras/shared/constants'
 import {
   listarFilaMotor,
   marcarAcervoProcessando,
@@ -13,7 +14,10 @@ import {
   restaurarCopiaPessoalDaVersao,
   listarVersoesAcervoCopia,
   buscarVersaoAcervoDetalhe,
+  corrigirTomVersaoMotor,
+  usuarioPossuiCopiaLigadaAVersao,
 } from '../lib/acervo.js'
+import { ADMIN_EMAIL } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
 import { expirarImportJobsTravados } from '../lib/importManutencao.js'
 
@@ -144,6 +148,53 @@ acervoRouter.post('/motor/completar', requireMotorSecret, async (req, res, next)
       details: err.details,
       hint: err.hint,
     })
+    next(err)
+  }
+})
+
+/**
+ * Etapa B — corrige tom_original na versão motor (metadado only; secoes intactas).
+ * POST /api/acervo/motor/corrigir-tom
+ */
+acervoRouter.post('/motor/corrigir-tom', requireAuth, async (req, res, next) => {
+  try {
+    const { acervoVersaoId, tomOriginal } = req.body ?? {}
+
+    if (!acervoVersaoId) {
+      return res.status(400).json({ error: 'acervoVersaoId é obrigatório.' })
+    }
+    if (!tomOriginal) {
+      return res.status(400).json({ error: 'tomOriginal é obrigatório.' })
+    }
+    if (!TODOS_TONS.includes(tomOriginal)) {
+      return res.status(400).json({ error: 'tomOriginal inválido.' })
+    }
+
+    const isAdmin = req.user?.email?.toLowerCase() === ADMIN_EMAIL
+    if (!isAdmin) {
+      const possuiCopia = await usuarioPossuiCopiaLigadaAVersao({
+        userId: req.user.id,
+        acervoVersaoId,
+      })
+      if (!possuiCopia) {
+        return res.status(403).json({
+          error:
+            'Sem permissão: você precisa ter uma cópia pessoal ligada a esta versão do acervo.',
+        })
+      }
+    }
+
+    const result = await corrigirTomVersaoMotor({
+      acervoVersaoId,
+      tomOriginal,
+      userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
     next(err)
   }
 })

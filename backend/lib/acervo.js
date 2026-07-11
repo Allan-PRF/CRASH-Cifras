@@ -1,8 +1,10 @@
 import {
+  aplicarTomOriginalNaCifra,
   buildCifraSnapshot,
   calcularScoreVersao,
   cifrasEssencialmenteIguais,
   hashCifraNorm,
+  hashSecoesNorm,
   normalizeAcervoText,
   unpackCifraToSecoes,
 } from '@crash-cifras/shared'
@@ -535,6 +537,118 @@ export async function registrarFeedbackSalvamento({
 
   await recalcularVersaoTop(origem.acervo_musica_id)
   return { tipo: 'nova_correcao', versaoId: nova.id }
+}
+
+/**
+ * Usuário possui cópia pessoal ligada à versão do acervo (musicas.acervo_versao_id).
+ */
+export async function usuarioPossuiCopiaLigadaAVersao({ userId, acervoVersaoId }) {
+  if (!userId || !acervoVersaoId) return false
+
+  const { data, error } = await admin()
+    .from('musicas')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('acervo_versao_id', acervoVersaoId)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return Boolean(data)
+}
+
+/**
+ * Etapa B — corrige tom_original na fonte (versão origem=motor).
+ * Atualiza coluna tom_original, cifra.tom_original, hash_norm e auditoria.
+ * cifra.secoes permanece intacta.
+ */
+export async function corrigirTomVersaoMotor({ acervoVersaoId, tomOriginal, userId }) {
+  if (!acervoVersaoId) {
+    const err = new Error('acervoVersaoId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+  if (!tomOriginal) {
+    const err = new Error('tomOriginal é obrigatório.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+
+  const { data: versao, error: loadErr } = await db
+    .from('acervo_versoes')
+    .select('*')
+    .eq('id', acervoVersaoId)
+    .eq('origem', 'motor')
+    .maybeSingle()
+
+  if (loadErr) throw loadErr
+  if (!versao) {
+    const err = new Error('Versão motor não encontrada ou não é origem=motor.')
+    err.status = 404
+    throw err
+  }
+
+  const cifraAntes = versao.cifra
+  const hashSecoesAntes = hashSecoesNorm(cifraAntes)
+  const hashNormAntes = versao.hash_norm || hashCifraNorm(cifraAntes)
+  const tomAntes = versao.tom_original || cifraAntes?.tom_original || null
+
+  const cifraDepois = aplicarTomOriginalNaCifra(cifraAntes, tomOriginal)
+  const hashSecoesDepois = hashSecoesNorm(cifraDepois)
+  const hashNormDepois = hashCifraNorm(cifraDepois)
+
+  const prova = {
+    hash_secoes_antes: hashSecoesAntes,
+    hash_secoes_depois: hashSecoesDepois,
+    secoes_inalteradas: hashSecoesAntes === hashSecoesDepois,
+    tom_original_antes: tomAntes,
+    tom_original_depois: tomOriginal,
+    hash_norm_antes: hashNormAntes,
+    hash_norm_depois: hashNormDepois,
+    campos_cifra_alterados: ['tom_original'],
+  }
+
+  if (tomAntes === tomOriginal) {
+    return {
+      alterado: false,
+      acervoVersaoId,
+      prova,
+    }
+  }
+
+  const corrigidoEm = new Date().toISOString()
+
+  const { data: atualizada, error: updateErr } = await db
+    .from('acervo_versoes')
+    .update({
+      tom_original: tomOriginal,
+      cifra: cifraDepois,
+      hash_norm: hashNormDepois,
+      tom_original_corrigido_por: userId,
+      tom_original_corrigido_em: corrigidoEm,
+    })
+    .eq('id', acervoVersaoId)
+    .eq('origem', 'motor')
+    .select()
+    .single()
+
+  if (updateErr) throw updateErr
+  if (!atualizada) {
+    const err = new Error('Versão motor não encontrada ou não é origem=motor.')
+    err.status = 404
+    throw err
+  }
+
+  return {
+    alterado: true,
+    acervoVersaoId: atualizada.id,
+    tom_original: atualizada.tom_original,
+    tom_original_corrigido_por: atualizada.tom_original_corrigido_por,
+    tom_original_corrigido_em: atualizada.tom_original_corrigido_em,
+    prova,
+  }
 }
 
 /**
