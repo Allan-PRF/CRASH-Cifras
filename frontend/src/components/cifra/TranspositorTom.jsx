@@ -1,8 +1,8 @@
-import { TONS_MAIORES, TONS_MENORES } from '../../lib/tons'
+import { TONS_MAIORES, TONS_MENORES, isSameTomCanonical, tomDisplayLabel } from '../../lib/tons'
 import { transposeKey } from '../../lib/transpose'
 
 function TomButton({ tom, tomAtual, onClick, compact }) {
-  const ativo = tom === tomAtual
+  const ativo = isSameTomCanonical(tom, tomAtual)
   return (
     <button
       type="button"
@@ -15,7 +15,7 @@ function TomButton({ tom, tomAtual, onClick, compact }) {
           : 'border-[var(--crash-borda)] text-white hover:border-[var(--crash-cifra)]'
       }`}
     >
-      {tom}
+      {tomDisplayLabel(tom)}
     </button>
   )
 }
@@ -51,7 +51,7 @@ export function TranspositorTom({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {tomAtual ? (
             <p className="text-sm text-[var(--crash-cifra)]">
-              Tom: <span className="font-bold">{tomAtual}</span>
+              Tom: <span className="font-bold">{tomDisplayLabel(tomAtual)}</span>
             </p>
           ) : (
             <p className="text-sm text-[var(--crash-texto-sec)]">Nenhum tom definido</p>

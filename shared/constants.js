@@ -10,6 +10,50 @@ export const TONS_MENORES = [
 
 export const TODOS_TONS = [...TONS_MAIORES, ...TONS_MENORES]
 
+/** Rótulo amigável na UI — valor canônico (chave) não muda. Menores: m nos dois lados. */
+export const TOM_LABELS = {
+  C: 'C',
+  Db: 'C#/Db',
+  'C#': 'C#/Db',
+  D: 'D',
+  Eb: 'D#/Eb',
+  'D#': 'D#/Eb',
+  E: 'E',
+  F: 'F',
+  'F#': 'F#/Gb',
+  Gb: 'F#/Gb',
+  G: 'G',
+  Ab: 'G#/Ab',
+  'G#': 'G#/Ab',
+  A: 'A',
+  Bb: 'A#/Bb',
+  'A#': 'A#/Bb',
+  B: 'B',
+  Cm: 'Cm',
+  'C#m': 'C#m/Dbm',
+  Dbm: 'C#m/Dbm',
+  Dm: 'Dm',
+  Ebm: 'D#m/Ebm',
+  'D#m': 'D#m/Ebm',
+  Em: 'Em',
+  Fm: 'Fm',
+  'F#m': 'F#m/Gbm',
+  Gbm: 'F#m/Gbm',
+  Gm: 'Gm',
+  Abm: 'G#m/Abm',
+  'G#m': 'G#m/Abm',
+  Am: 'Am',
+  Bbm: 'A#m/Bbm',
+  'A#m': 'A#m/Bbm',
+  Bm: 'Bm',
+}
+
+/** @param {string|null|undefined} tom */
+export function tomDisplayLabel(tom) {
+  if (!tom) return '—'
+  return TOM_LABELS[tom] ?? tom
+}
+
 export const SECAO_SLUGS = [
   'intro',
   'verso',
