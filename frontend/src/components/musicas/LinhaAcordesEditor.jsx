@@ -65,11 +65,6 @@ export function LinhaAcordesEditor({
 
   const confirmEdit = useCallback(
     (index) => {
-      if (skipBlurConfirmRef.current) {
-        skipBlurConfirmRef.current = false
-        return
-      }
-
       const trimmed = draft.trim()
       if (!isValidChordSymbol(trimmed)) {
         setErro(true)
@@ -85,11 +80,6 @@ export function LinhaAcordesEditor({
   )
 
   const confirmInsert = useCallback(() => {
-    if (skipBlurConfirmRef.current) {
-      skipBlurConfirmRef.current = false
-      return
-    }
-
     const trimmed = draft.trim()
     if (!isValidChordSymbol(trimmed)) {
       setErro(true)
@@ -101,6 +91,16 @@ export function LinhaAcordesEditor({
     }
     closeEditor()
   }, [closeEditor, draft, insertPos, onChordInsert])
+
+  const cancelEditor = useCallback(() => {
+    skipBlurConfirmRef.current = false
+    closeEditor()
+  }, [closeEditor])
+
+  const requestConfirm = useCallback(() => {
+    if (mode === 'edit' && editingIndex != null) confirmEdit(editingIndex)
+    else if (mode === 'insert') confirmInsert()
+  }, [confirmEdit, confirmInsert, editingIndex, mode])
 
   const openEditor = useCallback(
     (index, anchorEl) => {
@@ -156,18 +156,28 @@ export function LinhaAcordesEditor({
       const target = e.target
       if (rootRef.current?.contains(target)) return
       if (popoverRef.current?.contains(target)) return
-      if (mode === 'edit' && editingIndex != null) confirmEdit(editingIndex)
-      if (mode === 'insert') confirmInsert()
+      cancelEditor()
+    }
+
+    function onScroll() {
+      cancelEditor()
     }
 
     document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [confirmEdit, confirmInsert, editingIndex, mode])
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [cancelEditor, mode])
 
   function handleBlur() {
     if (Date.now() - openedAtRef.current < 200) return
-    if (mode === 'edit' && editingIndex != null) confirmEdit(editingIndex)
-    if (mode === 'insert') confirmInsert()
+    if (skipBlurConfirmRef.current) {
+      skipBlurConfirmRef.current = false
+      return
+    }
+    cancelEditor()
   }
 
   function handleRemove(index) {
@@ -324,12 +334,11 @@ export function LinhaAcordesEditor({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  if (mode === 'edit' && editingIndex != null) confirmEdit(editingIndex)
-                  if (mode === 'insert') confirmInsert()
+                  requestConfirm()
                 }
                 if (e.key === 'Escape') {
                   e.preventDefault()
-                  closeEditor()
+                  cancelEditor()
                 }
               }}
               onBlur={handleBlur}
@@ -360,11 +369,32 @@ export function LinhaAcordesEditor({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleRemove(editingIndex)}
-                className="text-xs text-red-400 hover:underline"
+                className="mb-2 text-xs text-red-400 hover:underline"
               >
                 Remover acorde
               </button>
             )}
+
+            <div className="flex items-center justify-end gap-1 border-t border-white/10 pt-2">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={cancelEditor}
+                className="flex h-8 w-8 items-center justify-center rounded border border-[var(--crash-borda)] text-sm text-[var(--crash-texto-sec)] transition hover:border-red-400/60 hover:text-red-300"
+                aria-label="Cancelar edição do acorde"
+              >
+                ✕
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={requestConfirm}
+                className="flex h-8 w-8 items-center justify-center rounded border border-[var(--crash-cifra)]/60 bg-[var(--crash-cifra)]/15 text-sm font-bold text-[var(--crash-cifra)] transition hover:bg-[var(--crash-cifra)]/25"
+                aria-label="Confirmar acorde"
+              >
+                ✓
+              </button>
+            </div>
           </div>,
           document.body,
         )}
