@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BlocoSecao } from '../cifra/LinhaCifra.jsx'
 import { getTomExibido, transposeLinhas } from '../../lib/transpose'
-import { CifraFolhaTransporPreview } from './CifraFolhaTransporPreview.jsx'
 import { CifraSecaoEditorVisual } from './CifraSecaoEditorVisual.jsx'
 import { IntroducaoEditor } from './IntroducaoEditor.jsx'
+import { btnSecondaryClassName } from '../ui/inputClasses'
 
 function TituloSecaoFolha({ children }) {
   return (
@@ -20,24 +20,6 @@ function FolhaDivisor() {
       role="separator"
       aria-hidden
     />
-  )
-}
-
-function FolhaAlertaTomOriginal() {
-  return (
-    <div
-      className="mb-4 flex gap-3 rounded-lg border border-sky-600/30 bg-sky-950/20 px-3 py-3 sm:px-4"
-      role="status"
-    >
-      <span className="shrink-0 text-sky-300/90" aria-hidden>
-        ℹ️
-      </span>
-      <p className="text-xs leading-relaxed text-sky-100/90 sm:text-sm">
-        Escolha um tom para visualizar ou use <strong className="font-semibold">Aplicar tom</strong>{' '}
-        para reescrever todos os acordes da cifra no tom escolhido. A introdução (mãos) não
-        transponde.
-      </p>
-    </div>
   )
 }
 
@@ -149,7 +131,7 @@ export function CifraEditorFolhaMaquete({
   onOffsetVisualChange,
   tomDestino = null,
   onTomDestinoChange,
-  onAplicarTom,
+  onAddSecao,
   onSecaoLinhasChange,
 }) {
   const listaSecoes = secoes ?? []
@@ -181,19 +163,7 @@ export function CifraEditorFolhaMaquete({
 
   return (
     <div className="overflow-x-hidden rounded-xl border border-[var(--crash-borda)] bg-black px-3 py-4 sm:px-5 sm:py-5">
-      <FolhaAlertaTomOriginal />
       <FolhaAvisoTransposeDesativado visivel={avisoTransposeDesativado} />
-
-      <div className="mb-5">
-        <CifraFolhaTransporPreview
-          tomOriginal={tomOriginal}
-          offsetVisual={offsetVisual}
-          onOffsetVisualChange={onOffsetVisualChange}
-          tomDestino={tomDestino}
-          onTomDestinoChange={onTomDestinoChange}
-          onAplicarTom={onAplicarTom}
-        />
-      </div>
 
       <div className="pb-2">
         <IntroducaoEditor
@@ -205,7 +175,7 @@ export function CifraEditorFolhaMaquete({
 
         {listaSecoes.length === 0 ? (
           <p className="mt-8 text-sm text-[var(--crash-texto-sec)]">
-            Nenhuma seção ainda. Use &quot;+ Seção&quot; para adicionar blocos à folha.
+            Nenhuma seção ainda. Use o botão abaixo para adicionar blocos à folha.
           </p>
         ) : (
           listaSecoes.map((secao, index) => (
@@ -221,6 +191,14 @@ export function CifraEditorFolhaMaquete({
               />
             </div>
           ))
+        )}
+
+        {onAddSecao && (
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--crash-cifra)]/20 pt-4">
+            <button type="button" onClick={onAddSecao} className={btnSecondaryClassName}>
+              + Seção
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { PageBreadcrumb } from '../components/layout/PageBreadcrumb'
-import { TranspositorTomDropdown } from '../components/cifra/TranspositorTomDropdown'
+import { TomEdicaoUnificado } from '../components/cifra/TomEdicaoUnificado'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
@@ -106,7 +106,7 @@ export function MusicaEditar() {
   const [toastMotor, setToastMotor] = useState('')
   const [confirmandoTomMotor, setConfirmandoTomMotor] = useState(false)
   const [propagarTomOpen, setPropagarTomOpen] = useState(false)
-  const [tomSelectorTrigger, setTomSelectorTrigger] = useState(0)
+  const [tomReferenciaTrigger, setTomReferenciaTrigger] = useState(0)
   const introEditorRef = useRef(null)
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
@@ -464,14 +464,15 @@ export function MusicaEditar() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-4">
-      <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <PageBreadcrumb
           items={musicaBreadcrumbItems(meta, { suffix: 'Editar' })}
-          className="text-sm [&_a]:text-white/90 [&_a:hover]:text-[var(--crash-cifra)] [&>span:last-child]:font-medium [&>span:last-child]:text-[var(--crash-cifra)]"
+          className="min-w-0 flex-1 text-sm [&_a]:text-white/90 [&_a:hover]:text-[var(--crash-cifra)] [&>span:last-child]:font-medium [&>span:last-child]:text-[var(--crash-cifra)]"
         />
         <PageBackButton
           to={voltarPara ?? (meta?.ministro_id ? `/ministro/${meta.ministro_id}` : '/')}
           variant="cifra"
+          className="shrink-0 px-3 py-1.5 text-sm"
         />
       </div>
 
@@ -519,43 +520,41 @@ export function MusicaEditar() {
         <TomMotorConferenciaBanner
           tomDetectado={meta.tom_original}
           onConfirmarTom={handleConfirmarTomMotor}
-          onCorrigirTom={() => setTomSelectorTrigger((n) => n + 1)}
+          onCorrigirTom={() => setTomReferenciaTrigger((n) => n + 1)}
           confirmando={confirmandoTomMotor}
         />
       )}
 
-      <input
-        type="text"
-        value={meta.titulo}
-        onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
-        readOnly={editandoCifraEvento}
-        aria-label="Título da música"
-        placeholder="Título da música"
-        className={`${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]${editandoCifraEvento ? ' cursor-default opacity-90' : ''}`}
-      />
-
-      {!editandoCifraEvento && (
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-          <TranspositorTomDropdown
-            tomAtual={meta.tom_original}
-            triggerLabel="Tom original"
-            perguntarTransporAcordes={false}
-            openTrigger={tomSelectorTrigger}
-            onApplyTom={(tom) => {
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={meta.titulo}
+          onChange={(e) => setMeta({ ...meta, titulo: e.target.value })}
+          readOnly={editandoCifraEvento}
+          aria-label="Título da música"
+          placeholder="Título da música"
+          className={`min-w-0 flex-1 ${inputOrangeClassName} py-2 text-base font-semibold leading-snug placeholder:text-[var(--crash-texto-sec)]${editandoCifraEvento ? ' cursor-default opacity-90' : ''}`}
+        />
+        {!editandoCifraEvento && (
+          <TomEdicaoUnificado
+            tomOriginal={meta.tom_original}
+            offsetVisual={offsetVisual}
+            onOffsetVisualChange={setOffsetVisual}
+            tomDestino={tomDestino}
+            onTomDestinoChange={setTomDestino}
+            onAplicarTom={handleAplicarTom}
+            onCorrigirReferencia={(tom) => {
               setMeta((prev) => ({ ...prev, tom_original: tom }))
               setOffsetVisual(0)
               setTomDestino(null)
             }}
+            referenciaModeTrigger={tomReferenciaTrigger}
           />
-          <p className="max-w-md text-xs leading-relaxed text-[var(--crash-texto-sec)]">
-            Tom de referência da cifra. Corrigir aqui não reescreve acordes — só ajusta de
-            onde a transposição parte.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
       <div
-        className="sticky top-2 z-10 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[var(--crash-cifra)]/40 bg-black/90 px-3 py-2 shadow-lg shadow-black/50 backdrop-blur-sm"
+        className="sticky top-2 z-10 flex flex-nowrap items-center justify-end gap-1 overflow-x-auto rounded-xl border border-[var(--crash-cifra)]/40 bg-black/90 px-2 py-2 shadow-lg shadow-black/50 backdrop-blur-sm sm:gap-2 sm:px-3"
         role="toolbar"
         aria-label="Ações da edição"
       >
@@ -563,7 +562,7 @@ export function MusicaEditar() {
           type="button"
           onClick={handleUndo}
           disabled={!canUndo}
-          className={btnCifraOutlineClassName}
+          className={`${btnCifraOutlineClassName} shrink-0 px-2 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm`}
           aria-keyshortcuts="Control+Z Meta+Z"
           title={canUndo ? 'Desfazer última alteração (Ctrl+Z)' : 'Nada para desfazer'}
         >
@@ -573,7 +572,7 @@ export function MusicaEditar() {
           type="button"
           onClick={() => setRestaurarMotorOpen(true)}
           disabled={!temLinhaAcervo || restaurandoMotor || editandoCifraEvento}
-          className={btnCifraOutlineClassName}
+          className={`${btnCifraOutlineClassName} shrink-0 px-2 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm`}
           title={
             temLinhaAcervo
               ? 'Trazer a cifra original do motor (descarta suas edições)'
@@ -586,7 +585,7 @@ export function MusicaEditar() {
           type="button"
           onClick={() => setComunidadeOpen(true)}
           disabled={!temLinhaAcervo || editandoCifraEvento}
-          className={btnCifraOutlineClassName}
+          className={`${btnCifraOutlineClassName} shrink-0 px-2 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm`}
           title={
             temLinhaAcervo
               ? 'Ver versões da comunidade e escolher qual usar'
@@ -594,9 +593,6 @@ export function MusicaEditar() {
           }
         >
           Acervo Comunidade
-        </button>
-        <button type="button" onClick={addSecao} className={btnPrimaryClassName}>
-          + Seção
         </button>
         {editandoCifraEvento && (
           <button
@@ -620,7 +616,7 @@ export function MusicaEditar() {
         onOffsetVisualChange={setOffsetVisual}
         tomDestino={tomDestino}
         onTomDestinoChange={setTomDestino}
-        onAplicarTom={handleAplicarTom}
+        onAddSecao={addSecao}
         onSecaoLinhasChange={(index, linhas) => {
           setSecoesWithHistory((prev) => {
             const next = [...prev]

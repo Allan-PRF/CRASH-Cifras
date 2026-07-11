@@ -35,14 +35,14 @@ export const IntroducaoEditor = forwardRef(function IntroducaoEditor(
     : `${inputOrangeClassName} text-sm`
 
   const campos = (
-    <div className={`grid gap-4 ${isFolha ? 'gap-5 sm:grid-cols-2 sm:gap-6' : 'sm:grid-cols-2'}`}>
+    <div className={`grid gap-3 ${isFolha ? 'grid-cols-2 sm:gap-6' : 'sm:grid-cols-2'}`}>
       <div>
         <label className={labelClassName}>Mão esquerda</label>
         <textarea
           value={maoEsquerda}
           onChange={(e) => setMaoEsquerda(e.target.value)}
           onBlur={flush}
-          rows={isFolha ? 3 : 4}
+          rows={isFolha ? 2 : 4}
           className={textareaClassName}
           placeholder="Anotações da mão esquerda…"
         />
@@ -53,7 +53,7 @@ export const IntroducaoEditor = forwardRef(function IntroducaoEditor(
           value={maoDireita}
           onChange={(e) => setMaoDireita(e.target.value)}
           onBlur={flush}
-          rows={isFolha ? 3 : 4}
+          rows={isFolha ? 2 : 4}
           className={textareaClassName}
           placeholder="Anotações da mão direita…"
         />
