@@ -13,7 +13,8 @@
     "test:ton-labels": "node scripts/test-ton-labels.mjs",
     "test:split-line": "node scripts/test-split-line.mjs",
     "test:chord-line-edit": "node scripts/test-chord-line-edit.mjs",
-    "test:transpose-texto-livre": "node scripts/test-transpose-texto-livre.mjs"
+    "test:transpose-texto-livre": "node scripts/test-transpose-texto-livre.mjs",
+    "test:simplify": "node scripts/test-simplify.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",

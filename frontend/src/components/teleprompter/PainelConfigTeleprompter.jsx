@@ -10,6 +10,7 @@ export function PainelConfigTeleprompter({
   orientacaoIcon,
   mostrarGraus,
   mostrarAcordes,
+  simplificar = false,
   mostrarVersiculos,
   mostrarMetronomo,
   miniPlayerYoutube,
@@ -31,6 +32,7 @@ export function PainelConfigTeleprompter({
   showOrientacaoToggle = true,
   onToggleGraus,
   onToggleAcordes,
+  onToggleSimplificar,
   onToggleVersiculos,
   onToggleMetronomo,
   onShowTimbre,
@@ -109,6 +111,12 @@ export function PainelConfigTeleprompter({
           tooltip={FUNCIONALIDADE_TOOLTIPS.cifras}
           active={mostrarAcordes}
           onClick={onToggleAcordes}
+        />
+        <ConfigRow
+          title="Simplificar"
+          description="Só visual — mostra tríades básicas (cifra salva intacta)."
+          active={simplificar}
+          onClick={onToggleSimplificar}
         />
         <ConfigRow
           title="Graus Nashville"

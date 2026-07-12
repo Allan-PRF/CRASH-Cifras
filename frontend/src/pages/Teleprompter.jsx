@@ -65,6 +65,7 @@ import {
 } from '../lib/teleprompterYoutube'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
 import { tomParaGrausMusica, getTomExibido, transposeLinhas, transposeIntro } from '../lib/transpose'
+import { simplifyIntro, simplifyLinhas } from '../lib/simplify'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
 import { normalizarAnotacaoEvento } from '../components/playlist/AnotacaoEventoItemBloco'
@@ -235,6 +236,7 @@ export function Teleprompter() {
   const [anotacaoPainelOpen, setAnotacaoPainelOpen] = useState(false)
   const [offsetSessao, setOffsetSessao] = useState(0)
   const [tomDestinoSessao, setTomDestinoSessao] = useState(null)
+  const [simplificar, setSimplificar] = useState(false)
   const [youtubeEnabled, setYoutubeEnabled] = useState(() => loadYoutubePlayerEnabled())
   const [youtubeSync, setYoutubeSync] = useState(() => loadYoutubeSync())
   const [youtubeMinimized, setYoutubeMinimized] = useState(() => loadYoutubeMinimized())
@@ -557,10 +559,12 @@ export function Teleprompter() {
   const secaoAtual = secoes[activeSection]
   const introPreenchida =
     musica?.intro?.mao_esquerda?.trim() || musica?.intro?.mao_direita?.trim()
-  const introExibida = useMemo(
-    () => transposeIntro(musica?.intro, offsetSessao, { tonDestino: tomDestinoSessao }),
-    [musica?.intro, offsetSessao, tomDestinoSessao],
-  )
+  const introExibida = useMemo(() => {
+    const intro = transposeIntro(musica?.intro, offsetSessao, {
+      tonDestino: tomDestinoSessao,
+    })
+    return simplificar ? simplifyIntro(intro) : intro
+  }, [musica?.intro, offsetSessao, tomDestinoSessao, simplificar])
   const momentosAtivosVersiculo = useMemo(
     () => momentosAtivosFromRecord(versiculosRecord),
     [versiculosRecord],
@@ -670,13 +674,13 @@ export function Teleprompter() {
   const flatLineKeys = useMemo(() => flatLines.map((l) => l.key), [flatLines])
 
   /** Linhas transpostas estáveis — evita re-render das cifras a cada tick/metronomo. */
-  const linhasPorSecao = useMemo(
-    () =>
-      secoes.map((sec) =>
-        transposeLinhas(sec.linhas, offset, { tonDestino: tomExibido ?? undefined }),
-      ),
-    [secoes, offset, tomExibido],
-  )
+  const linhasPorSecao = useMemo(() => {
+    const transposed = secoes.map((sec) =>
+      transposeLinhas(sec.linhas, offset, { tonDestino: tomExibido ?? undefined }),
+    )
+    if (!simplificar) return transposed
+    return transposed.map((linhas) => simplifyLinhas(linhas))
+  }, [secoes, offset, tomExibido, simplificar])
 
   const landscapeBlocks = useMemo(() => {
     if (!isLandscape || !flatLines.length) return []
@@ -1521,6 +1525,7 @@ export function Teleprompter() {
         orientacaoIcon={layout.icon}
         mostrarGraus={showGrades}
         mostrarAcordes={showChords}
+        simplificar={simplificar}
         mostrarVersiculos={showVerses}
         mostrarMetronomo={showMetronome}
         temTimbre={Boolean(timbreAtual)}
@@ -1537,6 +1542,7 @@ export function Teleprompter() {
         showOrientacaoToggle={orientacaoAlternavel()}
         onToggleGraus={toggleGrades}
         onToggleAcordes={toggleChords}
+        onToggleSimplificar={() => setSimplificar((v) => !v)}
         onToggleVersiculos={toggleVerses}
         onToggleMetronomo={toggleMetronome}
         miniPlayerYoutube={youtubeEnabled}
