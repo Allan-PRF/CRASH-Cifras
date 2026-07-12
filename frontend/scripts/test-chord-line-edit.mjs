@@ -86,5 +86,14 @@ console.log('\n=== (f) linha vazia permitida ===\n')
   assert(rebuildChordLineFromChords([]) === '', 'rebuild de [] = ""')
 }
 
+console.log('\n=== BR 7M no editor de linha ===\n')
+{
+  const result = validateEditableChordLine('C#7M Fm7')
+  assert(result.ok === true, 'C#7M Fm7 confirma OK')
+  assert(result.chords[0]?.chord === 'C#7M' && result.chords[0]?.pos === 0, 'C#7M pos 0')
+  assert(result.chords[1]?.chord === 'Fm7', 'Fm7 presente')
+  assert(validateEditableChordLine('K').ok === false, 'K continua inválido')
+}
+
 console.log(`\n${passed} passou, ${failed} falhou\n`)
 process.exit(failed > 0 ? 1 : 0)

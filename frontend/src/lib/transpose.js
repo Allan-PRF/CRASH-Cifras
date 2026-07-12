@@ -1,6 +1,7 @@
 import { Chord, Interval, Note } from 'tonal'
 import {
   extractChordsFromLine,
+  isValidChordSymbol,
   normalizeChordLine,
   rebuildChordLineFromChords,
 } from '@crash-cifras/shared/chord-schema'
@@ -113,6 +114,7 @@ function normalizeChordSymbolHead(symbol, tonality) {
   const match = symbol.match(/^([A-G](?:#|b)*)(.*)$/i)
   if (!match) return symbol
   const [, root, suffix] = match
+  // Sufixo literal preservado (ex.: 7M → 7M, não maj7).
   return normalizeNoteName(root, tonality) + suffix
 }
 
@@ -124,6 +126,15 @@ function transposeNoteOrChord(symbol, interval, tonality) {
   const asNote = Note.get(symbol)
   if (!asNote.empty) {
     return normalizeNoteName(Note.transpose(symbol, interval), tonality)
+  }
+  // Fallback BR: C#7M etc. — Tonal não parseia; transpõe só a raiz, sufixo intacto.
+  const match = String(symbol).match(/^([A-G](?:#|b)?)(.*)$/)
+  if (match) {
+    const [, root, suffix] = match
+    const rootNote = Note.get(root)
+    if (!rootNote.empty) {
+      return normalizeNoteName(Note.transpose(root, interval), tonality) + suffix
+    }
   }
   return symbol
 }
@@ -225,6 +236,43 @@ export function transposeLinhas(linhas, semitones, options = {}) {
         })),
       }
     }),
+  }
+}
+
+/**
+ * Transpõe só tokens que são acordes válidos; preserva espaços/quebras byte a byte.
+ * Na dúvida (token inválido), não transpõe.
+ * @param {string|null|undefined} texto
+ * @param {number} semitones
+ * @param {{ tonDestino?: string|null }} [options]
+ */
+export function transposeTextoLivre(texto, semitones, options = {}) {
+  if (texto == null) return texto
+  if (texto === '') return ''
+  if (!semitones) return String(texto)
+
+  const tonality = options.tonDestino ?? null
+  const chordOpts = tonality ? { tonality } : {}
+
+  return String(texto).replace(/(\S+)|(\s+)/g, (token, word, space) => {
+    if (space) return space
+    if (!isValidChordSymbol(word)) return word
+    return transposeChord(word, semitones, chordOpts)
+  })
+}
+
+/**
+ * Transpõe campos de intro (mãos) token a token.
+ * @param {{ mao_esquerda?: string|null, mao_direita?: string|null }|null|undefined} intro
+ * @param {number} semitones
+ * @param {{ tonDestino?: string|null }} [options]
+ */
+export function transposeIntro(intro, semitones, options = {}) {
+  if (!intro || typeof intro !== 'object') return intro
+  return {
+    ...intro,
+    mao_esquerda: transposeTextoLivre(intro.mao_esquerda, semitones, options),
+    mao_direita: transposeTextoLivre(intro.mao_direita, semitones, options),
   }
 }
 

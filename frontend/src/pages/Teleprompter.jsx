@@ -64,7 +64,7 @@ import {
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
-import { tomParaGrausMusica, getTomExibido, transposeLinhas } from '../lib/transpose'
+import { tomParaGrausMusica, getTomExibido, transposeLinhas, transposeIntro } from '../lib/transpose'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
 import { normalizarAnotacaoEvento } from '../components/playlist/AnotacaoEventoItemBloco'
@@ -557,6 +557,10 @@ export function Teleprompter() {
   const secaoAtual = secoes[activeSection]
   const introPreenchida =
     musica?.intro?.mao_esquerda?.trim() || musica?.intro?.mao_direita?.trim()
+  const introExibida = useMemo(
+    () => transposeIntro(musica?.intro, offsetSessao, { tonDestino: tomDestinoSessao }),
+    [musica?.intro, offsetSessao, tomDestinoSessao],
+  )
   const momentosAtivosVersiculo = useMemo(
     () => momentosAtivosFromRecord(versiculosRecord),
     [versiculosRecord],
@@ -1323,14 +1327,14 @@ export function Teleprompter() {
                   Introdução
                 </h2>
               </div>
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 {musica.intro.mao_esquerda?.trim() && (
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[var(--crash-texto-sec)]">
                       Mão esquerda
                     </p>
                     <p className="whitespace-pre-wrap text-white" style={{ fontSize: fonteLetra * 0.85 }}>
-                      {musica.intro.mao_esquerda}
+                      {introExibida?.mao_esquerda}
                     </p>
                   </div>
                 )}
@@ -1340,7 +1344,7 @@ export function Teleprompter() {
                       Mão direita
                     </p>
                     <p className="whitespace-pre-wrap text-white" style={{ fontSize: fonteLetra * 0.85 }}>
-                      {musica.intro.mao_direita}
+                      {introExibida?.mao_direita}
                     </p>
                   </div>
                 )}

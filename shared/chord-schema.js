@@ -11,10 +11,11 @@
 export const EMPTY_LINHAS = { lines: [] }
 
 const CHORD_RE =
-  /[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:\/[A-G](?:#|b)?)?/g
+  /[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*M?(?:\/[A-G](?:#|b)?)?/g
 
+/** Aceita grafia BR "7M" (= maj7), ex.: C7M, C#7M — M opcional após dígitos. */
 const CHORD_SYMBOL_RE =
-  /^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*(?:\/[A-G](?:#|b)?)?$/
+  /^[A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|°|º|\+)?[0-9]*M?(?:\/[A-G](?:#|b)?)?$/
 
 /**
  * Valida símbolo de acorde (âncora completa — uma nota/acorde por string).

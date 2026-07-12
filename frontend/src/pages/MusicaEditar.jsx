@@ -28,7 +28,7 @@ import {
   secoesFromCifraEvento,
 } from '@crash-cifras/shared/cifra-evento'
 import { musicaBreadcrumbItems } from '../lib/pageNavItems'
-import { semitonesBetween, transposeLinhas } from '../lib/transpose'
+import { semitonesBetween, transposeLinhas, transposeIntro } from '../lib/transpose'
 import { fetchUserSettings } from '../services/settings'
 import {
   VersiculoMusicaPrefsEditor,
@@ -172,6 +172,7 @@ export function MusicaEditar() {
         linhas: transposeLinhas(sec.linhas, st, { tonDestino: tomDestino }),
       })),
     )
+    setIntro((prev) => transposeIntro(prev, st, { tonDestino: tomDestino }))
     setMeta((prev) => (prev ? { ...prev, tom_original: tomDestino } : prev))
     setTomDestino(null)
     setOffsetVisual(0)
