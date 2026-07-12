@@ -1,4 +1,41 @@
-import { rebuildChordLineFromChords } from '@crash-cifras/shared/chord-schema'
+import {
+  isValidChordSymbol,
+  rebuildChordLineFromChords,
+} from '@crash-cifras/shared/chord-schema'
+
+/**
+ * Tokeniza linha editável: todo trecho não-espaço vira acorde.
+ * pos = índice do 1º caractere do token (coluna mono).
+ * NÃO usa extractChordsFromLine (regex engole tokens inválidos).
+ * @param {string} chordLine
+ * @returns {{ pos: number, chord: string }[]}
+ */
+export function parseChordsFromEditableLine(chordLine) {
+  const s = String(chordLine ?? '')
+  const chords = []
+  const re = /\S+/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    chords.push({ pos: m.index, chord: m[0] })
+  }
+  return chords
+}
+
+/**
+ * Valida tokens da linha editável com isValidChordSymbol.
+ * @param {string} chordLine
+ * @returns {{ ok: true, chords: { pos: number, chord: string }[] } | { ok: false, chords: { pos: number, chord: string }[], invalidTokens: string[] }}
+ */
+export function validateEditableChordLine(chordLine) {
+  const chords = parseChordsFromEditableLine(chordLine)
+  const invalidTokens = chords
+    .map((c) => c.chord)
+    .filter((t) => !isValidChordSymbol(t))
+  if (invalidTokens.length) {
+    return { ok: false, chords, invalidTokens }
+  }
+  return { ok: true, chords }
+}
 
 /**
  * Recalcula `pos` dos acordes após edição da letra na mesma linha.

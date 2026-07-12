@@ -4,7 +4,6 @@ import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { LinhaPosicionada } from '../cifra/LinhaPosicionada.jsx'
 import { LinhaAcordesEditor } from './LinhaAcordesEditor.jsx'
 import { measureMonoCharWidth } from '../../lib/monoCharWidth'
-import { removeChordAt, updateChordSymbol, moveChordPos, insertChordAt } from '../../lib/cifraEdit'
 import { tema } from '../../lib/tema'
 import { inputOrangeClassName } from '../ui/inputClasses'
 
@@ -145,32 +144,20 @@ export function CifraLinhaEditor({
       )}
 
       {editableChords ? (
-          <LinhaAcordesEditor
-            chords={chords}
-            lineWidth={minCols}
-            fonteLetra={FONTE_ACORDE}
-            charWidthPx={chordCharWidthPx}
-            color={tema.cores.cifra}
-            fontWeight={tema.teleprompter.cifra.fontWeight}
-            minCols={minCols}
-            onEditStart={onEditStart}
-            onChordUpdate={(chordIndex, newSymbol) => {
-              onChordsChange?.(
-                updateChordSymbol(chords, chordIndex, newSymbol),
-              )
-            }}
-            onChordRemove={(chordIndex) => {
-              onChordsChange?.(removeChordAt(chords, chordIndex))
-            }}
-            onChordMove={(chordIndex, delta) => {
-              onChordsChange?.(moveChordPos(chords, chordIndex, delta, minCols))
-            }}
-            onChordInsert={(pos, symbol) => {
-              onChordsChange?.(insertChordAt(chords, pos, symbol, minCols))
-            }}
-          />
-        ) : (
-          chords.length > 0 && (
+        <LinhaAcordesEditor
+          chords={chords}
+          lyricLine={lyricLine}
+          lineWidth={minCols}
+          fonteLetra={FONTE_ACORDE}
+          charWidthPx={chordCharWidthPx}
+          color={tema.cores.cifra}
+          fontWeight={tema.teleprompter.cifra.fontWeight}
+          minCols={minCols}
+          onEditStart={onEditStart}
+          onChordsChange={(nextChords) => onChordsChange?.(nextChords)}
+        />
+      ) : (
+        chords.length > 0 && (
           <LinhaPosicionada
             items={chordItems}
             fonteLetra={FONTE_ACORDE}
@@ -179,8 +166,8 @@ export function CifraLinhaEditor({
             fontWeight={tema.teleprompter.cifra.fontWeight}
             minCols={minCols}
           />
-          )
-        )}
+        )
+      )}
 
       <textarea
         ref={lyricRef}
