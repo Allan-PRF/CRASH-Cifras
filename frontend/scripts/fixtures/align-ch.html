@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Align ch fixture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    body { margin: 0; background: #000; color: #fff; font-family: system-ui; }
+    .wrap { padding: 16px; }
+    .label { color: #9ca3af; font-size: 12px; margin: 16px 0 8px; }
+    .line {
+      font-family: "JetBrains Mono", monospace;
+      max-width: 100%;
+      overflow-x: auto;
+      margin-bottom: 8px;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x pan-y;
+    }
+    .inner { display: inline-block; min-width: 100%; vertical-align: top; }
+    .rail {
+      position: relative;
+      margin: 0;
+      overflow-x: visible;
+      color: #f97316;
+      font-weight: 700;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .rail span { position: absolute; top: 0; white-space: pre; }
+    .lyric {
+      margin: 0;
+      white-space: pre;
+      font-weight: 700;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+    }
+    /* BUG antigo: px via “canvas fake” (0.62*size) + wrap */
+    .legacy .line { overflow-x: visible; }
+    .legacy .rail { overflow-x: auto; max-width: 100%; }
+    .legacy .lyric { white-space: pre-wrap; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="label">DEPOIS (ch + scroll conjunto) — viewport mobile</div>
+    <div id="after" class="line" style="font-size: 15px;">
+      <div class="inner" id="after-inner">
+        <div class="rail" id="after-rail" style="font-size: 15px; min-height: 24px;"></div>
+        <p class="lyric" id="after-lyric" style="font-size: 15px;"></p>
+      </div>
+    </div>
+
+    <div class="label legacy">ANTES (px canvas + pre-wrap + rail isolada)</div>
+    <div id="before" class="legacy line" style="font-size: 15px;">
+      <div class="rail" id="before-rail" style="font-size: 15px; min-height: 24px;"></div>
+      <p class="lyric" id="before-lyric" style="font-size: 15px;"></p>
+    </div>
+  </div>
+  <pre id="out" style="color:#67e8f9;font-size:11px;padding:12px;white-space:pre-wrap"></pre>
+  <script>
+    const lyric = 'Declare pelas ruas o nome de Jesus'
+    const chords = [
+      { pos: 20, text: 'E4' },
+      { pos: 23, text: 'E' },
+    ]
+    const fontSize = 15
+    const fakeCanvasCh = fontSize * 0.72 // simula canvas > DOM típico no mobile
+
+    function fillCh(railEl, lyricEl, innerEl) {
+      const minCols = Math.max(
+        lyric.length,
+        ...chords.map((c) => c.pos + c.text.length),
+      )
+      railEl.style.minWidth = minCols + 'ch'
+      lyricEl.style.minWidth = minCols + 'ch'
+      if (innerEl) {
+        innerEl.style.minWidth = minCols + 'ch'
+        innerEl.style.fontSize = fontSize + 'px'
+      }
+      lyricEl.textContent = lyric
+      railEl.innerHTML = ''
+      for (const c of chords) {
+        const s = document.createElement('span')
+        s.textContent = c.text
+        s.style.left = c.pos + 'ch'
+        s.dataset.pos = String(c.pos)
+        railEl.appendChild(s)
+      }
+    }
+
+    function fillPx(railEl, lyricEl) {
+      const minCols = Math.max(
+        lyric.length,
+        ...chords.map((c) => c.pos + c.text.length),
+      )
+      railEl.style.minWidth = minCols * fakeCanvasCh + 'px'
+      lyricEl.style.minWidth = minCols * fakeCanvasCh + 'px'
+      lyricEl.textContent = lyric
+      railEl.innerHTML = ''
+      for (const c of chords) {
+        const s = document.createElement('span')
+        s.textContent = c.text
+        s.style.left = c.pos * fakeCanvasCh + 'px'
+        s.dataset.pos = String(c.pos)
+        railEl.appendChild(s)
+      }
+    }
+
+    function measure(railId, lyricId) {
+      const lyricEl = document.getElementById(lyricId)
+      const range = document.createRange()
+      const results = []
+      for (const span of document.getElementById(railId).querySelectorAll('span')) {
+        const pos = Number(span.dataset.pos)
+        range.setStart(lyricEl.firstChild, pos)
+        range.setEnd(lyricEl.firstChild, Math.min(pos + 1, lyric.length))
+        const syl = range.getBoundingClientRect()
+        const chord = span.getBoundingClientRect()
+        results.push({
+          chord: span.textContent,
+          pos,
+          deltaPx: Math.round((chord.left - syl.left) * 10) / 10,
+        })
+      }
+      return results
+    }
+
+    document.fonts.ready.then(() => {
+      fillCh(
+        document.getElementById('after-rail'),
+        document.getElementById('after-lyric'),
+        document.getElementById('after-inner'),
+      )
+      fillPx(
+        document.getElementById('before-rail'),
+        document.getElementById('before-lyric'),
+      )
+      const after = measure('after-rail', 'after-lyric')
+      const before = measure('before-rail', 'before-lyric')
+      document.getElementById('out').textContent = JSON.stringify({ after, before }, null, 2)
+      document.title = 'ALIGN_READY'
+    })
+  </script>
+</body>
+</html>

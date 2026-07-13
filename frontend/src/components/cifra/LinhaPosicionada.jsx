@@ -12,7 +12,12 @@ export function estiloMono(fonteLetra, fontWeight = 400, lineHeightRatio = 1.25)
   }
 }
 
-/** ALINHAMENTO CIFRA CLUB - NÃO ALTERAR — `pos` × largura monospace. */
+/**
+ * Rail de itens em colunas monoespaçadas.
+ * - Teleprompter (`useChUnits`): `left`/`minWidth` em `ch` = métrica CSS do mesmo elemento
+ *   (alinhamento idêntico desktop↔mobile; scroll fica no container pai).
+ * - Editor/preview: `pos * charWidthPx` (canvas) como antes.
+ */
 export const LinhaPosicionada = memo(function LinhaPosicionada({
   items,
   fonteLetra,
@@ -21,6 +26,7 @@ export const LinhaPosicionada = memo(function LinhaPosicionada({
   fontWeight = 700,
   minCols = 0,
   lineHeightRatio = 1.25,
+  useChUnits = false,
 }) {
   if (!items.length) return null
 
@@ -32,11 +38,15 @@ export const LinhaPosicionada = memo(function LinhaPosicionada({
 
   return (
     <div
-      className="relative m-0 max-w-full overflow-x-auto"
+      className={`relative m-0 max-w-none ${useChUnits ? 'overflow-x-visible' : 'max-w-full overflow-x-auto'}`}
       style={{
         ...estiloMono(fonteLetra, fontWeight, lineHeightRatio),
         minHeight: `${fonteLetra * lineHeightRatio}px`,
-        minWidth: widthCols > 0 ? widthCols * charWidthPx : undefined,
+        minWidth: widthCols > 0
+          ? useChUnits
+            ? `${widthCols}ch`
+            : widthCols * charWidthPx
+          : undefined,
         color,
       }}
     >
@@ -44,7 +54,9 @@ export const LinhaPosicionada = memo(function LinhaPosicionada({
         <span
           key={`${item.pos}-${item.text}-${i}`}
           className="absolute top-0 whitespace-pre"
-          style={{ left: item.pos * charWidthPx }}
+          style={{
+            left: useChUnits ? `${item.pos}ch` : item.pos * charWidthPx,
+          }}
         >
           {item.text}
         </span>

@@ -32,7 +32,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
     [line],
   )
 
-  const { chords, chordLine } = useMemo(() => {
+  const { chords } = useMemo(() => {
     if (
       isCompactFixedChordPos(rawChords, rawLyric, rawChordLine)
     ) {
@@ -41,9 +41,9 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
         lyricLine: rawLyric,
         chords: rawChords,
       })
-      return { chords: aligned.chords, chordLine: aligned.chordLine }
+      return { chords: aligned.chords }
     }
-    return { chords: rawChords, chordLine: rawChordLine }
+    return { chords: rawChords }
   }, [rawChords, rawLyric, rawChordLine])
 
   const lyricLine = useMemo(
@@ -127,41 +127,71 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
 
   return (
     <div
-      className={`max-w-full font-cifra-mono ${visualizacao ? 'mb-0 overflow-x-hidden' : 'mb-1 overflow-x-auto'}`}
+      className={`font-cifra-mono ${
+        visualizacao
+          ? 'mb-0 max-w-full overflow-x-hidden'
+          : 'mb-1 max-w-full overflow-x-auto touch-pan-x'
+      }`}
+      style={
+        isTeleprompter
+          ? { WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }
+          : undefined
+      }
     >
-      {mostrarAcordes && (
-        <LinhaPosicionada
-          items={chordItems}
-          fonteLetra={fonteAcorde}
-          charWidthPx={chordCharWidthPx}
-          color={corAcorde}
-          fontWeight={pesoAcorde}
-          minCols={minCols}
-          lineHeightRatio={lineHeightRatio}
-        />
-      )}
-      <p
-        className={`m-0 max-w-full whitespace-pre-wrap ${visualizacao ? 'text-base leading-snug' : ''}`}
-        style={{
-          ...monoLetra,
-          color: destaque ? tema.cores.cifra : corLetra,
-          minWidth:
-            !visualizacao && minCols > 0 ? minCols * lyricCharWidthPx : undefined,
-        }}
+      {/* Teleprompter: um único scroll; acorde/letra/grau usam a mesma régua `ch`. */}
+      <div
+        className={isTeleprompter ? 'inline-block min-w-full align-top' : undefined}
+        style={
+          isTeleprompter && minCols > 0
+            ? { minWidth: `${minCols}ch`, fontSize: fonteLetra }
+            : undefined
+        }
       >
-        {lyricLine.length > 0 ? lyricLine : '\u00A0'}
-      </p>
-      {mostrarGrau && grauItems.length > 0 && (
-        <LinhaPosicionada
-          items={grauItems}
-          fonteLetra={fonteGrau}
-          charWidthPx={grauCharWidthPx}
-          color={tema.cores.grau}
-          fontWeight={pesoGrau}
-          minCols={minCols}
-          lineHeightRatio={lineHeightRatio}
-        />
-      )}
+        {mostrarAcordes && (
+          <LinhaPosicionada
+            items={chordItems}
+            fonteLetra={fonteAcorde}
+            charWidthPx={chordCharWidthPx}
+            color={corAcorde}
+            fontWeight={pesoAcorde}
+            minCols={minCols}
+            lineHeightRatio={lineHeightRatio}
+            useChUnits={isTeleprompter}
+          />
+        )}
+        <p
+          className={`m-0 ${
+            visualizacao
+              ? 'max-w-full whitespace-pre-wrap text-base leading-snug'
+              : 'max-w-none whitespace-pre'
+          }`}
+          style={{
+            ...monoLetra,
+            color: destaque ? tema.cores.cifra : corLetra,
+            minWidth: isTeleprompter
+              ? minCols > 0
+                ? `${minCols}ch`
+                : undefined
+              : minCols > 0
+                ? minCols * lyricCharWidthPx
+                : undefined,
+          }}
+        >
+          {lyricLine.length > 0 ? lyricLine : '\u00A0'}
+        </p>
+        {mostrarGrau && grauItems.length > 0 && (
+          <LinhaPosicionada
+            items={grauItems}
+            fonteLetra={fonteGrau}
+            charWidthPx={grauCharWidthPx}
+            color={tema.cores.grau}
+            fontWeight={pesoGrau}
+            minCols={minCols}
+            lineHeightRatio={lineHeightRatio}
+            useChUnits={isTeleprompter}
+          />
+        )}
+      </div>
     </div>
   )
 })
@@ -235,7 +265,11 @@ export const BlocoSecao = memo(function BlocoSecao({
   }
 
   return (
-    <div className={`${gapClass} max-w-full ${visualizacao ? 'overflow-x-auto' : 'overflow-x-hidden'}`}>
+    <div
+      className={`${gapClass} max-w-full ${
+        visualizacao ? 'overflow-x-auto' : 'overflow-x-visible'
+      }`}
+    >
       {linhas.lines.map((line, li) => {
         const lineKey = `${sectionKey}-${li}`
         const normalized = normalizeChordLine(line)

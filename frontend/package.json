@@ -16,7 +16,8 @@
     "test:transpose-texto-livre": "node scripts/test-transpose-texto-livre.mjs",
     "test:simplify": "node scripts/test-simplify.mjs",
     "test:teleprompter-bpm": "node scripts/test-teleprompter-bpm.mjs",
-    "test:musica-edit-draft": "node scripts/test-musica-edit-draft.mjs"
+    "test:musica-edit-draft": "node scripts/test-musica-edit-draft.mjs",
+    "test:teleprompter-align-ch": "node scripts/test-teleprompter-align-ch.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",
