@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { EMPTY_LINHAS, normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { PageBackButton } from '../components/layout/PageBackButton'
@@ -7,11 +7,22 @@ import { TomEdicaoUnificado } from '../components/cifra/TomEdicaoUnificado'
 import { CifraEditorFolhaMaquete } from '../components/musicas/CifraEditorFolhaMaquete'
 import { AnotacaoMusicaEditorBloco } from '../components/musicas/AnotacaoMusicaEditorBloco'
 import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
+import { CompartilharAcervoCard } from '../components/musicas/CompartilharAcervoCard'
 import { PropagarTomAcervoModal } from '../components/musicas/PropagarTomAcervoModal'
 import { FonteTomJaCorrigidaModal } from '../components/musicas/FonteTomJaCorrigidaModal'
+import { RascunhoEdicaoModal } from '../components/musicas/RascunhoEdicaoModal'
 import { ReportTomErradoModal } from '../components/musicas/ReportTomErradoModal'
 import { TomMotorConferenciaBanner } from '../components/musicas/TomMotorConferenciaBanner'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
+import { useAuth } from '../hooks/useAuth'
+import {
+  DRAFT_DEBOUNCE_MS,
+  buildMusicaEditDraftPayload,
+  clearMusicaEditDraft,
+  getMusicaEditDraft,
+  isDraftNewerThanSaved,
+  setMusicaEditDraft,
+} from '../lib/musicaEditDraft'
 import {
   btnCifraConfirmClassName,
   btnCifraOutlineClassName,
@@ -83,6 +94,7 @@ export function MusicaEditar() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
   const voltarPara =
     typeof location.state?.returnTo === 'string' ? location.state.returnTo : null
   const editEventoItemId =
@@ -98,6 +110,7 @@ export function MusicaEditar() {
   const [introSecaoIds, setIntroSecaoIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [sharingAcervo, setSharingAcervo] = useState(false)
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
   const [tomDestino, setTomDestino] = useState(null)
@@ -111,16 +124,36 @@ export function MusicaEditar() {
   const [fonteJaCorrigidaOpen, setFonteJaCorrigidaOpen] = useState(false)
   const [reportTomOpen, setReportTomOpen] = useState(false)
   const [tomReferenciaTrigger, setTomReferenciaTrigger] = useState(0)
+  const [rascunhoModalOpen, setRascunhoModalOpen] = useState(false)
   const introEditorRef = useRef(null)
   const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
   const undoStackRef = useRef(undoStack)
   const tomOriginalInicialRef = useRef(null)
   const metaRef = useRef(meta)
-  introRef.current = intro
-  secoesRef.current = secoes
-  undoStackRef.current = undoStack
-  metaRef.current = meta
+  const versiculoPrefsRef = useRef(versiculoPrefs)
+  const offsetVisualRef = useRef(offsetVisual)
+  const tomDestinoRef = useRef(tomDestino)
+  const pendingDraftRef = useRef(null)
+  const skipDraftSaveRef = useRef(true)
+
+  useLayoutEffect(() => {
+    introRef.current = intro
+    secoesRef.current = secoes
+    undoStackRef.current = undoStack
+    metaRef.current = meta
+    versiculoPrefsRef.current = versiculoPrefs
+    offsetVisualRef.current = offsetVisual
+    tomDestinoRef.current = tomDestino
+  }, [
+    intro,
+    secoes,
+    undoStack,
+    meta,
+    versiculoPrefs,
+    offsetVisual,
+    tomDestino,
+  ])
 
   const pushUndoSnapshot = useCallback((snapshot) => {
     setUndoStack((prev) => [...prev.slice(-(UNDO_STACK_LIMIT - 1)), snapshot])
@@ -180,12 +213,16 @@ export function MusicaEditar() {
 
   const load = useCallback(() => {
     setLoading(true)
+    skipDraftSaveRef.current = true
+    pendingDraftRef.current = null
+    setRascunhoModalOpen(false)
+
     const itemPromise = editEventoItemId
       ? fetchPlaylistItem(editEventoItemId)
       : Promise.resolve(null)
 
     Promise.all([fetchMusicaCompleta(id), itemPromise])
-      .then(([data, playlistItem]) => {
+      .then(async ([data, playlistItem]) => {
         setMeta(data)
         tomOriginalInicialRef.current = data.tom_original ?? null
         setVersiculoPrefs(versiculoPrefsFromMusica(data.versiculo_prefs))
@@ -210,10 +247,21 @@ export function MusicaEditar() {
         setUndoStack([])
         setOffsetVisual(0)
         setTomDestino(null)
+
+        const userId = user?.id || data.user_id
+        if (userId) {
+          const draft = await getMusicaEditDraft(userId, id, editEventoItemId)
+          if (isDraftNewerThanSaved(draft, data.updated_at)) {
+            pendingDraftRef.current = draft
+            setRascunhoModalOpen(true)
+            return
+          }
+        }
+        skipDraftSaveRef.current = false
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [id, editEventoItemId, editandoCifraEvento])
+  }, [id, editEventoItemId, editandoCifraEvento, user?.id])
 
   useEffect(() => {
     load()
@@ -226,6 +274,100 @@ export function MusicaEditar() {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (loading || saving || rascunhoModalOpen || skipDraftSaveRef.current) return
+    const userId = user?.id || meta?.user_id
+    if (!userId || !id || !meta) return
+
+    const timer = setTimeout(() => {
+      if (skipDraftSaveRef.current || rascunhoModalOpen) return
+      const introAtual = introEditorRef.current?.flush?.() ?? introRef.current
+      const payload = buildMusicaEditDraftPayload({
+        userId,
+        musicaId: id,
+        eventoItemId: editEventoItemId,
+        meta: metaRef.current,
+        intro: introAtual,
+        secoes: secoesRef.current,
+        versiculoPrefs: versiculoPrefsRef.current,
+        offsetVisual: offsetVisualRef.current,
+        tomDestino: tomDestinoRef.current,
+        updatedAt: Date.now(),
+      })
+      void setMusicaEditDraft(payload)
+    }, DRAFT_DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+  }, [
+    loading,
+    saving,
+    rascunhoModalOpen,
+    user?.id,
+    meta?.user_id,
+    meta?.titulo,
+    meta?.artista,
+    meta?.tom_original,
+    meta?.bpm,
+    id,
+    editEventoItemId,
+    intro,
+    secoes,
+    versiculoPrefs,
+    offsetVisual,
+    tomDestino,
+    meta,
+  ])
+
+  function aplicarRascunhoLocal(draft) {
+    if (!draft) return
+    skipDraftSaveRef.current = true
+    setMeta((prev) =>
+      prev
+        ? {
+            ...prev,
+            titulo: draft.meta?.titulo ?? prev.titulo,
+            artista: draft.meta?.artista ?? prev.artista,
+            tom_original: draft.meta?.tom_original ?? prev.tom_original,
+            bpm: draft.meta?.bpm ?? prev.bpm,
+          }
+        : prev,
+    )
+    setIntro(structuredClone(draft.intro || { mao_esquerda: '', mao_direita: '' }))
+    setSecoes(structuredClone(draft.secoes || []))
+    if (draft.versiculoPrefs != null) {
+      setVersiculoPrefs(versiculoPrefsFromMusica(draft.versiculoPrefs))
+    }
+    setOffsetVisual(Number(draft.offsetVisual) || 0)
+    setTomDestino(draft.tomDestino ?? null)
+    setUndoStack([])
+    queueMicrotask(() => {
+      skipDraftSaveRef.current = false
+    })
+  }
+
+  function handleContinuarRascunho() {
+    const draft = pendingDraftRef.current
+    pendingDraftRef.current = null
+    setRascunhoModalOpen(false)
+    aplicarRascunhoLocal(draft)
+  }
+
+  async function handleDescartarRascunho() {
+    const userId = user?.id || meta?.user_id
+    pendingDraftRef.current = null
+    setRascunhoModalOpen(false)
+    if (userId) {
+      await clearMusicaEditDraft(userId, id, editEventoItemId)
+    }
+    skipDraftSaveRef.current = false
+  }
+
+  async function limparRascunhoAposSalvarOk() {
+    const userId = user?.id || meta?.user_id
+    if (!userId) return
+    await clearMusicaEditDraft(userId, id, editEventoItemId)
+  }
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -329,6 +471,7 @@ export function MusicaEditar() {
           secoes,
         }),
       })
+      await limparRascunhoAposSalvarOk()
       setUndoStack([])
       navigate(voltarPara ?? '/')
       return
@@ -395,23 +538,7 @@ export function MusicaEditar() {
       await upsertSecao(id, sec)
     }
 
-    if (meta.acervo_versao_id) {
-      try {
-        await enviarFeedbackAcervo({
-          acervoVersaoId: meta.acervo_versao_id,
-          tomOriginal: meta.tom_original,
-          bpm,
-          secoes: secoes.map((sec, i) => ({
-            slug: sec.slug,
-            nome: sec.nome,
-            ordem_original: i,
-            linhas: sec.linhas,
-          })),
-        })
-      } catch (feedbackErr) {
-        console.warn('[acervo] feedback não enviado:', feedbackErr.message)
-      }
-    }
+    await limparRascunhoAposSalvarOk()
 
     tomOriginalInicialRef.current = meta.tom_original ?? null
     setUndoStack([])
@@ -430,6 +557,41 @@ export function MusicaEditar() {
       setError(err.message || 'Não foi possível restaurar a versão do ministro.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleCompartilharComunidade() {
+    if (!meta?.acervo_versao_id || editandoCifraEvento) return
+    setSharingAcervo(true)
+    setError('')
+    try {
+      const bpm =
+        meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
+      const result = await enviarFeedbackAcervo({
+        acervoVersaoId: meta.acervo_versao_id,
+        tomOriginal: meta.tom_original,
+        bpm,
+        secoes: secoes.map((sec, i) => ({
+          slug: sec.slug,
+          nome: sec.nome,
+          ordem_original: i,
+          linhas: sec.linhas,
+        })),
+      })
+      const tipo = result?.result?.tipo
+      if (tipo === 'aceitacao') {
+        setToastMotor('Comunidade: cifra igual à origem (aceitação registrada).')
+      } else if (tipo === 'convergencia') {
+        setToastMotor('Comunidade: sua cifra convergiu com uma versão existente.')
+      } else if (tipo === 'nova_correcao') {
+        setToastMotor('Comunidade: versão de correção publicada.')
+      } else {
+        setToastMotor('Cifra compartilhada com a comunidade.')
+      }
+    } catch (err) {
+      setError(err.message || 'Não foi possível compartilhar com a comunidade.')
+    } finally {
+      setSharingAcervo(false)
     }
   }
 
@@ -664,8 +826,22 @@ export function MusicaEditar() {
           ? 'Salvando…'
           : editandoCifraEvento
             ? 'Salvar cifra deste evento'
-            : 'Salvar e visualizar'}
+            : 'Salvar minha cópia'}
       </button>
+
+      {!editandoCifraEvento && meta?.acervo_versao_id && (
+        <CompartilharAcervoCard
+          sharing={sharingAcervo}
+          disabled={saving}
+          onCompartilhar={handleCompartilharComunidade}
+        />
+      )}
+
+      <RascunhoEdicaoModal
+        open={rascunhoModalOpen}
+        onContinuar={handleContinuarRascunho}
+        onDescartar={handleDescartarRascunho}
+      />
 
       <ConfirmDeleteModal
         open={restaurarMotorOpen}
