@@ -192,7 +192,7 @@ export async function fetchMusicaCompleta(musicaId) {
   if (musica.ministro_id) {
     const { data: mm } = await supabase
       .from('musica_ministro')
-      .select('tom_atual, semitone_offset')
+      .select('tom_atual, semitone_offset, bpm_pessoal')
       .eq('musica_id', musicaId)
       .eq('ministro_id', musica.ministro_id)
       .maybeSingle()
@@ -209,6 +209,7 @@ export async function fetchMusicaCompleta(musicaId) {
     secoes: secoes ?? [],
     tom_exibido: tomExibido,
     semitone_offset: offset,
+    bpm_pessoal: ministroTom?.bpm_pessoal ?? null,
   }
 }
 
@@ -276,7 +277,7 @@ export async function createMusica({
   return fetchMusicaCompleta(musica.id)
 }
 
-/** Atualiza só o BPM oficial da música (teleprompter portrait). */
+/** Atualiza só o BPM oficial da música (cadastro/cópia — não usar no ± do teleprompter). */
 export async function updateMusicaBpm(musicaId, bpm) {
   const value =
     bpm != null && Number(bpm) >= 1 ? Math.round(Number(bpm)) : null
@@ -289,6 +290,33 @@ export async function updateMusicaBpm(musicaId, bpm) {
 
   if (error) throw error
   return data
+}
+
+/**
+ * Óculos de BPM pessoal (musica_ministro.bpm_pessoal).
+ * Upsert só com bpm_pessoal + PK — não envia tom_atual/semitone_offset,
+ * para o PostgREST não zerar o tom pessoal no UPDATE.
+ */
+export async function saveBpmPessoal(musicaId, ministroId, bpm) {
+  if (!musicaId || !ministroId) {
+    throw new Error('Música e ministro são obrigatórios para salvar BPM pessoal')
+  }
+  const value = Math.round(Number(bpm))
+  if (!Number.isFinite(value) || value < 1) {
+    throw new Error('BPM inválido')
+  }
+
+  const { error } = await supabase.from('musica_ministro').upsert(
+    {
+      musica_id: musicaId,
+      ministro_id: ministroId,
+      bpm_pessoal: value,
+    },
+    { onConflict: 'musica_id,ministro_id' },
+  )
+
+  if (error) throw error
+  return { bpm_pessoal: value }
 }
 
 export async function updateMusica(id, fields) {

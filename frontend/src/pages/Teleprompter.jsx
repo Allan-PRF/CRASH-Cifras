@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+  Link,
+  useBlocker,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom'
 import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { SECAO_PARA_MOMENTO_VERSICULO } from '@crash-cifras/shared/constants'
@@ -42,7 +48,6 @@ import { useUserSettings } from '../hooks/useUserSettings'
 import { timbreParaSecao } from '../lib/timbreLocal'
 import {
   clampBpmForOrientacao,
-  cadastroBpmFromMusica,
   loadLandscapeBpm,
   loadPortraitBpmFromMusica,
   saveLandscapeBpm,
@@ -74,8 +79,9 @@ import { updateUserSettings } from '../services/settings'
 import {
   fetchMusicaCompleta,
   fetchAnotacaoMusica,
-  updateMusicaBpm,
+  saveBpmPessoal,
 } from '../services/musicas'
+import { SalvarBpmPessoalModal } from '../components/teleprompter/SalvarBpmPessoalModal'
 import { resolveVersiculosForTeleprompter } from '../lib/resolveVersiculosTeleprompter'
 import { useIsMobile } from '../hooks/useIsMobile'
 import {
@@ -224,7 +230,13 @@ export function Teleprompter() {
   })
   const [bpm, setBpm] = useState(72)
   const bpmRef = useRef(72)
-  const cadastroBpmRef = useRef(72)
+  /** BPM portrait efetivo salvo (bpm_pessoal ?? musicas.bpm). */
+  const bpmBaseSalvoRef = useRef(72)
+  /** Último BPM portrait da sessão (preserva ao alternar orientação). */
+  const portraitBpmSessaoRef = useRef(null)
+  const bpmPessoalDirtyRef = useRef(false)
+  const [salvarBpmModalOpen, setSalvarBpmModalOpen] = useState(false)
+  const [bpmParaSalvarModal, setBpmParaSalvarModal] = useState(null)
   const modoEventoRef = useRef(false)
   const pausedRef = useRef(true)
   const rafRef = useRef(null)
@@ -720,28 +732,45 @@ export function Teleprompter() {
 
   const applyBpmForOrientacao = useCallback((orient, musicaRow) => {
     if (!musicaRow?.id) return
-    const cadastro = cadastroBpmFromMusica(musicaRow)
-    cadastroBpmRef.current = cadastro
-    const valor =
-      orient === ORIENTACOES.LANDSCAPE
-        ? loadLandscapeBpm(musicaRow.ministro_id, musicaRow.id)
-        : loadPortraitBpmFromMusica(musicaRow)
+    const base = loadPortraitBpmFromMusica(musicaRow)
+    bpmBaseSalvoRef.current = base
+    if (orient === ORIENTACOES.LANDSCAPE) {
+      const valor = loadLandscapeBpm(musicaRow.ministro_id, musicaRow.id)
+      bpmRef.current = valor
+      setBpm(valor)
+      return
+    }
+    const valor = portraitBpmSessaoRef.current ?? base
     bpmRef.current = valor
     setBpm(valor)
   }, [])
 
   useEffect(() => {
     if (!musica?.id) return
+    const base = loadPortraitBpmFromMusica(musica)
+    bpmBaseSalvoRef.current = base
+    portraitBpmSessaoRef.current = base
+    bpmPessoalDirtyRef.current = false
     applyBpmForOrientacao(orientacao, musica)
-  }, [musica?.id, musica?.ministro_id, orientacao, applyBpmForOrientacao])
+    // Só reinicia sessão BPM ao trocar de música / ministro (não a cada re-render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- orientacao via outro effect
+  }, [musica?.id, musica?.ministro_id])
 
   useEffect(() => {
-    if (!musica?.id || orientacao !== ORIENTACOES.PORTRAIT) return
+    if (!musica?.id) return
+    applyBpmForOrientacao(orientacao, musica)
+  }, [orientacao, applyBpmForOrientacao, musica])
+
+  useEffect(() => {
+    if (!musica?.id) return
+    if (orientacao === ORIENTACOES.LANDSCAPE) return
+    if (bpmPessoalDirtyRef.current) return
     const valor = loadPortraitBpmFromMusica(musica)
-    cadastroBpmRef.current = valor
+    bpmBaseSalvoRef.current = valor
+    portraitBpmSessaoRef.current = valor
     bpmRef.current = valor
     setBpm(valor)
-  }, [musica?.bpm, musica?.id, orientacao, musica])
+  }, [musica?.bpm, musica?.bpm_pessoal, musica?.id, orientacao, musica])
 
   const anotacaoPastaTexto = anotacao?.conteudo?.trim() || ''
   const anotacaoEventoTexto = normalizarAnotacaoEvento(playlistItemAtual?.anotacao_evento)
@@ -985,27 +1014,25 @@ export function Teleprompter() {
     )
   }
 
-  async function changeBpm(delta) {
-    try {
-      const novo = clampBpmForOrientacao(
-        bpmRef.current + delta,
-        orientacaoRef.current === ORIENTACOES.LANDSCAPE ? 'landscape' : 'portrait',
-      )
-      bpmRef.current = novo
-      setBpm(novo)
-      if (!musicaId) return
+  function changeBpm(delta) {
+    const novo = clampBpmForOrientacao(
+      bpmRef.current + delta,
+      orientacaoRef.current === ORIENTACOES.LANDSCAPE ? 'landscape' : 'portrait',
+    )
+    bpmRef.current = novo
+    setBpm(novo)
+    if (!musicaId) return
 
-      if (orientacaoRef.current === ORIENTACOES.LANDSCAPE) {
-        saveLandscapeBpm(musica?.ministro_id, musicaId, novo)
-        return
-      }
-
-      await updateMusicaBpm(musicaId, novo)
-      setMusica((prev) => (prev ? { ...prev, bpm: novo } : prev))
-      cadastroBpmRef.current = novo
-    } catch (e) {
-      console.error('[bpm] erro:', e)
+    if (orientacaoRef.current === ORIENTACOES.LANDSCAPE) {
+      saveLandscapeBpm(musica?.ministro_id, musicaId, novo)
+      return
     }
+
+    // Portrait/fixo: só sessão até [Salvar] no prompt ao sair.
+    portraitBpmSessaoRef.current = novo
+    bpmPessoalDirtyRef.current = Boolean(
+      musica?.ministro_id && novo !== bpmBaseSalvoRef.current,
+    )
   }
 
   function handleBpmClick(delta, event) {
@@ -1017,6 +1044,58 @@ export function Teleprompter() {
     if (now - lastBpmClickMsRef.current < 100) return
     lastBpmClickMsRef.current = now
     changeBpm(delta)
+  }
+
+  const shouldBlockBpmLeave = useCallback(() => {
+    return Boolean(
+      musica?.ministro_id &&
+        bpmPessoalDirtyRef.current &&
+        portraitBpmSessaoRef.current != null &&
+        portraitBpmSessaoRef.current !== bpmBaseSalvoRef.current,
+    )
+  }, [musica?.ministro_id])
+
+  const bpmLeaveBlocker = useBlocker(shouldBlockBpmLeave)
+
+  useEffect(() => {
+    if (bpmLeaveBlocker.state === 'blocked') {
+      setBpmParaSalvarModal(portraitBpmSessaoRef.current ?? bpmRef.current)
+      setSalvarBpmModalOpen(true)
+    }
+  }, [bpmLeaveBlocker.state])
+
+  useEffect(() => {
+    function onBeforeUnload(event) {
+      if (!shouldBlockBpmLeave()) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [shouldBlockBpmLeave])
+
+  async function confirmarSalvarBpmPessoal() {
+    const valor = portraitBpmSessaoRef.current ?? bpmRef.current
+    await saveBpmPessoal(musicaId, musica.ministro_id, valor)
+    bpmBaseSalvoRef.current = clampBpmForOrientacao(valor, 'portrait')
+    portraitBpmSessaoRef.current = bpmBaseSalvoRef.current
+    bpmPessoalDirtyRef.current = false
+    setMusica((prev) =>
+      prev ? { ...prev, bpm_pessoal: bpmBaseSalvoRef.current } : prev,
+    )
+    setSalvarBpmModalOpen(false)
+    if (bpmLeaveBlocker.state === 'blocked') {
+      bpmLeaveBlocker.proceed()
+    }
+  }
+
+  function descartarBpmPessoalESair() {
+    bpmPessoalDirtyRef.current = false
+    portraitBpmSessaoRef.current = bpmBaseSalvoRef.current
+    setSalvarBpmModalOpen(false)
+    if (bpmLeaveBlocker.state === 'blocked') {
+      bpmLeaveBlocker.proceed()
+    }
   }
 
   const metronomeDotRef = useRef(null)
@@ -1367,13 +1446,7 @@ export function Teleprompter() {
                 className="scroll-mt-24"
               >
                 <div className="mb-4 flex items-center gap-3 sm:mb-6">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      index === activeSection
-                        ? 'bg-[var(--crash-cifra)]'
-                        : 'bg-white/30'
-                    }`}
-                  />
+                  <span className="h-2 w-2 rounded-full bg-[var(--crash-cifra)]" />
                   <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--crash-cifra)]">
                     {sec.nome}
                   </h2>
@@ -1564,6 +1637,13 @@ export function Teleprompter() {
         timbre={timbreOpen ? timbreAtual : null}
         nivelTeclado={settings?.nivel_teclado || 'basico'}
         onClose={() => setTimbreOpen(false)}
+      />
+
+      <SalvarBpmPessoalModal
+        open={salvarBpmModalOpen}
+        bpm={bpmParaSalvarModal ?? bpm}
+        onSalvar={confirmarSalvarBpmPessoal}
+        onAgoraNao={descartarBpmPessoalESair}
       />
 
       <RodapePalavra

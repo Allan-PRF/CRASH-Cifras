@@ -161,7 +161,14 @@ export function saveLandscapeBpm(ministroId, musicaId, bpm) {
   }
 }
 
-/** Portrait: BPM da música (importação / banco). */
+/**
+ * Portrait: óculos pessoal do ministro, senão BPM de cadastro (musicas.bpm).
+ * @returns {number}
+ */
 export function loadPortraitBpmFromMusica(musica) {
+  const pessoal = musica?.bpm_pessoal
+  if (pessoal != null && Number.isFinite(Number(pessoal)) && Number(pessoal) >= 1) {
+    return clampPortraitBpm(Math.round(Number(pessoal)))
+  }
   return cadastroBpmFromMusica(musica)
 }
