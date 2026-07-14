@@ -29,8 +29,12 @@ export function scaleTeleprompterFont(basePx, orientacao, isMobile) {
   let scaled = basePx * scale
 
   if (typeof window !== 'undefined') {
-    const w = window.innerWidth
-    const vwFactor = Math.min(1.12, Math.max(0.88, w / MOBILE_FONT_REF_WIDTH))
+    // Celular deitado: usar o lado curto, não a largura “larga” (vira desktop).
+    const shortSide = Math.min(window.innerWidth, window.innerHeight)
+    const vwFactor = Math.min(
+      1.12,
+      Math.max(0.88, shortSide / MOBILE_FONT_REF_WIDTH),
+    )
     scaled *= vwFactor
   }
 

@@ -20,6 +20,7 @@
     "test:teleprompter-align-ch": "node scripts/test-teleprompter-align-ch.mjs",
     "test:import-ha-poder": "node scripts/test-import-ha-poder.mjs",
     "test:auto-wrap": "node scripts/test-auto-wrap.mjs",
+    "test:teleprompter-mobile-viewport": "node scripts/test-teleprompter-mobile-viewport.mjs",
     "fixtures:ha-poder": "node scripts/generate-ha-poder-fixtures.mjs"
   },
   "dependencies": {
