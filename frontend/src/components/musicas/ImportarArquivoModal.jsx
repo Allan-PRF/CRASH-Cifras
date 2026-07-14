@@ -17,7 +17,7 @@ import { createMusica } from '../../services/musicas'
 import { publicarCuradoriaAcervo } from '../../services/acervo'
 import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
-import { buildCifraSnapshot } from '@crash-cifras/shared'
+import { buildCifraSnapshot } from '@crash-cifras/shared/acervo-snapshot'
 
 const ADMIN_EMAIL = 'alanadcms@gmail.com'
 
@@ -97,7 +97,7 @@ export function ImportarArquivoModal({
             titulo: result.titulo || '',
             artista: result.artista || '',
             tomOriginal: result.tom_original || result.tom_detectado || '',
-            status: result.status_revisao || (result.wrap_ok ? 'ok' : 'precisa_revisao'),
+            status: result.status_revisao || 'ok',
             avisos,
             published: false,
             musicaId: null,
@@ -350,20 +350,10 @@ export function ImportarArquivoModal({
                     </select>
                   </FormField>
 
-                  {ativo.processed?.wrap_overflow?.length ? (
-                    <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-100">
-                      <p className="font-semibold">Linhas acima da largura:</p>
-                      <ul className="mt-1 list-disc pl-5">
-                        {ativo.processed.wrap_overflow.slice(0, 6).map((o, i) => (
-                          <li key={i}>
-                            [{o.secao}] {o.width}&gt;{o.maxCols}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : ativo.processed ? (
-                    <p className="text-sm text-green-400">
-                      Linhas cabem em {ativo.processed.maxCols} colunas.
+                  {ativo.processed ? (
+                    <p className="text-sm text-[var(--crash-texto-sec)]">
+                      Cifra salva em linhas inteiras. A quebra adaptativa acontece no
+                      teleprompter, conforme a largura da tela.
                     </p>
                   ) : null}
                 </>

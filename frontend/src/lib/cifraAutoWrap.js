@@ -1,6 +1,6 @@
 /**
- * Corte automático de linha para caber em maxCols (teleprompter mobile).
- * Reusa splitChordLineAt (tesoura) e prefere pontuação / fim de frase.
+ * Corte automático estilo Cifra Club: último espaço que cabe em maxCols;
+ * acordes descem com a sílaba via splitChordLineAt (pos recalculado).
  */
 
 import {
@@ -10,11 +10,8 @@ import {
 } from './cifraEdit.js'
 import { rebuildChordLineFromChords } from '@crash-cifras/shared/chord-schema'
 
-const PUNCT_RE = /[,.;:!?…]/g
-
 /**
- * Índice de corte preferido na letra (0..maxCols], nunca no meio da palavra.
- * Prefere pontuação (vírgula/ponto) dentro do limite; senão último espaço.
+ * Índice de corte: último espaço em [0, maxCols). Nunca no meio da palavra.
  * @param {string} lyric
  * @param {number} maxCols
  * @returns {number | null} splitIndex para splitChordLineAt, ou null se não precisa/não dá
@@ -24,24 +21,6 @@ export function findLyricCutIndex(lyric, maxCols) {
   if (s.length <= maxCols) return null
 
   const window = s.slice(0, maxCols)
-
-  // Preferência musical: última pontuação na janela (não no primeiro 30%).
-  let bestPunct = -1
-  PUNCT_RE.lastIndex = 0
-  let m
-  while ((m = PUNCT_RE.exec(window)) !== null) {
-    const after = m.index + 1
-    if (after >= Math.floor(maxCols * 0.3) && after < s.length) {
-      bestPunct = after
-    }
-  }
-  if (bestPunct > 0) {
-    // inclui espaços após a pontuação na linha 1
-    let i = bestPunct
-    while (i < maxCols && i < s.length && s[i] === ' ') i++
-    return i < s.length ? i : bestPunct
-  }
-
   const lastSpace = window.lastIndexOf(' ')
   if (lastSpace > 0) {
     return lastSpace + 1 // espaço fica na linha 1; próxima palavra começa na linha 2
@@ -167,7 +146,7 @@ export function autoWrapChordLine(line, maxCols) {
 }
 
 /**
- * Aplica auto-wrap em todas as linhas de todas as seções.
+ * Aplica auto-wrap em todas as linhas de todas as seções (só exibição).
  * @param {{ nome?: string, slug?: string, linhas: { lines: object[] } }[]} secoes
  * @param {number} maxCols
  */

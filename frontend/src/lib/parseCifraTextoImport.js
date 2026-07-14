@@ -56,11 +56,19 @@ function parseBlocoLinhas(texto) {
       const chordLine =
         chords.length > 0 ? rebuildChordLineFromChords(chords) : plain
       let lyricLine = ''
-      if (i + 1 < linhas.length) {
-        const next = linhas[i + 1]
-        if (!isChordOnlyLine(next) && next.trim() && !/^\[.+\]$/.test(next.trim()) && !/^página\s*\d+/i.test(next.trim())) {
+      // ODT: </text:p>\n<text:p> vira linha em branco entre acorde e letra.
+      let j = i + 1
+      while (j < linhas.length && !String(linhas[j]).trim()) j += 1
+      if (j < linhas.length) {
+        const next = linhas[j]
+        if (
+          !isChordOnlyLine(next) &&
+          next.trim() &&
+          !/^\[.+\]$/.test(next.trim()) &&
+          !/^página\s*\d+/i.test(next.trim())
+        ) {
           lyricLine = next.replace(/\s+$/, '')
-          i += 2
+          i = j + 1
         } else {
           i += 1
         }

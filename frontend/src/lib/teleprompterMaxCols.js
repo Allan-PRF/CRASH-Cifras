@@ -62,3 +62,29 @@ export function getTeleprompterMaxCols(opts = {}) {
 
   return { maxCols, fonteLetraPx, charWidthPx, usableWidthPx }
 }
+
+/**
+ * Colunas monoespaçadas que cabem numa largura de conteúdo já medida (px),
+ * com a fonte efetiva do teleprompter (não a fórmula de importação).
+ *
+ * @param {number} contentWidthPx
+ * @param {number} fonteLetraPx
+ * @param {{
+ *   measureCharWidth?: (fontSizePx: number, fontWeight?: number) => number,
+ *   fontWeight?: number | string,
+ * }} [opts]
+ */
+export function maxColsFromContentWidth(contentWidthPx, fonteLetraPx, opts = {}) {
+  const measure =
+    opts.measureCharWidth ??
+    ((fontSizePx, fontWeight) => measureMonoCharWidth(fontSizePx, fontWeight))
+  const fontWeight = opts.fontWeight ?? tema.teleprompter.cifra.fontWeight
+  const charWidthPx = measure(fonteLetraPx, fontWeight)
+  const usableWidthPx = Math.max(0, Number(contentWidthPx) || 0)
+  return {
+    maxCols: Math.max(1, Math.floor(usableWidthPx / Math.max(charWidthPx, 0.001))),
+    fonteLetraPx,
+    charWidthPx,
+    usableWidthPx,
+  }
+}

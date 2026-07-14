@@ -1,6 +1,7 @@
 /**
  * Pós-processamento de importação de cifra (arquivo ODT/PDF/DOCX/TXT).
- * 1) título/artista  2) tom original  3) corte automático obrigatório
+ * 1) título/artista  2) tom original
+ * Quebra de linha = teleprompter (exibição), não importação — lines integrais no banco.
  */
 
 import { detectarTituloArtista } from './detectTituloArtista.js'
@@ -8,8 +9,6 @@ import {
   detectarTomPrimeiraSecao,
   parseCifraTextoImport,
 } from './parseCifraTextoImport.js'
-import { autoWrapSecoes } from './cifraAutoWrap.js'
-import { getTeleprompterMaxCols } from './teleprompterMaxCols.js'
 import { extractTextoArquivoCifra } from './extractTextoArquivo.js'
 
 /**
@@ -18,7 +17,6 @@ import { extractTextoArquivoCifra } from './extractTextoArquivo.js'
  *   filename?: string,
  *   fileData?: ArrayBuffer | Uint8Array,
  *   odtData?: ArrayBuffer | Uint8Array,
- *   maxCols?: number,
  *   titulo?: string,
  *   artista?: string,
  *   tomOriginal?: string,
@@ -64,25 +62,13 @@ export async function posProcessarImportacaoCifra(input = {}) {
   const tomDetectado = detectarTomPrimeiraSecao(secoes)
   const tomOriginal = (input.tomOriginal ?? tomDetectado ?? '').trim() || null
 
-  const colsInfo =
-    input.maxCols != null
-      ? { maxCols: input.maxCols, fonteLetraPx: null, charWidthPx: null, usableWidthPx: null }
-      : getTeleprompterMaxCols()
-
-  const wrap = autoWrapSecoes(secoes, colsInfo.maxCols)
-
   return {
     titulo,
     artista,
     tom_original: tomOriginal,
     tom_detectado: tomDetectado,
     meta_fonte: metaDetectada.fonte,
-    maxCols: colsInfo.maxCols,
-    colsInfo,
-    secoes: wrap.secoes,
-    wrap_ok: wrap.ok,
-    wrap_warnings: wrap.warnings,
-    wrap_overflow: wrap.overflow,
+    secoes,
     texto_bruto: texto,
     avisos,
     formato,
@@ -90,7 +76,7 @@ export async function posProcessarImportacaoCifra(input = {}) {
     arquivo_origem: input.filename || null,
     origem_importacao: 'curadoria',
     importado_em: new Date().toISOString(),
-    status_revisao: wrap.ok && !escaneado && !(avisos || []).length ? 'ok' : 'precisa_revisao',
+    status_revisao: !escaneado && !(avisos || []).length ? 'ok' : 'precisa_revisao',
   }
 }
 

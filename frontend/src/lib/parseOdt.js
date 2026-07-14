@@ -35,7 +35,12 @@ export function odtXmlToPlainText(xml) {
   text = text.replace(/<\/text:h>/gi, '\n')
   text = text.replace(/<text:line-break\b[^>]*?\/>/gi, '\n')
   text = text.replace(/<text:tab\b[^>]*?\/>/gi, '\t')
-  text = text.replace(/<text:s\b[^>]*?\/>/gi, ' ')
+  // <text:s/> = 1 espaço; <text:s text:c="N"/> = N espaços (alinhamento mono).
+  text = text.replace(/<text:s\b([^>]*)\/>/gi, (_m, attrs) => {
+    const c = /(?:\s|^)(?:text:)?c\s*=\s*["'](\d+)["']/i.exec(String(attrs || ''))
+    const n = c ? Number.parseInt(c[1], 10) : 1
+    return ' '.repeat(Number.isFinite(n) && n > 0 ? n : 1)
+  })
   text = text.replace(/<[^>]+>/g, '')
   text = text
     .replace(/&lt;/g, '<')

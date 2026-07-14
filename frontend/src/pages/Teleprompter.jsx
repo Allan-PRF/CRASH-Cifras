@@ -7,6 +7,8 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 import { normalizeChordLine } from '@crash-cifras/shared/chord-schema'
+import { autoWrapSecoes } from '../lib/cifraAutoWrap'
+import { useContentMaxCols } from '../hooks/useContentMaxCols'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { SECAO_PARA_MOMENTO_VERSICULO } from '@crash-cifras/shared/constants'
 import {
@@ -260,6 +262,9 @@ export function Teleprompter() {
   const landscapeViewportRef = useRef(
     typeof window !== 'undefined' ? window.innerWidth : 800,
   )
+  const [landscapeViewportW, setLandscapeViewportW] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 800,
+  )
   const landscapeBlocksRef = useRef([])
   const landscapeActiveKeyRef = useRef(null)
   const orientacaoRef = useRef(orientacao)
@@ -434,6 +439,23 @@ export function Teleprompter() {
   const fonteLetraLandscape = Math.round(fonteLetra * LANDSCAPE_FONT_SCALE)
   const lineHeightRatio = teleprompterLineHeightRatio(isMobile)
   const fontLabel = fontSteps[fontIndex]?.label ?? 'M'
+
+  const fonteLetraWrap = isLandscape ? fonteLetraLandscape : fonteLetra
+  const getTeleprompterContentWidth = useCallback(() => {
+    if (isLandscape) {
+      return landscapeViewportW || landscapeViewportRef.current || window.innerWidth || 0
+    }
+    return (
+      portraitScrollInnerRef.current?.clientWidth ||
+      contentRef.current?.clientWidth ||
+      window.innerWidth ||
+      0
+    )
+  }, [isLandscape, landscapeViewportW])
+  const maxCols = useContentMaxCols(getTeleprompterContentWidth, fonteLetraWrap, {
+    enabled: true,
+    deps: [isLandscape, isFixo, orientacao, landscapeViewportW],
+  })
 
   useEffect(() => {
     if (!settings) return
@@ -664,12 +686,33 @@ export function Teleprompter() {
     saveYoutubePosition(pos)
   }
 
+  /**
+   * Linhas para EXIBIÇÃO: transpose/simplify + wrap adaptativo (Cifra Club).
+   * maxCols só muda com largura/fonte — não com scroll. Banco permanece com linhas inteiras.
+   */
+  const linhasPorSecao = useMemo(() => {
+    const transposed = secoes.map((sec) =>
+      transposeLinhas(sec.linhas, offset, { tonDestino: tomExibido ?? undefined }),
+    )
+    const base = simplificar
+      ? transposed.map((linhas) => simplifyLinhas(linhas))
+      : transposed
+    if (maxCols == null) return base
+    const wrapped = autoWrapSecoes(
+      base.map((linhas, i) => ({
+        slug: secoes[i]?.slug,
+        nome: secoes[i]?.nome,
+        linhas,
+      })),
+      maxCols,
+    )
+    return wrapped.secoes.map((s) => s.linhas)
+  }, [secoes, offset, tomExibido, simplificar, maxCols])
+
   const flatLines = useMemo(() => {
     const items = []
-    const tonDestino = tomExibido ?? undefined
-    secoes.forEach((sec, secIdx) => {
-      const sk = sectionKeyFor(sec, secIdx)
-      const linhas = transposeLinhas(sec.linhas, offset, { tonDestino })
+    linhasPorSecao.forEach((linhas, secIdx) => {
+      const sk = sectionKeyFor(secoes[secIdx], secIdx)
       linhas?.lines?.forEach((line, lineIdx) => {
         if (!linhaTemConteudo(line)) return
         items.push({
@@ -681,18 +724,9 @@ export function Teleprompter() {
       })
     })
     return items
-  }, [secoes, offset, tomExibido])
+  }, [linhasPorSecao, secoes])
 
   const flatLineKeys = useMemo(() => flatLines.map((l) => l.key), [flatLines])
-
-  /** Linhas transpostas estáveis — evita re-render das cifras a cada tick/metronomo. */
-  const linhasPorSecao = useMemo(() => {
-    const transposed = secoes.map((sec) =>
-      transposeLinhas(sec.linhas, offset, { tonDestino: tomExibido ?? undefined }),
-    )
-    if (!simplificar) return transposed
-    return transposed.map((linhas) => simplifyLinhas(linhas))
-  }, [secoes, offset, tomExibido, simplificar])
 
   const landscapeBlocks = useMemo(() => {
     if (!isLandscape || !flatLines.length) return []
@@ -1368,6 +1402,7 @@ export function Teleprompter() {
           tomGraus={tomGraus}
           onViewportWidth={(w) => {
             landscapeViewportRef.current = w
+            setLandscapeViewportW((prev) => (Math.abs(prev - w) < 1 ? prev : w))
           }}
           onTrackRef={(node) => {
             landscapeTrackRef.current = node
