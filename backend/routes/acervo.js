@@ -16,6 +16,7 @@ import {
   buscarVersaoAcervoDetalhe,
   corrigirTomVersaoMotor,
   usuarioPossuiCopiaLigadaAVersao,
+  registrarVersaoCuradoria,
 } from '../lib/acervo.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
@@ -380,6 +381,38 @@ acervoRouter.post('/copias/restaurar-motor', requireAuth, async (req, res, next)
     })
 
     res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Admin — publica cifra de arquivo no acervo global (origem=curadoria).
+ * POST /api/acervo/curadoria
+ */
+acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem } = req.body ?? {}
+    if (!cifra || typeof cifra !== 'object') {
+      return res.status(400).json({ error: 'cifra (snapshot) é obrigatória.' })
+    }
+    const result = await registrarVersaoCuradoria({
+      titulo,
+      artista,
+      cifra,
+      tomOriginal,
+      bpm,
+      criadoPor: req.user.id,
+      arquivoOrigem,
+    })
+    res.json({
+      ok: true,
+      acervo_musica_id: result.acervoMusica.id,
+      acervo_versao_id: result.versao.id,
+    })
   } catch (err) {
     if (err.status) {
       return res.status(err.status).json({ error: err.message })

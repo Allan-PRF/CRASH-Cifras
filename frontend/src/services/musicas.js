@@ -27,6 +27,9 @@ const MUSICA_SELECT = `
   import_status,
   acervo_versao_id,
   tom_motor_conferido_em,
+  origem_importacao,
+  importado_em,
+  arquivo_origem,
   created_at,
   updated_at,
   acervo_versao:acervo_versoes!musicas_acervo_versao_id_fkey (
@@ -225,26 +228,35 @@ export async function createMusica({
   acervoVersaoId,
   tomAtualInicial,
   semitoneOffsetInicial,
+  origemImportacao,
+  importadoEm,
+  arquivoOrigem,
+  importStatus,
 }) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Faça login para salvar músicas')
 
+  const payload = {
+    user_id: user.id,
+    ministro_id: ministroId || null,
+    titulo: titulo.trim(),
+    artista: artista?.trim() || null,
+    tom_original: tomOriginal || null,
+    bpm: bpm ? Number(bpm) : null,
+    youtube_url: youtubeUrl?.trim() || null,
+    intro: intro || null,
+    import_status: importStatus || (youtubeUrl ? 'ready' : 'manual'),
+    acervo_versao_id: acervoVersaoId || null,
+  }
+  if (origemImportacao) payload.origem_importacao = origemImportacao
+  if (importadoEm) payload.importado_em = importadoEm
+  if (arquivoOrigem) payload.arquivo_origem = String(arquivoOrigem).slice(0, 500)
+
   const { data: musica, error } = await supabase
     .from('musicas')
-    .insert({
-      user_id: user.id,
-      ministro_id: ministroId || null,
-      titulo: titulo.trim(),
-      artista: artista?.trim() || null,
-      tom_original: tomOriginal || null,
-      bpm: bpm ? Number(bpm) : null,
-      youtube_url: youtubeUrl?.trim() || null,
-      intro: intro || null,
-      import_status: youtubeUrl ? 'ready' : 'manual',
-      acervo_versao_id: acervoVersaoId || null,
-    })
+    .insert(payload)
     .select(MUSICA_SELECT)
     .single()
 

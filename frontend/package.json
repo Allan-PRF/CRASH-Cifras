@@ -17,14 +17,22 @@
     "test:simplify": "node scripts/test-simplify.mjs",
     "test:teleprompter-bpm": "node scripts/test-teleprompter-bpm.mjs",
     "test:musica-edit-draft": "node scripts/test-musica-edit-draft.mjs",
-    "test:teleprompter-align-ch": "node scripts/test-teleprompter-align-ch.mjs"
+    "test:teleprompter-align-ch": "node scripts/test-teleprompter-align-ch.mjs",
+    "test:import-ha-poder": "node scripts/test-import-ha-poder.mjs",
+    "test:auto-wrap": "node scripts/test-auto-wrap.mjs",
+    "fixtures:ha-poder": "node scripts/generate-ha-poder-fixtures.mjs"
   },
   "dependencies": {
     "@crash-cifras/shared": "*",
     "@supabase/supabase-js": "^2.105.4",
     "axios": "^1.16.1",
     "dompurify": "^3.4.5",
+    "fflate": "^0.8.3",
     "idb-keyval": "^6.3.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.1.200",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-helmet-async": "^3.0.0",

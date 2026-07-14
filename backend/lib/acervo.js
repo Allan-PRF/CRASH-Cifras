@@ -215,6 +215,58 @@ export async function registrarVersaoMotor({
 }
 
 /**
+ * Admin publica cifra importada de arquivo no acervo global (origem=curadoria).
+ */
+export async function registrarVersaoCuradoria({
+  titulo,
+  artista,
+  cifra,
+  tomOriginal,
+  bpm,
+  criadoPor,
+  arquivoOrigem = null,
+}) {
+  const db = admin()
+  const tituloTrim = String(titulo || '').trim()
+  if (tituloTrim.length < 2) {
+    const err = new Error('Título é obrigatório para curadoria.')
+    err.status = 400
+    throw err
+  }
+
+  const acervoMusica = await criarAcervoMusicaPendente({
+    titulo: tituloTrim,
+    artista,
+    fonteUrl: arquivoOrigem ? `curadoria://arquivo/${encodeURIComponent(arquivoOrigem)}` : null,
+  })
+
+  const hash = hashCifraNorm(cifra)
+  const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
+
+  const { data: versao, error: versaoErr } = await db
+    .from('acervo_versoes')
+    .insert({
+      acervo_musica_id: acervoMusica.id,
+      cifra,
+      tom_original: tomOriginal || cifra?.tom_original || null,
+      bpm: bpmVal,
+      hash_norm: hash,
+      origem: 'curadoria',
+      criado_por: criadoPor || null,
+      score: calcularScoreVersao({ aceitacao_count: 0, convergencia_count: 0 }),
+    })
+    .select()
+    .single()
+
+  if (versaoErr) throw versaoErr
+
+  await db.from('acervo_musicas').update({ status: 'ready' }).eq('id', acervoMusica.id)
+  await recalcularVersaoTop(acervoMusica.id)
+
+  return { versao, acervoMusica }
+}
+
+/**
  * Motor envia título/artista extraídos no PC — corrige placeholder no acervo e nas cópias pessoais.
  * Se titulo vier vazio/ausente, não altera nada.
  */

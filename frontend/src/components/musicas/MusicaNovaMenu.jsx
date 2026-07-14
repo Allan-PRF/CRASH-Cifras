@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { btnPrimaryClassName } from '../ui/inputClasses'
+import { btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
 import { ImportarYoutubeModal } from './ImportarYoutubeModal'
+import { ImportarArquivoModal } from './ImportarArquivoModal'
 
 export function MusicaNovaMenu({
   ministroId,
@@ -13,16 +14,26 @@ export function MusicaNovaMenu({
   const [importOpenInternal, setImportOpenInternal] = useState(false)
   const importOpen = importOpenProp ?? importOpenInternal
   const setImportOpen = onImportOpenChange ?? setImportOpenInternal
+  const [arquivoOpen, setArquivoOpen] = useState(false)
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setImportOpen(true)}
-        className={btnPrimaryClassName}
-      >
-        + Música
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className={btnPrimaryClassName}
+        >
+          + Música (YouTube)
+        </button>
+        <button
+          type="button"
+          onClick={() => setArquivoOpen(true)}
+          className={btnSecondaryClassName}
+        >
+          Importar arquivo
+        </button>
+      </div>
 
       <ImportarYoutubeModal
         open={importOpen}
@@ -32,6 +43,15 @@ export function MusicaNovaMenu({
         onClose={() => setImportOpen(false)}
         onImported={(job) => {
           onImported?.(job)
+        }}
+      />
+
+      <ImportarArquivoModal
+        open={arquivoOpen}
+        ministroId={ministroId}
+        onClose={() => setArquivoOpen(false)}
+        onImported={(musica) => {
+          onImported?.(musica)
         }}
       />
     </>

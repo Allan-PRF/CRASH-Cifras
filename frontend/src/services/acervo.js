@@ -106,3 +106,23 @@ export async function reportarTomErrado({ acervoVersaoId, musicaId, tomSugerido,
   )
   return data
 }
+
+/**
+ * Admin — publica cifra importada de arquivo no acervo (origem=curadoria).
+ */
+export async function publicarCuradoriaAcervo({
+  titulo,
+  artista,
+  tomOriginal,
+  bpm,
+  cifra,
+  arquivoOrigem,
+}) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/curadoria',
+    { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem },
+    { headers },
+  )
+  return data
+}
