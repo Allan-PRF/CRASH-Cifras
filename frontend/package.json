@@ -18,6 +18,7 @@
     "test:teleprompter-bpm": "node scripts/test-teleprompter-bpm.mjs",
     "test:musica-edit-draft": "node scripts/test-musica-edit-draft.mjs",
     "test:teleprompter-align-ch": "node scripts/test-teleprompter-align-ch.mjs",
+    "test:notacao-br": "node scripts/test-notacao-br.mjs",
     "test:import-ha-poder": "node scripts/test-import-ha-poder.mjs",
     "test:auto-wrap": "node scripts/test-auto-wrap.mjs",
     "test:teleprompter-mobile-viewport": "node scripts/test-teleprompter-mobile-viewport.mjs",

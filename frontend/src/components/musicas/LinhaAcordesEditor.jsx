@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { rebuildChordLineFromChords } from '@crash-cifras/shared/chord-schema'
+import { normalizeChordBR } from '@crash-cifras/shared/notacao-br'
 import {
   validateEditableChordLine,
 } from '../../lib/cifraEdit'
@@ -36,7 +37,10 @@ export function LinhaAcordesEditor({
   const widthCols = Math.max(
     effectiveLineWidth,
     minCols,
-    ...chords.map(({ pos, chord }) => pos + (chord?.length || 0)),
+    ...chords.map(({ pos, chord }) => {
+      const label = normalizeChordBR(chord) || ''
+      return pos + label.length
+    }),
     String(lyricLine || '').length,
     String(draft || '').length,
     0,
@@ -243,7 +247,7 @@ export function LinhaAcordesEditor({
             className="pointer-events-none absolute top-0 z-10 whitespace-pre"
             style={{ left: pos * charWidthPx }}
           >
-            {chord}
+            {normalizeChordBR(chord)}
           </div>
         ))
       )}

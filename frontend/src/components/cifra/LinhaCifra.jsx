@@ -5,6 +5,7 @@ import {
   isCompactFixedChordPos,
   normalizeChordLine,
 } from '@crash-cifras/shared/chord-schema'
+import { normalizeChordBR } from '@crash-cifras/shared/notacao-br'
 import {
   buildGrauLineFromChords,
   limparLetraDeColchetesAcorde,
@@ -99,7 +100,11 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   )
 
   const chordItems = useMemo(
-    () => chords.map(({ pos, chord }) => ({ pos, text: chord })),
+    () =>
+      chords.map(({ pos, chord }) => ({
+        pos,
+        text: normalizeChordBR(chord),
+      })),
     [chords],
   )
 
@@ -112,10 +117,10 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   }, [chords, tomOriginal, mostrarGrau])
 
   const minCols = useMemo(() => {
-    const fromChords = chords.reduce(
-      (max, { pos, chord }) => Math.max(max, pos + (chord?.length || 0)),
-      0,
-    )
+    const fromChords = chords.reduce((max, { pos, chord }) => {
+      const label = normalizeChordBR(chord) || ''
+      return Math.max(max, pos + label.length)
+    }, 0)
     return Math.max(lyricLine.length, fromChords)
   }, [chords, lyricLine])
 
