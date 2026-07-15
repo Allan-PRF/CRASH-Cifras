@@ -1,4 +1,9 @@
 import { EMPTY_LINHAS } from '@crash-cifras/shared/chord-schema'
+import {
+  ensureAuthSession,
+  isJwtExpiredError,
+  refreshAuthSession,
+} from '../lib/authSession'
 import { supabase } from '../lib/supabase'
 import {
   introComConteudo,
@@ -10,6 +15,20 @@ import {
   getTomExibido,
   semitonesBetween,
 } from '../lib/transpose'
+
+/**
+ * Save / mutação: se JWT expirar, refresh + reenvia UMA vez.
+ * Não redireciona nem descarta erro — o caller decide (e o rascunho permanece).
+ * @param {() => Promise<{ data?: unknown, error?: unknown }>} operation
+ */
+async function withAuthRetry(operation) {
+  await ensureAuthSession()
+  let result = await operation()
+  if (!result?.error || !isJwtExpiredError(result.error)) return result
+  const session = await refreshAuthSession()
+  if (!session) return result
+  return operation()
+}
 
 const MUSICA_SELECT = `
   id,
@@ -345,12 +364,14 @@ export async function updateMusica(id, fields) {
   if (fields.tomMotorConferidoEm !== undefined) {
     update.tom_motor_conferido_em = fields.tomMotorConferidoEm
   }
-  const { data, error } = await supabase
-    .from('musicas')
-    .update(update)
-    .eq('id', id)
-    .select(MUSICA_SELECT)
-    .single()
+  const { data, error } = await withAuthRetry(() =>
+    supabase
+      .from('musicas')
+      .update(update)
+      .eq('id', id)
+      .select(MUSICA_SELECT)
+      .single(),
+  )
 
   if (error) throw error
   return data
@@ -360,20 +381,21 @@ export async function updateMusica(id, fields) {
  * Zera óculos de tom pessoal após correção de tom_original (musica + musica_ministro).
  */
 export async function resetOffsetTomPessoal(musicaId, { ministroId, tomOriginal }) {
-  const { error: musicaErr } = await supabase
-    .from('musicas')
-    .update({ semitone_offset: 0 })
-    .eq('id', musicaId)
+  const { error: musicaErr } = await withAuthRetry(() =>
+    supabase.from('musicas').update({ semitone_offset: 0 }).eq('id', musicaId),
+  )
 
   if (musicaErr) throw musicaErr
 
   if (ministroId) {
-    const { error: mmErr } = await supabase.from('musica_ministro').upsert({
-      musica_id: musicaId,
-      ministro_id: ministroId,
-      tom_atual: tomOriginal || null,
-      semitone_offset: 0,
-    })
+    const { error: mmErr } = await withAuthRetry(() =>
+      supabase.from('musica_ministro').upsert({
+        musica_id: musicaId,
+        ministro_id: ministroId,
+        tom_atual: tomOriginal || null,
+        semitone_offset: 0,
+      }),
+    )
     if (mmErr) throw mmErr
   }
 }
@@ -477,30 +499,29 @@ export async function upsertSecao(musicaId, secao) {
   }
 
   if (secao.id) {
-    const { data, error } = await supabase
-      .from('secoes_musica')
-      .update(row)
-      .eq('id', secao.id)
-      .select()
-      .single()
+    const { data, error } = await withAuthRetry(() =>
+      supabase
+        .from('secoes_musica')
+        .update(row)
+        .eq('id', secao.id)
+        .select()
+        .single(),
+    )
     if (error) throw error
     return data
   }
 
-  const { data, error } = await supabase
-    .from('secoes_musica')
-    .insert(row)
-    .select()
-    .single()
+  const { data, error } = await withAuthRetry(() =>
+    supabase.from('secoes_musica').insert(row).select().single(),
+  )
   if (error) throw error
   return data
 }
 
 export async function deleteSecao(secaoId) {
-  const { error } = await supabase
-    .from('secoes_musica')
-    .delete()
-    .eq('id', secaoId)
+  const { error } = await withAuthRetry(() =>
+    supabase.from('secoes_musica').delete().eq('id', secaoId),
+  )
   if (error) throw error
 }
 

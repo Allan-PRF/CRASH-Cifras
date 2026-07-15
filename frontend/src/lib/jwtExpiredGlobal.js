@@ -1,3 +1,5 @@
+import { redirectToLogin } from './authSession'
+import { flushMusicaEditDraftNow } from './musicaEditDraft'
 import { supabase } from './supabase'
 
 let handling = false
@@ -71,18 +73,22 @@ export function shouldHandleJwtExpiredGlobally(error) {
 }
 
 /**
- * Renova sessão silenciosamente; recarrega ou envia ao login.
+ * Renova sessão silenciosamente; só redireciona ao login se o refresh falhar.
+ * Antes de qualquer saída: flush do rascunho de edição no IndexedDB.
+ * @returns {Promise<boolean>} true se a sessão foi renovada
  */
 export async function handleJwtExpiredGlobal() {
-  if (handling) return
+  if (handling) return false
   handling = true
 
   try {
+    await flushMusicaEditDraftNow()
+
     const { data, error } = await supabase.auth.refreshSession()
 
     if (!error && data?.session?.access_token) {
-      window.location.reload()
-      return
+      // Renovação silenciosa — não recarrega a página (preserva a edição em memória).
+      return true
     }
 
     try {
@@ -91,10 +97,8 @@ export async function handleJwtExpiredGlobal() {
       // ignore
     }
 
-    const path = window.location.pathname
-    if (path !== '/login' && !path.startsWith('/auth/')) {
-      window.location.replace('/login')
-    }
+    redirectToLogin()
+    return false
   } finally {
     handling = false
   }
@@ -142,7 +146,12 @@ function attachApiInterceptor() {
       (response) => response,
       async (error) => {
         if (shouldHandleJwtExpiredGlobally(error)) {
-          await handleJwtExpiredGlobal()
+          const renewed = await handleJwtExpiredGlobal()
+          if (renewed) {
+            // Sessão OK — rejeita para o caller poder tratar/retry (sem hang eterno).
+            return Promise.reject(error)
+          }
+          // Redirect em andamento — não propaga erro na UI.
           return new Promise(() => {})
         }
 

@@ -8,6 +8,26 @@ const store = createStore('crash-cifras-drafts', 'musica-edit')
 
 export const DRAFT_DEBOUNCE_MS = 2500
 
+/** Handler síncrono/async registrado pela tela de edição (flush antes de redirect). */
+let flushHandler = null
+
+/**
+ * @param {(() => void | Promise<void>) | null} fn
+ */
+export function registerMusicaEditDraftFlush(fn) {
+  flushHandler = typeof fn === 'function' ? fn : null
+}
+
+/** Grava o rascunho atual no IndexedDB antes de sair da tela / renovar sessão. */
+export async function flushMusicaEditDraftNow() {
+  if (typeof flushHandler !== 'function') return
+  try {
+    await flushHandler()
+  } catch (err) {
+    console.warn('[draft] falha no flush do rascunho:', err?.message || err)
+  }
+}
+
 /**
  * @param {string} userId
  * @param {string} musicaId
@@ -56,7 +76,48 @@ export function buildMusicaEditDraftPayload({
 }
 
 /**
+ * Fingerprint estável do conteúdo editável (ignora timestamp / ids de sessão).
+ * Usado para decidir se o aviso Continuar/Descartar deve aparecer.
+ * @param {{ meta?: object, intro?: object, secoes?: object[], versiculoPrefs?: unknown } | null | undefined} draft
+ */
+export function draftContentKey(draft) {
+  if (!draft || typeof draft !== 'object') return ''
+  const secoes = (draft.secoes || []).map((s) => ({
+    slug: s?.slug ?? '',
+    nome: s?.nome ?? '',
+    ordem_original: s?.ordem_original ?? 0,
+    linhas: s?.linhas ?? null,
+  }))
+  return JSON.stringify({
+    meta: {
+      titulo: draft.meta?.titulo ?? '',
+      artista: draft.meta?.artista ?? null,
+      tom_original: draft.meta?.tom_original ?? null,
+      bpm: draft.meta?.bpm ?? null,
+    },
+    intro: draft.intro ?? { mao_esquerda: '', mao_direita: '' },
+    secoes,
+    versiculoPrefs: draft.versiculoPrefs ?? null,
+  })
+}
+
+/**
+ * Oferece restaurar se o rascunho tiver conteúdo diferente do que está no servidor.
+ * (Não depende só de updatedAt — evita esconder rascunho após save parcial.)
+ * @param {object | null | undefined} draft
+ * @param {object | null | undefined} savedComparable payload no formato do draft
+ */
+export function shouldOfferDraftRestore(draft, savedComparable) {
+  if (!draft || typeof draft !== 'object') return false
+  if (!Array.isArray(draft.secoes) && draft.intro == null && draft.meta == null) {
+    return false
+  }
+  return draftContentKey(draft) !== draftContentKey(savedComparable)
+}
+
+/**
  * Oferece restaurar só se o rascunho for mais novo que o último save no servidor.
+ * @deprecated Preferir shouldOfferDraftRestore (conteúdo); mantido para testes/legado.
  * @param {{ updatedAt?: number } | null | undefined} draft
  * @param {string | number | Date | null | undefined} musicaUpdatedAt
  */

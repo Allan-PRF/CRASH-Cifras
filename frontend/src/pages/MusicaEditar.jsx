@@ -19,9 +19,11 @@ import {
   DRAFT_DEBOUNCE_MS,
   buildMusicaEditDraftPayload,
   clearMusicaEditDraft,
+  flushMusicaEditDraftNow,
   getMusicaEditDraft,
-  isDraftNewerThanSaved,
+  registerMusicaEditDraftFlush,
   setMusicaEditDraft,
+  shouldOfferDraftRestore,
 } from '../lib/musicaEditDraft'
 import {
   btnCifraConfirmClassName,
@@ -251,7 +253,24 @@ export function MusicaEditar() {
         const userId = user?.id || data.user_id
         if (userId) {
           const draft = await getMusicaEditDraft(userId, id, editEventoItemId)
-          if (isDraftNewerThanSaved(draft, data.updated_at)) {
+          const introSaved = usarCifraEvento
+            ? playlistItem.cifra_evento.intro || { mao_esquerda: '', mao_direita: '' }
+            : data.intro || { mao_esquerda: '', mao_direita: '' }
+          const secoesSaved = usarCifraEvento
+            ? secoesParaEditor(secoesFromCifraEvento(playlistItem.cifra_evento))
+            : secoesParaEditor(data.secoes || [])
+          const savedComparable = buildMusicaEditDraftPayload({
+            userId,
+            musicaId: id,
+            eventoItemId: editEventoItemId,
+            meta: data,
+            intro: introSaved,
+            secoes: secoesSaved,
+            versiculoPrefs: versiculoPrefsFromMusica(data.versiculo_prefs),
+            offsetVisual: 0,
+            tomDestino: null,
+          })
+          if (shouldOfferDraftRestore(draft, savedComparable)) {
             pendingDraftRef.current = draft
             setRascunhoModalOpen(true)
             return
@@ -275,6 +294,46 @@ export function MusicaEditar() {
       .catch(() => {})
   }, [])
 
+  const flushEditorDraftNow = useCallback(async () => {
+    const userId = user?.id || metaRef.current?.user_id
+    if (!userId || !id || !metaRef.current) return
+    if (skipDraftSaveRef.current) return
+    const introAtual = introEditorRef.current?.flush?.() ?? introRef.current
+    const payload = buildMusicaEditDraftPayload({
+      userId,
+      musicaId: id,
+      eventoItemId: editEventoItemId,
+      meta: metaRef.current,
+      intro: introAtual,
+      secoes: secoesRef.current,
+      versiculoPrefs: versiculoPrefsRef.current,
+      offsetVisual: offsetVisualRef.current,
+      tomDestino: tomDestinoRef.current,
+      updatedAt: Date.now(),
+    })
+    await setMusicaEditDraft(payload)
+  }, [user?.id, id, editEventoItemId])
+
+  useEffect(() => {
+    registerMusicaEditDraftFlush(() => flushEditorDraftNow())
+    return () => registerMusicaEditDraftFlush(null)
+  }, [flushEditorDraftNow])
+
+  useEffect(() => {
+    function onLeave() {
+      void flushMusicaEditDraftNow()
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') onLeave()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', onLeave)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', onLeave)
+    }
+  }, [])
+
   useEffect(() => {
     if (loading || saving || rascunhoModalOpen || skipDraftSaveRef.current) return
     const userId = user?.id || meta?.user_id
@@ -282,20 +341,7 @@ export function MusicaEditar() {
 
     const timer = setTimeout(() => {
       if (skipDraftSaveRef.current || rascunhoModalOpen) return
-      const introAtual = introEditorRef.current?.flush?.() ?? introRef.current
-      const payload = buildMusicaEditDraftPayload({
-        userId,
-        musicaId: id,
-        eventoItemId: editEventoItemId,
-        meta: metaRef.current,
-        intro: introAtual,
-        secoes: secoesRef.current,
-        versiculoPrefs: versiculoPrefsRef.current,
-        offsetVisual: offsetVisualRef.current,
-        tomDestino: tomDestinoRef.current,
-        updatedAt: Date.now(),
-      })
-      void setMusicaEditDraft(payload)
+      void flushEditorDraftNow()
     }, DRAFT_DEBOUNCE_MS)
 
     return () => clearTimeout(timer)
@@ -317,6 +363,7 @@ export function MusicaEditar() {
     offsetVisual,
     tomDestino,
     meta,
+    flushEditorDraftNow,
   ])
 
   function aplicarRascunhoLocal(draft) {
@@ -461,6 +508,9 @@ export function MusicaEditar() {
   async function executarSalvamento({ propagarFonte = false } = {}) {
     if (!meta) return
 
+    // Estado completo no IndexedDB ANTES das mutações (rede de segurança se a sessão cair).
+    await flushEditorDraftNow()
+
     const introAtual = introEditorRef.current?.flush() ?? intro
     const introToSave = normalizarIntroParaCopia(introAtual)
 
@@ -597,6 +647,8 @@ export function MusicaEditar() {
 
   async function handleSave() {
     if (!meta) return
+    // Flush antes de saving=true (debounce pausa com saving — evita rascunho incompleto).
+    await flushEditorDraftNow()
     setSaving(true)
     setError('')
     let aguardandoModalPropagacao = false

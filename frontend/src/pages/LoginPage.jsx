@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { isValidReferralCode } from '@crash-cifras/shared/referral'
 import { TRIAL_DIAS_GRATIS_LABEL } from '@crash-cifras/shared/constants'
 import { clearReferralCode, getStoredReferralCode } from '../lib/referralStorage'
 
+/** Destino pós-login seguro (só path interno; evita open redirect). */
+function safeReturnPath(raw) {
+  if (!raw || typeof raw !== 'string') return '/'
+  const path = raw.trim()
+  if (!path.startsWith('/') || path.startsWith('//')) return '/'
+  if (path.startsWith('/login') || path.startsWith('/auth/')) return '/'
+  return path
+}
+
 export function LoginPage({ initialMode = 'login' }) {
   const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = safeReturnPath(searchParams.get('from'))
   const storedRef = getStoredReferralCode()
   const referralCode = isValidReferralCode(storedRef) ? storedRef : ''
 
@@ -23,7 +34,7 @@ export function LoginPage({ initialMode = 'login' }) {
   }, [initialMode])
 
   if (user) {
-    return <Navigate to="/" replace />
+    return <Navigate to={returnTo} replace />
   }
 
   async function handleSubmit(event) {
@@ -41,7 +52,7 @@ export function LoginPage({ initialMode = 'login' }) {
           return
         }
       }
-      navigate('/', { replace: true })
+      navigate(returnTo, { replace: true })
     } catch (err) {
       setError(err.message || 'Não foi possível autenticar')
     } finally {

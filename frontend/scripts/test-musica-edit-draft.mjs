@@ -1,12 +1,14 @@
 /**
  * Testes do rascunho local (lógica pura + ciclo save/restore em memória).
- * IndexedDB real fica no browser; aqui validamos payload completo e “mais novo que salvo”.
+ * IndexedDB real fica no browser; aqui validamos payload completo e oferta por conteúdo.
  */
 import assert from 'node:assert/strict'
 import {
   buildMusicaEditDraftPayload,
+  draftContentKey,
   isDraftNewerThanSaved,
   musicaEditDraftKey,
+  shouldOfferDraftRestore,
 } from '../src/lib/musicaEditDraft.js'
 
 assert.equal(
@@ -104,5 +106,74 @@ assert.equal(restored.versiculoPrefs.modo, 'auto')
 
 memory.delete(key)
 assert.equal(memory.has(key), false)
+
+// A) Conteúdo diferente mesmo com draft.updatedAt ≤ musica.updated_at (save parcial).
+const savedComparable = buildMusicaEditDraftPayload({
+  userId: 'user-a',
+  musicaId: 'musica-clamo',
+  meta: {
+    titulo: 'Clamo Jesus',
+    artista: 'collab',
+    tom_original: 'C',
+    bpm: 72,
+  },
+  intro: { mao_esquerda: 'C G Am', mao_direita: 'Em F' },
+  secoes: [
+    {
+      id: 's1',
+      slug: 'verso',
+      nome: 'Verso 1',
+      ordem_original: 0,
+      linhas: {
+        lines: [
+          {
+            chordLine: 'C     G',
+            lyricLine: 'Clamo Jesus',
+            chords: [
+              { symbol: 'C', pos: 0 },
+              { symbol: 'G', pos: 6 },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+  versiculoPrefs: prefs,
+})
+
+const draftParcial = buildMusicaEditDraftPayload({
+  userId: 'user-a',
+  musicaId: 'musica-clamo',
+  meta: savedComparable.meta,
+  intro: savedComparable.intro,
+  secoes: [
+    {
+      ...savedComparable.secoes[0],
+      linhas: {
+        lines: [
+          {
+            ...savedComparable.secoes[0].linhas.lines[0],
+            lyricLine: 'Clamo Jesus (editado após save parcial)',
+          },
+        ],
+      },
+    },
+  ],
+  versiculoPrefs: prefs,
+  // timestamp MAIS VELHO que o updated_at do servidor após updateMusica
+  updatedAt: savedMs - 5000,
+})
+
+assert.equal(isDraftNewerThanSaved(draftParcial, savedAt), false)
+assert.ok(shouldOfferDraftRestore(draftParcial, savedComparable))
+assert.notEqual(draftContentKey(draftParcial), draftContentKey(savedComparable))
+
+// Idêntico ao salvo → não oferecer (mesmo com timestamp “novo”).
+const draftIgual = buildMusicaEditDraftPayload({
+  ...savedComparable,
+  updatedAt: Date.now() + 99999,
+})
+assert.equal(shouldOfferDraftRestore(draftIgual, savedComparable), false)
+assert.equal(shouldOfferDraftRestore(null, savedComparable), false)
 
 console.log('ok: test-musica-edit-draft')

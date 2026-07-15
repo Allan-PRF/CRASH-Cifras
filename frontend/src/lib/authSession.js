@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { flushMusicaEditDraftNow } from './musicaEditDraft'
 
 const EXPIRY_MARGIN_SEC = 60
 
@@ -67,6 +68,8 @@ export async function ensureAuthSession() {
 export async function recoverFromJwtExpired() {
   const session = await refreshAuthSession()
   if (session) return session
+
+  await flushMusicaEditDraftNow()
 
   try {
     await supabase.auth.signOut({ scope: 'local' })
