@@ -5,7 +5,7 @@ import {
   fetchImportJob,
   fetchImportJobsAtivos,
 } from '../../services/importacao'
-import { clearImportJobRef, loadImportJobRef } from '../../lib/importJobStorage'
+import { clearImportJobRef, loadImportJobRef, saveImportDoneInvite } from '../../lib/importJobStorage'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor'
 import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado'
 import { btnSecondaryClassName } from '../ui/inputClasses'
@@ -112,6 +112,14 @@ export function ImportacaoEmAndamentoBanner({
         setErro('')
 
         if (atualizado.status === 'completed' || atualizado.status === 'done') {
+          if (atualizado.musica_id) {
+            saveImportDoneInvite(ministroId, {
+              musicaId: atualizado.musica_id,
+              titulo: atualizado.titulo || 'Música',
+              etapa: atualizado.etapa || '',
+              jobId: atualizado.id,
+            })
+          }
           clearImportJobRef(ministroId)
           onConcluidoRef.current?.(atualizado)
         } else if (atualizado.status === 'failed') {

@@ -13,7 +13,7 @@ import {
   useVoiceSearch,
 } from '../../lib/voiceSearch'
 import { buscarYoutube, cancelarImportJob, fetchImportJob, importarYoutube } from '../../services/importacao'
-import { clearImportJobRef, saveImportJobRef } from '../../lib/importJobStorage'
+import { clearImportJobRef, isCifraImportPronta, saveImportJobRef } from '../../lib/importJobStorage'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
 import { PROGRESSO_MOTOR_TETO } from '../../lib/progressoImportacaoEstimado.js'
 
@@ -502,9 +502,7 @@ export function ImportarYoutubeModal({
         )}
 
         {fase === 'concluido' && job?.musica_id && (() => {
-          const cifraPronta =
-            job.etapa?.includes('Cifra do acervo') ||
-            job.etapa?.includes('Cifra gerada')
+          const cifraPronta = isCifraImportPronta(job.etapa)
           return (
           <div className="mt-4 space-y-3 rounded-lg border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/10 p-4">
             <p className="text-sm font-semibold text-[var(--crash-cifra)]">

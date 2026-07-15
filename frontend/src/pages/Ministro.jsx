@@ -5,6 +5,7 @@ import { PageBackButton } from '../components/layout/PageBackButton'
 import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
 import { MusicaNovaMenu } from '../components/musicas/MusicaNovaMenu'
 import { ImportacaoEmAndamentoBanner } from '../components/musicas/ImportacaoEmAndamentoBanner'
+import { ImportacaoConcluidaBanner } from '../components/musicas/ImportacaoConcluidaBanner'
 import { MusicaTable } from '../components/musicas/MusicaTable'
 import { useMinistros } from '../hooks/useMinistros'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
@@ -12,6 +13,10 @@ import { inputClassName } from '../components/ui/inputClasses'
 import { deleteMusica, fetchMusicasByMinistro } from '../services/musicas'
 import { fetchMinistroById } from '../services/ministros'
 import { fetchPlaylistsAtivasComMusica } from '../services/playlists'
+import {
+  loadImportDoneInvite,
+  saveImportDoneInvite,
+} from '../lib/importJobStorage'
 
 const AVISO_MUSICA_PLAYLIST =
   'Esta música está em uma playlist.\nAo excluir será removida também da playlist.'
@@ -36,6 +41,7 @@ export function Ministro() {
   const [buscaMusicas, setBuscaMusicas] = useState('')
   const [importJobAtivo, setImportJobAtivo] = useState(null)
   const [importModalOpen, setImportModalOpen] = useState(false)
+  const [importDoneInvite, setImportDoneInvite] = useState(() => loadImportDoneInvite(id))
   const { ministros } = useMinistros()
 
   const load = useCallback(() => {
@@ -49,6 +55,31 @@ export function Ministro() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    setImportDoneInvite(loadImportDoneInvite(id))
+  }, [id])
+
+  // Enriquecer título "Música" com o nome real após load() na pasta.
+  useEffect(() => {
+    if (!importDoneInvite?.musicaId || !musicas.length) return
+    const row = musicas.find((m) => m.id === importDoneInvite.musicaId)
+    if (!row?.titulo) return
+    if (importDoneInvite.titulo && importDoneInvite.titulo !== 'Música') return
+    saveImportDoneInvite(id, {
+      musicaId: importDoneInvite.musicaId,
+      titulo: row.titulo,
+      etapa: importDoneInvite.etapa,
+      jobId: importDoneInvite.jobId,
+    })
+    setImportDoneInvite(loadImportDoneInvite(id))
+  }, [musicas, importDoneInvite, id])
+
+  const tituloConviteEnriquecido = (() => {
+    if (!importDoneInvite?.musicaId) return null
+    const row = musicas.find((m) => m.id === importDoneInvite.musicaId)
+    return row?.titulo || importDoneInvite.titulo || null
+  })()
 
   useEffect(() => {
     load()
@@ -122,7 +153,17 @@ export function Ministro() {
           ministroId={id}
           onJobChange={setImportJobAtivo}
           onVerProgresso={() => setImportModalOpen(true)}
-          onConcluido={() => load()}
+          onConcluido={() => {
+            load()
+            setImportDoneInvite(loadImportDoneInvite(id))
+          }}
+        />
+
+        <ImportacaoConcluidaBanner
+          ministroId={id}
+          invite={importDoneInvite}
+          tituloEnriquecido={tituloConviteEnriquecido}
+          onDismiss={() => setImportDoneInvite(null)}
         />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
