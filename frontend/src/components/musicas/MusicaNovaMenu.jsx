@@ -29,7 +29,7 @@ export function MusicaNovaMenu({
         <button
           type="button"
           onClick={() => setArquivoOpen(true)}
-          className={btnSecondaryClassName}
+          className={`${btnSecondaryClassName} hidden lg:inline-flex`}
         >
           Importar arquivo
         </button>
