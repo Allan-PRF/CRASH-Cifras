@@ -25,6 +25,7 @@ import { ReferralLanding } from '../pages/ReferralLanding'
 import { AuthCallback } from '../pages/AuthCallback'
 import { CadastroPage } from '../pages/CadastroPage'
 import { AdminNovidades } from '../pages/AdminNovidades'
+import { AdminCuradoria } from '../pages/AdminCuradoria'
 import { AdminRoute } from '../components/AdminRoute'
 
 export const router = createBrowserRouter([
@@ -164,6 +165,16 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <AccountPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'admin/curadoria',
+        element: (
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminCuradoria />
+            </AdminRoute>
           </ProtectedRoute>
         ),
       },

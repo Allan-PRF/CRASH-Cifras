@@ -2,10 +2,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { PageNav } from '../components/layout/PageNav'
 import { btnSecondaryClassName } from '../components/ui/inputClasses'
 import { useAuth } from '../hooks/useAuth'
+import { isAdminUser } from '../lib/admin'
 
 export function AccountPage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const isAdmin = isAdminUser(user)
 
   async function handleSignOut() {
     await signOut()
@@ -32,6 +34,29 @@ export function AccountPage() {
         <Link to="/assinatura" className={`block text-center ${btnSecondaryClassName}`}>
           Assinatura e pagamento
         </Link>
+
+        {isAdmin ? (
+          <div className="space-y-3 rounded-xl border border-[var(--crash-cifra)]/35 bg-[var(--crash-cifra)]/5 p-4">
+            <h2 className="text-sm font-semibold text-[var(--crash-cifra)]">
+              Administração
+            </h2>
+            <p className="text-sm text-[var(--crash-texto-sec)]">
+              Ferramentas só para o e-mail administrador.
+            </p>
+            <Link
+              to="/admin/curadoria"
+              className={`block text-center ${btnSecondaryClassName}`}
+            >
+              Curadoria do acervo
+            </Link>
+            <Link
+              to="/admin/novidades"
+              className={`block text-center ${btnSecondaryClassName}`}
+            >
+              Novidades
+            </Link>
+          </div>
+        ) : null}
 
         <button
           type="button"

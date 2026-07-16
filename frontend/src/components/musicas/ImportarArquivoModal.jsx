@@ -42,12 +42,15 @@ function formatSaveError(err) {
 /**
  * Importa arquivos (ODT/PDF/DOCX/TXT) — restrito ao admin (curadoria).
  * Destino padrão: acervo global com YouTube = fonte_url (atalho comunitário).
+ *
+ * @param {boolean} [somenteAcervo] — trava no acervo global e exige YouTube (página Conta).
  */
 export function ImportarArquivoModal({
   open,
   ministroId,
   onClose,
   onImported,
+  somenteAcervo = false,
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -65,6 +68,8 @@ export function ImportarArquivoModal({
   /** Após salvar fora do acervo: vincular YouTube sem worker. */
   const [posSalvar, setPosSalvar] = useState(null)
   const [youtubeDraft, setYoutubeDraft] = useState('')
+
+  const destinoEfetivo = somenteAcervo ? 'acervo' : destino
 
   const ativo = useMemo(
     () => fila.find((i) => i.id === ativoId) || fila[0] || null,
@@ -202,7 +207,7 @@ export function ImportarArquivoModal({
     let musica
     let youtubeCanonical = null
 
-    if (destino === 'acervo') {
+    if (destinoEfetivo === 'acervo') {
       if (!isAdmin) throw new Error('Apenas admin pode publicar no acervo global')
       const rawYt = String(item.youtubeUrl || '').trim()
       if (!rawYt) {
@@ -241,7 +246,7 @@ export function ImportarArquivoModal({
       })
     } else {
       musica = await createMusica({
-        ministroId: destino === 'ministro' ? ministroId || null : null,
+        ministroId: destinoEfetivo === 'ministro' ? ministroId || null : null,
         titulo: item.titulo.trim(),
         artista: item.artista.trim() || null,
         tomOriginal: item.tomOriginal || null,
@@ -260,11 +265,11 @@ export function ImportarArquivoModal({
 
     if (openEditor) {
       onImported?.(musica)
-      if (destino === 'acervo') {
-        setBusyLabel('Abrindo teleprompter…')
-        reset()
-        onClose?.()
-        navigate(`/teleprompter/musica/${musica.id}`, { replace: true })
+      if (destinoEfetivo === 'acervo') {
+        setGlobalAviso(
+          `“${item.titulo.trim()}” no acervo global com o link YouTube. Pode importar a próxima.`,
+        )
+        setBusyLabel('')
         return musica
       }
       setPosSalvar({
@@ -342,14 +347,14 @@ export function ImportarArquivoModal({
       setError('Informe o título antes de salvar.')
       return
     }
-    if (destino === 'acervo' && !String(ativo.youtubeUrl || '').trim()) {
+    if (destinoEfetivo === 'acervo' && !String(ativo.youtubeUrl || '').trim()) {
       setError('Cole o link do YouTube para publicar no acervo global.')
       return
     }
 
     savingRef.current = true
     setBusy(true)
-    setBusyLabel(destino === 'acervo' ? 'Publicando no acervo…' : 'Salvando…')
+    setBusyLabel(destinoEfetivo === 'acervo' ? 'Publicando no acervo…' : 'Salvando…')
     setError('')
     try {
       await salvarItem(ativo, { openEditor: true })
@@ -374,11 +379,20 @@ export function ImportarArquivoModal({
         setError('Nenhum arquivo pronto para publicar.')
         return
       }
+      if (destinoEfetivo === 'acervo') {
+        const semLink = pendentes.find((i) => !String(i.youtubeUrl || '').trim())
+        if (semLink) {
+          setError(
+            `Informe o YouTube em cada arquivo. Falta em: ${semLink.filename}`,
+          )
+          return
+        }
+      }
       for (const item of pendentes) {
         await salvarItem(item, { openEditor: false })
       }
       setGlobalAviso(
-        destino === 'acervo'
+        destinoEfetivo === 'acervo'
           ? `${pendentes.length} música(s) no acervo global.`
           : `${pendentes.length} música(s) publicadas.`,
       )
@@ -418,12 +432,12 @@ export function ImportarArquivoModal({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-white">
-                {posSalvar ? 'Vincular YouTube' : 'Curadoria · Importar arquivo'}
+                {posSalvar ? 'Vincular YouTube' : 'Publicar no acervo global'}
               </h2>
               <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
                 {posSalvar
                   ? `“${posSalvar.titulo}” foi salva. Cole o link do vídeo (só grava na sua cópia — sem motor).`
-                  : 'ODT, PDF, DOCX ou TXT. No acervo global, o link YouTube vira a chave do atalho para todos.'}
+                  : 'ODT, PDF, DOCX ou TXT + link do YouTube. Sem o link a publicação não segue.'}
               </p>
             </div>
             <button
@@ -529,6 +543,29 @@ export function ImportarArquivoModal({
                         }
                       />
                     </FormField>
+
+                    {destinoEfetivo === 'acervo' ? (
+                      <div className="rounded-xl border border-[var(--crash-cifra)]/50 bg-[var(--crash-cifra)]/10 p-3">
+                        <FormField
+                          label="Link do YouTube (obrigatório)"
+                          hint="Casa a cifra com o vídeo. Quem importar este link recebe o atalho."
+                        >
+                          <input
+                            className={inputClassName}
+                            type="url"
+                            inputMode="url"
+                            autoComplete="off"
+                            placeholder="https://www.youtube.com/watch?v=…"
+                            value={ativo.youtubeUrl || ''}
+                            disabled={busy || ativo.published}
+                            onChange={(e) =>
+                              updateItem(ativo.id, { youtubeUrl: e.target.value })
+                            }
+                          />
+                        </FormField>
+                      </div>
+                    ) : null}
+
                     <FormField label="Artista">
                       <input
                         className={inputClassName}
@@ -557,26 +594,6 @@ export function ImportarArquivoModal({
                       </select>
                     </FormField>
 
-                    {destino === 'acervo' ? (
-                      <FormField
-                        label="Link do YouTube"
-                        hint="Obrigatório. Vira a chave do acervo (atalho para quem importar o mesmo vídeo)."
-                      >
-                        <input
-                          className={inputClassName}
-                          type="url"
-                          inputMode="url"
-                          autoComplete="off"
-                          placeholder="https://www.youtube.com/watch?v=…"
-                          value={ativo.youtubeUrl || ''}
-                          disabled={busy || ativo.published}
-                          onChange={(e) =>
-                            updateItem(ativo.id, { youtubeUrl: e.target.value })
-                          }
-                        />
-                      </FormField>
-                    ) : null}
-
                     {ativo.processed ? (
                       <p className="text-sm text-[var(--crash-texto-sec)]">
                         Cifra salva em linhas inteiras. A quebra adaptativa acontece no
@@ -593,7 +610,7 @@ export function ImportarArquivoModal({
             </div>
           ) : null}
 
-          {!posSalvar ? (
+          {!posSalvar && !somenteAcervo ? (
             <FormField
               label="Destino ao salvar"
               hint="Acervo global = cifra + YouTube disponíveis para todos."
@@ -611,6 +628,13 @@ export function ImportarArquivoModal({
                 </option>
               </select>
             </FormField>
+          ) : null}
+
+          {!posSalvar && somenteAcervo ? (
+            <p className="rounded-lg border border-[var(--crash-borda)] px-3 py-2 text-sm text-[var(--crash-texto-sec)]">
+              Destino: <span className="text-white">acervo global</span> — o YouTube é
+              obrigatório em cada canção.
+            </p>
           ) : null}
 
           {globalAviso ? (
@@ -677,13 +701,14 @@ export function ImportarArquivoModal({
                 className={`${btnPrimaryClassName} min-h-11 min-w-[9rem] touch-manipulation`}
                 disabled={
                   busy ||
-                  (destino === 'acervo' && !String(ativo?.youtubeUrl || '').trim())
+                  (destinoEfetivo === 'acervo' &&
+                    !String(ativo?.youtubeUrl || '').trim())
                 }
                 onClick={() => void abrirNoEditor()}
               >
                 {busy
                   ? busyLabel || 'Processando…'
-                  : destino === 'acervo'
+                  : destinoEfetivo === 'acervo'
                     ? 'Publicar no acervo'
                     : 'Salvar canção'}
               </button>
