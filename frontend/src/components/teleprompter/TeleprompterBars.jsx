@@ -267,7 +267,7 @@ export function BarraInferiorTeleprompter({
       className={`fixed bottom-0 left-0 right-0 z-30 flex items-center border-t border-white/10 bg-black/90 px-2 backdrop-blur sm:px-4 ${footerClassName}`}
       style={{ height: TELEPROMPTER_BARRA_INFERIOR_ALTURA }}
     >
-      <div className="mx-auto flex max-w-4xl items-center justify-center gap-1.5 sm:gap-3">
+      <div className="mx-auto flex w-full max-w-4xl items-center justify-start gap-1.5 sm:justify-center sm:gap-3">
         <span className="hidden sm:inline-flex">
           <InfoTooltip
             text={FUNCIONALIDADE_TOOLTIPS.barraBlocos}
@@ -304,7 +304,9 @@ export function BarraInferiorTeleprompter({
             e.stopPropagation()
             onTogglePause?.()
           }}
-          className="hidden min-h-14 min-w-16 rounded-xl bg-[var(--crash-cifra)] px-5 text-xl font-bold text-black transition hover:opacity-90 sm:inline-flex sm:items-center sm:justify-center"
+          className={`${buttonClass} inline-flex items-center justify-center ${
+            pausado ? 'text-[var(--crash-cifra)]' : ''
+          }`}
           aria-label={pausado ? 'Retomar' : 'Pausar'}
         >
           {pausado ? '▶' : '⏸'}

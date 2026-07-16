@@ -1510,24 +1510,6 @@ export function Teleprompter() {
       </main>
       )}
 
-      {paused && !isFixo && (
-        <div
-          className="pointer-events-none fixed z-20"
-          style={{
-            top: '50%',
-            right: TELEPROMPTER_CANTO_TOP_RIGHT,
-            transform: 'translateY(-50%)',
-          }}
-        >
-          <span className="flex flex-col items-center gap-1 rounded-xl border border-white/15 bg-black/75 px-3 py-2.5 text-2xl text-[var(--crash-cifra)] shadow-lg backdrop-blur-sm">
-            ⏸
-            <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/60">
-              Pausado
-            </span>
-          </span>
-        </div>
-      )}
-
       {modoEvento && !paused && !isFixo && (
         <div className="pointer-events-none fixed left-4 top-28 z-20 hidden items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-1.5 text-xs text-[var(--crash-cifra)] sm:flex">
           <span

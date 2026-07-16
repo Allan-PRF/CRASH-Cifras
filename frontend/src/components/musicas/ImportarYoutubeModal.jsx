@@ -7,11 +7,6 @@ import {
   btnSecondaryClassName,
   inputClassName,
 } from '../ui/inputClasses'
-import {
-  classeAvisoVoz,
-  PLACEHOLDER_BUSCA_VOZ,
-  useVoiceSearch,
-} from '../../lib/voiceSearch'
 import { buscarYoutube, cancelarImportJob, fetchImportJob, importarYoutube } from '../../services/importacao'
 import { clearImportJobRef, isCifraImportPronta, saveImportJobRef } from '../../lib/importJobStorage'
 import { useProgressoEstimadoMotor } from '../../hooks/useProgressoEstimadoMotor.js'
@@ -109,16 +104,6 @@ export function ImportarYoutubeModal({
 
   const motorGerando = job?.status === 'processing'
 
-  const voice = useVoiceSearch({
-    disabled: submitting,
-    onTranscript: (transcript) => {
-      setQuery(transcript)
-      void executarBuscaRef.current?.(transcript)
-    },
-  })
-
-  const executarBuscaRef = useRef(null)
-
   useEffect(() => {
     if (!open) return
     if (resumeJob?.id && resumeJob.status === 'processing') {
@@ -129,8 +114,6 @@ export function ImportarYoutubeModal({
       setResults([])
       setYoutubeUrl(youtubeUrlInitial || '')
       setError('')
-      voice.clearError()
-      voice.stop()
       return
     }
     setQuery('')
@@ -141,8 +124,6 @@ export function ImportarYoutubeModal({
     setSubmitting(false)
     setFase('form')
     setCancelando(false)
-    voice.clearError()
-    voice.stop()
   }, [open, isReimport, youtubeUrlInitial, resumeJob?.id, resumeJob?.status])
 
   useEffect(() => {
@@ -204,8 +185,6 @@ export function ImportarYoutubeModal({
       setSearching(false)
     }
   }
-
-  executarBuscaRef.current = executarBusca
 
   if (!open) return null
 
@@ -367,48 +346,14 @@ export function ImportarYoutubeModal({
           <>
             <form onSubmit={handleSearch} className="space-y-4">
               <FormField label="Buscar no YouTube">
-                <div className="flex gap-2">
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value)
-                      voice.clearError()
-                    }}
-                    placeholder={PLACEHOLDER_BUSCA_VOZ}
-                    className={inputClassName}
-                    disabled={submitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={voice.toggle}
-                    className={
-                      voice.listening
-                        ? `${btnSecondaryClassName} shrink-0 animate-pulse border-red-500 bg-red-600 text-white hover:bg-red-500`
-                        : `${btnSecondaryClassName} shrink-0`
-                    }
-                    aria-label={voice.listening ? 'Parar busca por voz' : 'Buscar por voz'}
-                    aria-pressed={voice.listening}
-                    disabled={submitting}
-                    title={
-                      voice.supported
-                        ? 'Falar o nome da música'
-                        : 'Navegador sem suporte a voz — use Chrome'
-                    }
-                  >
-                    🎙️
-                  </button>
-                </div>
-                {voice.listening && (
-                  <p className="mt-2 text-sm text-[var(--crash-cifra)]" role="status" aria-live="polite">
-                    Ouvindo… fale o nome da música
-                  </p>
-                )}
-                {voice.error && (
-                  <p className={`mt-2 ${classeAvisoVoz}`} role="alert">
-                    {voice.error}
-                  </p>
-                )}
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Digite o nome da canção"
+                  className={inputClassName}
+                  disabled={submitting}
+                />
               </FormField>
 
               <FormField label="Ou cole o link">
