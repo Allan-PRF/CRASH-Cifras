@@ -251,7 +251,9 @@ export async function createMusica({
   importadoEm,
   arquivoOrigem,
   importStatus,
+  onProgress,
 }) {
+  await ensureAuthSession()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -273,21 +275,23 @@ export async function createMusica({
   if (importadoEm) payload.importado_em = importadoEm
   if (arquivoOrigem) payload.arquivo_origem = String(arquivoOrigem).slice(0, 500)
 
-  const { data: musica, error } = await supabase
-    .from('musicas')
-    .insert(payload)
-    .select(MUSICA_SELECT)
-    .single()
+  onProgress?.('Criando música…')
+  const { data: musica, error } = await withAuthRetry(() =>
+    supabase.from('musicas').insert(payload).select(MUSICA_SELECT).single(),
+  )
 
   if (error) throw error
 
   if (ministroId && tomOriginal) {
-    await supabase.from('musica_ministro').upsert({
-      musica_id: musica.id,
-      ministro_id: ministroId,
-      tom_atual: tomAtualInicial ?? tomOriginal,
-      semitone_offset: semitoneOffsetInicial ?? 0,
-    })
+    const { error: mmErr } = await withAuthRetry(() =>
+      supabase.from('musica_ministro').upsert({
+        musica_id: musica.id,
+        ministro_id: ministroId,
+        tom_atual: tomAtualInicial ?? tomOriginal,
+        semitone_offset: semitoneOffsetInicial ?? 0,
+      }),
+    )
+    if (mmErr) throw mmErr
   }
 
   const secoes = secoesIniciais?.length
@@ -301,11 +305,22 @@ export async function createMusica({
         },
       ]
 
-  for (const sec of secoes) {
-    await upsertSecao(musica.id, sec)
+  for (let i = 0; i < secoes.length; i++) {
+    onProgress?.(
+      secoes.length > 1
+        ? `Salvando seção ${i + 1} de ${secoes.length}…`
+        : 'Salvando cifra…',
+    )
+    await upsertSecao(musica.id, secoes[i])
   }
 
-  return fetchMusicaCompleta(musica.id)
+  // Não bloquear abertura do editor se o refetch falhar (rede fraca no celular).
+  try {
+    onProgress?.('Abrindo editor…')
+    return await fetchMusicaCompleta(musica.id)
+  } catch {
+    return { ...musica, secoes }
+  }
 }
 
 /** Atualiza só o BPM oficial da música (cadastro/cópia — não usar no ± do teleprompter). */
