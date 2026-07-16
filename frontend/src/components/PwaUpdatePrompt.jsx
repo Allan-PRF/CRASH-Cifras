@@ -10,7 +10,7 @@ export function PwaUpdatePrompt() {
 
   return (
     <aside
-      className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-lg rounded-xl border border-violet-500/40 bg-zinc-900 p-4 shadow-lg"
+      className="fixed bottom-20 left-4 right-4 z-40 mx-auto max-w-lg rounded-xl border border-violet-500/40 bg-zinc-900 p-4 shadow-lg"
       role="alert"
     >
       <p className="text-sm text-zinc-200">Nova versão disponível.</p>

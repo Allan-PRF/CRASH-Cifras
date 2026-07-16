@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { FormField } from '../ui/FormField'
 import {
@@ -39,6 +40,7 @@ function formatSaveError(err) {
 
 /**
  * Importa um ou vários arquivos (ODT/PDF/DOCX/TXT) → fila de revisão → editor / lote.
+ * Portal em document.body + z-[100] para não ficar sob o banner PWA (z-50 no rodapé).
  */
 export function ImportarArquivoModal({
   open,
@@ -50,6 +52,7 @@ export function ImportarArquivoModal({
   const { user } = useAuth()
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
   const errorRef = useRef(null)
+  const savingRef = useRef(false)
 
   const [fila, setFila] = useState([])
   const [ativoId, setAtivoId] = useState(null)
@@ -70,6 +73,15 @@ export function ImportarArquivoModal({
     }
   }, [error])
 
+  useEffect(() => {
+    if (!open) return undefined
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
   if (!open) return null
 
   function reset() {
@@ -79,6 +91,7 @@ export function ImportarArquivoModal({
     setGlobalAviso('')
     setBusy(false)
     setBusyLabel('')
+    savingRef.current = false
     setDestino(ministroId ? 'ministro' : 'biblioteca')
   }
 
@@ -213,7 +226,6 @@ export function ImportarArquivoModal({
       status: 'ok',
     })
 
-    // Navegar ANTES de fechar o modal (evita race no celular).
     if (openEditor) {
       setBusyLabel('Abrindo editor…')
       navigate(`/musica/${musica.id}/editar`, { replace: true })
@@ -227,7 +239,29 @@ export function ImportarArquivoModal({
   }
 
   async function abrirNoEditor() {
-    if (!ativo || busy) return
+    // Ref evita double-tap no celular; botão NÃO fica disabled (iOS engole toque em disabled).
+    if (savingRef.current) return
+    if (!ativo) {
+      setError('Selecione um arquivo na fila.')
+      return
+    }
+    if (!ativo.processed) {
+      setError(ativo.erro || 'Arquivo ainda sem cifra processada.')
+      return
+    }
+    if (ativo.published) {
+      if (ativo.musicaId) {
+        navigate(`/musica/${ativo.musicaId}/editar`, { replace: true })
+        onClose?.()
+      }
+      return
+    }
+    if (!String(ativo.titulo || '').trim()) {
+      setError('Informe o título antes de salvar.')
+      return
+    }
+
+    savingRef.current = true
     setBusy(true)
     setBusyLabel('Salvando…')
     setError('')
@@ -236,17 +270,24 @@ export function ImportarArquivoModal({
     } catch (err) {
       setError(formatSaveError(err))
     } finally {
+      savingRef.current = false
       setBusy(false)
       setBusyLabel('')
     }
   }
 
   async function publicarLote() {
+    if (savingRef.current) return
+    savingRef.current = true
     setBusy(true)
     setBusyLabel('Publicando lote…')
     setError('')
     try {
       const pendentes = fila.filter((i) => !i.published && i.processed)
+      if (!pendentes.length) {
+        setError('Nenhum arquivo pronto para publicar.')
+        return
+      }
       for (const item of pendentes) {
         await salvarItem(item, { openEditor: false })
       }
@@ -254,23 +295,31 @@ export function ImportarArquivoModal({
     } catch (err) {
       setError(formatSaveError(err))
     } finally {
+      savingRef.current = false
       setBusy(false)
       setBusyLabel('')
     }
   }
 
   const accept = EXTENSOES_CIFRA_SUPORTADAS.join(',')
-  const podeAbrir =
-    !busy && Boolean(ativo) && !ativo.published && Boolean(ativo.processed)
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/80 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Importar cifras de arquivo"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) {
+          onClose?.()
+          reset()
+        }
+      }}
     >
-      <div className="flex max-h-[min(92dvh,100%)] w-full max-w-2xl flex-col rounded-t-2xl border border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] shadow-xl sm:rounded-2xl">
+      <div
+        className="relative z-[101] flex max-h-[min(92dvh,100%)] w-full max-w-2xl flex-col rounded-t-2xl border border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] shadow-xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="shrink-0 border-b border-[var(--crash-borda)] p-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -282,7 +331,7 @@ export function ImportarArquivoModal({
             </div>
             <button
               type="button"
-              className="text-[var(--crash-texto-sec)] hover:text-white"
+              className="min-h-11 min-w-11 text-[var(--crash-texto-sec)] hover:text-white"
               aria-label="Fechar"
               disabled={busy}
               onClick={() => {
@@ -423,7 +472,7 @@ export function ImportarArquivoModal({
           ) : null}
         </div>
 
-        <div className="shrink-0 space-y-2 border-t border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] p-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="relative z-[102] shrink-0 space-y-2 border-t border-[var(--crash-borda)] bg-[var(--crash-fundo-card)] p-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pointer-events-auto">
           {error ? (
             <p
               ref={errorRef}
@@ -441,16 +490,16 @@ export function ImportarArquivoModal({
           <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
-              className={btnSecondaryClassName}
-              disabled={busy || !fila.some((i) => !i.published && i.processed)}
-              onClick={publicarLote}
+              className={`${btnSecondaryClassName} min-h-11 touch-manipulation`}
+              disabled={busy}
+              onClick={() => void publicarLote()}
             >
               Publicar lote
             </button>
             <button
               type="button"
-              className={btnPrimaryClassName}
-              disabled={!podeAbrir}
+              className={`${btnPrimaryClassName} min-h-11 min-w-[9rem] touch-manipulation`}
+              disabled={busy}
               onClick={() => void abrirNoEditor()}
             >
               {busy ? busyLabel || 'Processando…' : 'Abrir no editor'}
@@ -460,4 +509,6 @@ export function ImportarArquivoModal({
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
