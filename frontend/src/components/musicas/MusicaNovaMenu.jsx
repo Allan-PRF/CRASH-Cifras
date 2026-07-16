@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { btnPrimaryClassName, btnSecondaryClassName } from '../ui/inputClasses'
+import { useAuth } from '../../hooks/useAuth'
+import { isAdminUser } from '../../lib/admin'
 import { ImportarYoutubeModal } from './ImportarYoutubeModal'
 import { ImportarArquivoModal } from './ImportarArquivoModal'
 
@@ -11,6 +13,8 @@ export function MusicaNovaMenu({
   importOpen: importOpenProp,
   onImportOpenChange,
 }) {
+  const { user } = useAuth()
+  const isAdmin = isAdminUser(user)
   const [importOpenInternal, setImportOpenInternal] = useState(false)
   const importOpen = importOpenProp ?? importOpenInternal
   const setImportOpen = onImportOpenChange ?? setImportOpenInternal
@@ -26,13 +30,15 @@ export function MusicaNovaMenu({
         >
           + Música (YouTube)
         </button>
-        <button
-          type="button"
-          onClick={() => setArquivoOpen(true)}
-          className={`${btnSecondaryClassName} hidden lg:inline-flex`}
-        >
-          Importar arquivo
-        </button>
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => setArquivoOpen(true)}
+            className={`${btnSecondaryClassName} hidden lg:inline-flex`}
+          >
+            Importar arquivo
+          </button>
+        ) : null}
       </div>
 
       <ImportarYoutubeModal
@@ -46,14 +52,16 @@ export function MusicaNovaMenu({
         }}
       />
 
-      <ImportarArquivoModal
-        open={arquivoOpen}
-        ministroId={ministroId}
-        onClose={() => setArquivoOpen(false)}
-        onImported={(musica) => {
-          onImported?.(musica)
-        }}
-      />
+      {isAdmin ? (
+        <ImportarArquivoModal
+          open={arquivoOpen}
+          ministroId={ministroId}
+          onClose={() => setArquivoOpen(false)}
+          onImported={(musica) => {
+            onImported?.(musica)
+          }}
+        />
+      ) : null}
     </>
   )
 }

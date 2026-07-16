@@ -433,7 +433,8 @@ acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
  */
 acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem } = req.body ?? {}
+    const { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem, youtubeUrl } =
+      req.body ?? {}
     if (!cifra || typeof cifra !== 'object') {
       return res.status(400).json({ error: 'cifra (snapshot) é obrigatória.' })
     }
@@ -445,11 +446,14 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
       bpm,
       criadoPor: req.user.id,
       arquivoOrigem,
+      youtubeUrl,
     })
     res.json({
       ok: true,
       acervo_musica_id: result.acervoMusica.id,
       acervo_versao_id: result.versao.id,
+      fonte_url: result.fonte_url || null,
+      youtube_url: result.youtube_url || null,
     })
   } catch (err) {
     if (err.status) {

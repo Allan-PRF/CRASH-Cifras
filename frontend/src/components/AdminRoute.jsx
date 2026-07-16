@@ -1,7 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-
-const ADMIN_EMAIL = 'alanadcms@gmail.com'
+import { isAdminUser } from '../lib/admin'
 
 export function AdminRoute({ children }) {
   const { user, loading } = useAuth()
@@ -14,7 +13,7 @@ export function AdminRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
-  if (user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!isAdminUser(user)) {
     return <Navigate to="/" replace />
   }
 

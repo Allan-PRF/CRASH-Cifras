@@ -117,11 +117,12 @@ export async function publicarCuradoriaAcervo({
   bpm,
   cifra,
   arquivoOrigem,
+  youtubeUrl,
 }) {
   const headers = await authHeaders()
   const { data } = await api.post(
     '/acervo/curadoria',
-    { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem },
+    { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem, youtubeUrl },
     { headers },
   )
   return data

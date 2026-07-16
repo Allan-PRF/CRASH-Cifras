@@ -215,8 +215,30 @@ export async function registrarVersaoMotor({
   return { versao, acervoMusica: musica }
 }
 
+function canonicalYoutubeUrlFromRaw(raw) {
+  const validation = validateYoutubeUrl(String(raw || '').trim())
+  if (!validation.valid) {
+    const err = new Error(validation.error || 'Link do YouTube inválido.')
+    err.status = 400
+    throw err
+  }
+  return `https://www.youtube.com/watch?v=${validation.videoId}`
+}
+
+async function buscarAcervoPorFonteUrl(fonteUrl) {
+  const db = admin()
+  const { data, error } = await db
+    .from('acervo_musicas')
+    .select('*')
+    .eq('fonte_url', fonteUrl)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
 /**
  * Admin publica cifra importada de arquivo no acervo global (origem=curadoria).
+ * Com youtubeUrl, fonte_url vira o link canônico — habilita atalho no import YouTube.
  */
 export async function registrarVersaoCuradoria({
   titulo,
@@ -226,6 +248,7 @@ export async function registrarVersaoCuradoria({
   bpm,
   criadoPor,
   arquivoOrigem = null,
+  youtubeUrl = null,
 }) {
   const db = admin()
   const tituloTrim = String(titulo || '').trim()
@@ -235,46 +258,66 @@ export async function registrarVersaoCuradoria({
     throw err
   }
 
-  const acervoMusica = await criarAcervoMusicaPendente({
-    titulo: tituloTrim,
-    artista,
-    fonteUrl: arquivoOrigem ? `curadoria://arquivo/${encodeURIComponent(arquivoOrigem)}` : null,
-  })
+  const rawYoutube = String(youtubeUrl || '').trim()
+  const canonicalUrl = rawYoutube ? canonicalYoutubeUrlFromRaw(rawYoutube) : null
+  const fonteUrl =
+    canonicalUrl ||
+    (arquivoOrigem ? `curadoria://arquivo/${encodeURIComponent(arquivoOrigem)}` : null)
+
+  let acervoMusica = canonicalUrl ? await buscarAcervoPorFonteUrl(canonicalUrl) : null
+  if (!acervoMusica) {
+    acervoMusica = await criarAcervoMusicaPendente({
+      titulo: tituloTrim,
+      artista,
+      fonteUrl,
+    })
+  } else if (canonicalUrl && acervoMusica.fonte_url !== canonicalUrl) {
+    await garantirFonteUrlYoutube(acervoMusica.id, canonicalUrl)
+  }
 
   const hash = hashCifraNorm(cifra)
   const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
 
-  const { data: versao, error: versaoErr } = await db
+  const { data: existente, error: findErr } = await db
     .from('acervo_versoes')
-    .insert({
-      acervo_musica_id: acervoMusica.id,
-      cifra,
-      tom_original: tomOriginal || cifra?.tom_original || null,
-      bpm: bpmVal,
-      hash_norm: hash,
-      origem: 'curadoria',
-      criado_por: criadoPor || null,
-      score: calcularScoreVersao({ aceitacao_count: 0, convergencia_count: 0 }),
-    })
-    .select()
-    .single()
+    .select('*')
+    .eq('acervo_musica_id', acervoMusica.id)
+    .eq('hash_norm', hash)
+    .maybeSingle()
+  if (findErr) throw findErr
 
-  if (versaoErr) throw versaoErr
+  let versao
+  if (existente) {
+    versao = existente
+  } else {
+    const { data: nova, error: versaoErr } = await db
+      .from('acervo_versoes')
+      .insert({
+        acervo_musica_id: acervoMusica.id,
+        cifra,
+        tom_original: tomOriginal || cifra?.tom_original || null,
+        bpm: bpmVal,
+        hash_norm: hash,
+        origem: 'curadoria',
+        criado_por: criadoPor || null,
+        score: calcularScoreVersao({ aceitacao_count: 0, convergencia_count: 0 }),
+      })
+      .select()
+      .single()
+
+    if (versaoErr) throw versaoErr
+    versao = nova
+  }
 
   await db.from('acervo_musicas').update({ status: 'ready' }).eq('id', acervoMusica.id)
   await recalcularVersaoTop(acervoMusica.id)
 
-  return { versao, acervoMusica }
-}
-
-function canonicalYoutubeUrlFromRaw(raw) {
-  const validation = validateYoutubeUrl(String(raw || '').trim())
-  if (!validation.valid) {
-    const err = new Error(validation.error || 'Link do YouTube inválido.')
-    err.status = 400
-    throw err
+  return {
+    versao,
+    acervoMusica,
+    fonte_url: canonicalUrl || acervoMusica.fonte_url || fonteUrl,
+    youtube_url: canonicalUrl,
   }
-  return `https://www.youtube.com/watch?v=${validation.videoId}`
 }
 
 /** Define fonte_url = YouTube quando estiver vazio ou for curadoria://arquivo/... */
@@ -309,17 +352,6 @@ async function garantirFonteUrlYoutube(acervoMusicaId, canonicalUrl) {
   }
 
   return { updated: false }
-}
-
-async function buscarAcervoPorFonteUrl(fonteUrl) {
-  const db = admin()
-  const { data, error } = await db
-    .from('acervo_musicas')
-    .select('*')
-    .eq('fonte_url', fonteUrl)
-    .maybeSingle()
-  if (error) throw error
-  return data
 }
 
 /**
