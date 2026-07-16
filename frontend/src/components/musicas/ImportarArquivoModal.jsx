@@ -20,6 +20,7 @@ import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
 import { buildCifraSnapshot } from '@crash-cifras/shared/acervo-snapshot'
 import { ensureAuthSession } from '../../lib/authSession'
+import { readArquivoCifraBytes, isEmptyPdfError, MENSAGEM_ARQUIVO_VAZIO_DRIVE } from '../../lib/readArquivoCifraBytes'
 
 const ADMIN_EMAIL = 'alanadcms@gmail.com'
 
@@ -113,7 +114,10 @@ export function ImportarArquivoModal({
         const id = newItemId()
         try {
           setBusyLabel(`Processando ${file.name}…`)
-          const buf = await file.arrayBuffer()
+          if (typeof file.size === 'number' && file.size === 0) {
+            throw new Error(MENSAGEM_ARQUIVO_VAZIO_DRIVE)
+          }
+          const buf = await readArquivoCifraBytes(file)
           const result = await posProcessarImportacaoCifra({
             fileData: buf,
             filename: file.name,
@@ -136,6 +140,9 @@ export function ImportarArquivoModal({
             erro: null,
           })
         } catch (err) {
+          const msg = isEmptyPdfError(err)
+            ? MENSAGEM_ARQUIVO_VAZIO_DRIVE
+            : err?.message || 'Falha ao ler arquivo'
           novos.push({
             id,
             filename: file.name,
@@ -144,11 +151,12 @@ export function ImportarArquivoModal({
             artista: '',
             tomOriginal: '',
             status: 'precisa_revisao',
-            avisos: err?.avisos || [err?.message || 'Falha ao ler arquivo'],
+            avisos: err?.avisos || [msg],
             published: false,
             musicaId: null,
-            erro: err?.message || 'Falha ao ler arquivo',
+            erro: msg,
           })
+          setError(msg)
         }
       }
       setFila((prev) => [...prev, ...novos])
@@ -324,10 +332,10 @@ export function ImportarArquivoModal({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-white">Importar arquivo</h2>
-              <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-                ODT, PDF, DOCX ou TXT — um ou vários. Revisão com status ok / precisa
-                revisão.
-              </p>
+            <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
+              ODT, PDF, DOCX ou TXT — um ou vários. No celular: se o arquivo estiver no
+              Google Drive, baixe antes para Downloads e importe de lá.
+            </p>
             </div>
             <button
               type="button"

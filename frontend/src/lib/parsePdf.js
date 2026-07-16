@@ -215,13 +215,37 @@ export async function extractTextFromPdf(data) {
     typeof Buffer !== 'undefined' && Buffer.isBuffer?.(raw)
       ? Uint8Array.from(raw)
       : new Uint8Array(raw)
+
+  if (bytes.byteLength === 0) {
+    throw new Error(
+      'Não foi possível ler o PDF (arquivo vazio). No celular, baixe o PDF do Drive ' +
+        'para o aparelho e importe de Downloads/Arquivos — ou use Word (.docx) / ODT.',
+    )
+  }
+
   const loadingTask = pdfjs.getDocument({
     data: bytes,
     useSystemFonts: true,
     isEvalSupported: false,
     disableWorker: typeof window === 'undefined',
   })
-  const pdf = await loadingTask.promise
+  let pdf
+  try {
+    pdf = await loadingTask.promise
+  } catch (err) {
+    const m = String(err?.message || err || '').toLowerCase()
+    if (
+      m.includes('size is zero') ||
+      m.includes('zero bytes') ||
+      m.includes('pdf file is empty')
+    ) {
+      throw new Error(
+        'Não foi possível ler o PDF (arquivo vazio). No celular, baixe o PDF do Drive ' +
+          'para o aparelho e importe de Downloads/Arquivos — ou use Word (.docx) / ODT.',
+      )
+    }
+    throw err
+  }
   const parts = []
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
