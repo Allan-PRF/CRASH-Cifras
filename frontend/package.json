@@ -21,6 +21,7 @@
     "test:notacao-br": "node scripts/test-notacao-br.mjs",
     "test:import-done-invite": "node scripts/test-import-done-invite.mjs",
     "test:import-ha-poder": "node scripts/test-import-ha-poder.mjs",
+    "test:parse-pdf-coordinates": "node scripts/test-parse-pdf-coordinates.mjs",
     "test:auto-wrap": "node scripts/test-auto-wrap.mjs",
     "test:teleprompter-mobile-viewport": "node scripts/test-teleprompter-mobile-viewport.mjs",
     "fixtures:ha-poder": "node scripts/generate-ha-poder-fixtures.mjs"

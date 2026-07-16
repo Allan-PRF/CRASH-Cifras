@@ -66,9 +66,6 @@ async function runChecks(label, filename, data) {
       !/^sua gl/i.test(String(verboLine.lyricLine).trim()),
       'não é só pedaço "sua glória…" (não wrapado)',
     )
-  } else if (/O verbo\s+vivo\s+que\s+deixou/i.test(result.texto_bruto || '')) {
-    // PDF às vezes cola páginas num único bloco — fora do wrap; basta não ter wrap_ok
-    assert(true, 'frase no texto bruto (extract do PDF colado; sem wrap de import)')
   } else {
     assert(false, 'encontrou linha/texto "O verbo vivo…"')
   }
