@@ -17,6 +17,7 @@ import {
   corrigirTomVersaoMotor,
   usuarioPossuiCopiaLigadaAVersao,
   registrarVersaoCuradoria,
+  publicarCopiaPessoalNoAcervo,
 } from '../lib/acervo.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
@@ -378,6 +379,43 @@ acervoRouter.post('/copias/restaurar-motor', requireAuth, async (req, res, next)
     const result = await restaurarCopiaPessoalDoMotor({
       musicaId,
       userId: req.user.id,
+    })
+
+    res.json({ ok: true, ...result })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Usuário — publica cópia pessoal no acervo da comunidade (YouTube = fonte_url).
+ * POST /api/acervo/copias/publicar
+ */
+acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
+  try {
+    const { musicaId, youtubeUrl, tomOriginal, bpm, secoes } = req.body ?? {}
+    if (!musicaId) {
+      return res.status(400).json({ error: 'musicaId é obrigatório.' })
+    }
+
+    const cifra =
+      Array.isArray(secoes) && secoes.length
+        ? buildCifraSnapshot({
+            tomOriginal,
+            bpm,
+            intro: { lines: [] },
+            secoes,
+          })
+        : null
+
+    const result = await publicarCopiaPessoalNoAcervo({
+      musicaId,
+      userId: req.user.id,
+      youtubeUrl: youtubeUrl || null,
+      cifra,
     })
 
     res.json({ ok: true, ...result })

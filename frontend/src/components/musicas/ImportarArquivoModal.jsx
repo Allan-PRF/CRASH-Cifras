@@ -14,11 +14,12 @@ import {
   secoesParaCreateMusica,
 } from '../../lib/posProcessamentoImport'
 import { EXTENSOES_CIFRA_SUPORTADAS } from '../../lib/extractTextoArquivo'
-import { createMusica } from '../../services/musicas'
+import { createMusica, updateMusicaYoutubeUrl } from '../../services/musicas'
 import { publicarCuradoriaAcervo } from '../../services/acervo'
 import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
 import { buildCifraSnapshot } from '@crash-cifras/shared/acervo-snapshot'
+import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { ensureAuthSession } from '../../lib/authSession'
 import { readArquivoCifraBytes, isEmptyPdfError, MENSAGEM_ARQUIVO_VAZIO_DRIVE } from '../../lib/readArquivoCifraBytes'
 
@@ -62,6 +63,9 @@ export function ImportarArquivoModal({
   const [busyLabel, setBusyLabel] = useState('')
   const [error, setError] = useState('')
   const [globalAviso, setGlobalAviso] = useState('')
+  /** Após salvar: vincular YouTube sem worker (atalho futuro no acervo). */
+  const [posSalvar, setPosSalvar] = useState(null)
+  const [youtubeDraft, setYoutubeDraft] = useState('')
 
   const ativo = useMemo(
     () => fila.find((i) => i.id === ativoId) || fila[0] || null,
@@ -93,6 +97,8 @@ export function ImportarArquivoModal({
     setBusy(false)
     setBusyLabel('')
     savingRef.current = false
+    setPosSalvar(null)
+    setYoutubeDraft('')
     setDestino(ministroId ? 'ministro' : 'biblioteca')
   }
 
@@ -235,15 +241,58 @@ export function ImportarArquivoModal({
     })
 
     if (openEditor) {
-      setBusyLabel('Abrindo editor…')
-      navigate(`/musica/${musica.id}/editar`, { replace: true })
-      onClose?.()
+      setPosSalvar({
+        musicaId: musica.id,
+        titulo: item.titulo.trim(),
+      })
+      setYoutubeDraft('')
+      setBusyLabel('')
       onImported?.(musica)
       return musica
     }
 
     onImported?.(musica)
     return musica
+  }
+
+  function fecharAposSalvar(path) {
+    reset()
+    onClose?.()
+    navigate(path, { replace: true })
+  }
+
+  async function vincularYoutubeEIr(path) {
+    if (!posSalvar?.musicaId || savingRef.current) return
+    const raw = youtubeDraft.trim()
+    if (!raw) {
+      setError('Cole o link do YouTube ou escolha pular.')
+      return
+    }
+    const validation = validateYoutubeUrl(raw)
+    if (!validation.valid) {
+      setError(validation.error || 'Link do YouTube inválido.')
+      return
+    }
+
+    savingRef.current = true
+    setBusy(true)
+    setBusyLabel('Vinculando YouTube…')
+    setError('')
+    try {
+      await updateMusicaYoutubeUrl(posSalvar.musicaId, raw)
+      fecharAposSalvar(path)
+    } catch (err) {
+      setError(formatSaveError(err))
+    } finally {
+      savingRef.current = false
+      setBusy(false)
+      setBusyLabel('')
+    }
+  }
+
+  function pularYoutubeEIr(path) {
+    if (!posSalvar?.musicaId) return
+    fecharAposSalvar(path)
   }
 
   async function abrirNoEditor() {
@@ -319,6 +368,10 @@ export function ImportarArquivoModal({
       aria-label="Importar cifras de arquivo"
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) {
+          if (posSalvar?.musicaId) {
+            pularYoutubeEIr(`/musica/${posSalvar.musicaId}/editar`)
+            return
+          }
           onClose?.()
           reset()
         }
@@ -331,11 +384,14 @@ export function ImportarArquivoModal({
         <div className="shrink-0 border-b border-[var(--crash-borda)] p-5 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-white">Importar arquivo</h2>
-            <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
-              ODT, PDF, DOCX ou TXT — um ou vários. No celular: se o arquivo estiver no
-              Google Drive, baixe antes para Downloads e importe de lá.
-            </p>
+              <h2 className="text-lg font-bold text-white">
+                {posSalvar ? 'Vincular YouTube' : 'Importar arquivo'}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
+                {posSalvar
+                  ? `“${posSalvar.titulo}” foi salva. Cole o link do vídeo (só grava na sua cópia — sem motor). Depois, no editor, use “Salvar no acervo da comunidade” para o atalho funcionar para outros.`
+                  : 'ODT, PDF, DOCX ou TXT — um ou vários. No celular: se o arquivo estiver no Google Drive, baixe antes para Downloads e importe de lá.'}
+              </p>
             </div>
             <button
               type="button"
@@ -343,6 +399,10 @@ export function ImportarArquivoModal({
               aria-label="Fechar"
               disabled={busy}
               onClick={() => {
+                if (posSalvar?.musicaId) {
+                  pularYoutubeEIr(`/musica/${posSalvar.musicaId}/editar`)
+                  return
+                }
                 onClose?.()
                 reset()
               }}
@@ -351,20 +411,40 @@ export function ImportarArquivoModal({
             </button>
           </div>
 
-          <div className="mt-4">
-            <input
-              type="file"
-              accept={accept}
-              multiple
-              disabled={busy}
-              onChange={onFilesChange}
-              className="block w-full text-sm text-white file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--crash-cifra)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black"
-            />
-          </div>
+          {!posSalvar ? (
+            <div className="mt-4">
+              <input
+                type="file"
+                accept={accept}
+                multiple
+                disabled={busy}
+                onChange={onFilesChange}
+                className="block w-full text-sm text-white file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--crash-cifra)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black"
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
-          {fila.length > 0 ? (
+          {posSalvar ? (
+            <div className="space-y-3">
+              <FormField
+                label="Link do YouTube"
+                hint="Opcional agora. Necessário depois para publicar no acervo da comunidade."
+              >
+                <input
+                  className={inputClassName}
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  placeholder="https://www.youtube.com/watch?v=…"
+                  value={youtubeDraft}
+                  disabled={busy}
+                  onChange={(e) => setYoutubeDraft(e.target.value)}
+                />
+              </FormField>
+            </div>
+          ) : fila.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
               <ul className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-[var(--crash-borda)] p-2 sm:max-h-72">
                 {fila.map((item) => (
@@ -460,20 +540,22 @@ export function ImportarArquivoModal({
             </div>
           ) : null}
 
-          <FormField label="Destino ao salvar" hint="Acervo global só para admin.">
-            <select
-              className={selectClassName}
-              value={destino}
-              disabled={busy}
-              onChange={(e) => setDestino(e.target.value)}
-            >
-              <option value="biblioteca">Biblioteca pessoal</option>
-              <option value="ministro" disabled={!ministroId}>
-                Pasta do ministério
-              </option>
-              {isAdmin ? <option value="acervo">Acervo global (admin)</option> : null}
-            </select>
-          </FormField>
+          {!posSalvar ? (
+            <FormField label="Destino ao salvar" hint="Acervo global só para admin.">
+              <select
+                className={selectClassName}
+                value={destino}
+                disabled={busy}
+                onChange={(e) => setDestino(e.target.value)}
+              >
+                <option value="biblioteca">Biblioteca pessoal</option>
+                <option value="ministro" disabled={!ministroId}>
+                  Pasta do ministério
+                </option>
+                {isAdmin ? <option value="acervo">Acervo global (admin)</option> : null}
+              </select>
+            </FormField>
+          ) : null}
 
           {globalAviso ? (
             <p className="text-sm text-amber-200">{globalAviso}</p>
@@ -495,24 +577,55 @@ export function ImportarArquivoModal({
               {busyLabel}
             </p>
           ) : null}
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              className={`${btnSecondaryClassName} min-h-11 touch-manipulation`}
-              disabled={busy}
-              onClick={() => void publicarLote()}
-            >
-              Publicar lote
-            </button>
-            <button
-              type="button"
-              className={`${btnPrimaryClassName} min-h-11 min-w-[9rem] touch-manipulation`}
-              disabled={busy}
-              onClick={() => void abrirNoEditor()}
-            >
-              {busy ? busyLabel || 'Processando…' : 'Abrir no editor'}
-            </button>
-          </div>
+          {posSalvar ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                className={`${btnSecondaryClassName} min-h-11 touch-manipulation`}
+                disabled={busy}
+                onClick={() => pularYoutubeEIr(`/musica/${posSalvar.musicaId}/editar`)}
+              >
+                Pular · editor
+              </button>
+              <button
+                type="button"
+                className={`${btnSecondaryClassName} min-h-11 touch-manipulation`}
+                disabled={busy}
+                onClick={() => pularYoutubeEIr(`/teleprompter/musica/${posSalvar.musicaId}`)}
+              >
+                Pular · teleprompter
+              </button>
+              <button
+                type="button"
+                className={`${btnPrimaryClassName} min-h-11 touch-manipulation`}
+                disabled={busy || !youtubeDraft.trim()}
+                onClick={() =>
+                  void vincularYoutubeEIr(`/teleprompter/musica/${posSalvar.musicaId}`)
+                }
+              >
+                {busy ? busyLabel || 'Vinculando…' : 'Vincular e abrir teleprompter'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className={`${btnSecondaryClassName} min-h-11 touch-manipulation`}
+                disabled={busy}
+                onClick={() => void publicarLote()}
+              >
+                Publicar lote
+              </button>
+              <button
+                type="button"
+                className={`${btnPrimaryClassName} min-h-11 min-w-[9rem] touch-manipulation`}
+                disabled={busy}
+                onClick={() => void abrirNoEditor()}
+              >
+                {busy ? busyLabel || 'Processando…' : 'Salvar canção'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

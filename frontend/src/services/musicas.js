@@ -1,4 +1,5 @@
 import { EMPTY_LINHAS } from '@crash-cifras/shared/chord-schema'
+import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import {
   ensureAuthSession,
   isJwtExpiredError,
@@ -379,6 +380,9 @@ export async function updateMusica(id, fields) {
   if (fields.tomMotorConferidoEm !== undefined) {
     update.tom_motor_conferido_em = fields.tomMotorConferidoEm
   }
+  if (fields.youtubeUrl !== undefined) {
+    update.youtube_url = fields.youtubeUrl?.trim() || null
+  }
   const { data, error } = await withAuthRetry(() =>
     supabase
       .from('musicas')
@@ -388,6 +392,29 @@ export async function updateMusica(id, fields) {
       .single(),
   )
 
+  if (error) throw error
+  return data
+}
+
+/**
+ * Vincula YouTube à cópia pessoal sem disparar worker/motor.
+ * @param {string} musicaId
+ * @param {string} youtubeUrl
+ */
+export async function updateMusicaYoutubeUrl(musicaId, youtubeUrl) {
+  const validation = validateYoutubeUrl(String(youtubeUrl || '').trim())
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Link do YouTube inválido.')
+  }
+  const canonical = `https://www.youtube.com/watch?v=${validation.videoId}`
+  const { data, error } = await withAuthRetry(() =>
+    supabase
+      .from('musicas')
+      .update({ youtube_url: canonical })
+      .eq('id', musicaId)
+      .select(MUSICA_SELECT)
+      .single(),
+  )
   if (error) throw error
   return data
 }

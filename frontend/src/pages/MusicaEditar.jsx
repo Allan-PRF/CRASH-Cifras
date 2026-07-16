@@ -55,7 +55,7 @@ import {
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
-import { corrigirTomVersaoMotor, enviarFeedbackAcervo, isFonteJaCorrigidaError, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
+import { corrigirTomVersaoMotor, isFonteJaCorrigidaError, publicarCopiaNoAcervo, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
 import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
 import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
@@ -113,6 +113,7 @@ export function MusicaEditar() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sharingAcervo, setSharingAcervo] = useState(false)
+  const [youtubeUrlDraft, setYoutubeUrlDraft] = useState('')
   const [error, setError] = useState('')
   const [offsetVisual, setOffsetVisual] = useState(0)
   const [tomDestino, setTomDestino] = useState(null)
@@ -227,6 +228,7 @@ export function MusicaEditar() {
       .then(async ([data, playlistItem]) => {
         setMeta(data)
         tomOriginalInicialRef.current = data.tom_original ?? null
+        setYoutubeUrlDraft(data.youtube_url || '')
         setVersiculoPrefs(versiculoPrefsFromMusica(data.versiculo_prefs))
 
         const usarCifraEvento =
@@ -611,30 +613,47 @@ export function MusicaEditar() {
   }
 
   async function handleCompartilharComunidade() {
-    if (!meta?.acervo_versao_id || editandoCifraEvento) return
+    if (!meta || editandoCifraEvento) return
     setSharingAcervo(true)
     setError('')
     try {
       const bpm =
         meta.bpm != null && Number(meta.bpm) >= 1 ? Math.floor(Number(meta.bpm)) : null
-      const result = await enviarFeedbackAcervo({
-        acervoVersaoId: meta.acervo_versao_id,
+      const secoesPayload = secoes.map((sec, i) => ({
+        slug: sec.slug,
+        nome: sec.nome,
+        ordem_original: i,
+        linhas: sec.linhas,
+      }))
+
+      const result = await publicarCopiaNoAcervo({
+        musicaId: id,
+        youtubeUrl: youtubeUrlDraft || meta.youtube_url || null,
         tomOriginal: meta.tom_original,
         bpm,
-        secoes: secoes.map((sec, i) => ({
-          slug: sec.slug,
-          nome: sec.nome,
-          ordem_original: i,
-          linhas: sec.linhas,
-        })),
+        secoes: secoesPayload,
       })
-      const tipo = result?.result?.tipo
+
+      setMeta((prev) =>
+        prev
+          ? {
+              ...prev,
+              youtube_url: result.youtube_url || prev.youtube_url,
+              acervo_versao_id: result.acervo_versao_id || prev.acervo_versao_id,
+            }
+          : prev,
+      )
+      if (result.youtube_url) setYoutubeUrlDraft(result.youtube_url)
+
+      const tipo = result?.tipo
       if (tipo === 'aceitacao') {
         setToastMotor('Comunidade: cifra igual à origem (aceitação registrada).')
       } else if (tipo === 'convergencia') {
         setToastMotor('Comunidade: sua cifra convergiu com uma versão existente.')
       } else if (tipo === 'nova_correcao') {
         setToastMotor('Comunidade: versão de correção publicada.')
+      } else if (tipo === 'publicacao') {
+        setToastMotor('Cifra salva no acervo da comunidade. O mesmo link YouTube agora dá atalho.')
       } else {
         setToastMotor('Cifra compartilhada com a comunidade.')
       }
@@ -881,10 +900,14 @@ export function MusicaEditar() {
             : 'Salvar minha cópia'}
       </button>
 
-      {!editandoCifraEvento && meta?.acervo_versao_id && (
+      {!editandoCifraEvento && meta && (
         <CompartilharAcervoCard
           sharing={sharingAcervo}
           disabled={saving}
+          jaNoAcervo={Boolean(meta.acervo_versao_id)}
+          precisaYoutube={!String(meta.youtube_url || '').trim()}
+          youtubeUrl={youtubeUrlDraft}
+          onYoutubeUrlChange={setYoutubeUrlDraft}
           onCompartilhar={handleCompartilharComunidade}
         />
       )}

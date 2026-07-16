@@ -8,6 +8,7 @@ import {
   normalizeAcervoText,
   unpackCifraToSecoes,
 } from '@crash-cifras/shared'
+import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { getSupabaseAdmin } from './supabase.js'
 
 function admin() {
@@ -264,6 +265,232 @@ export async function registrarVersaoCuradoria({
   await recalcularVersaoTop(acervoMusica.id)
 
   return { versao, acervoMusica }
+}
+
+function canonicalYoutubeUrlFromRaw(raw) {
+  const validation = validateYoutubeUrl(String(raw || '').trim())
+  if (!validation.valid) {
+    const err = new Error(validation.error || 'Link do YouTube inválido.')
+    err.status = 400
+    throw err
+  }
+  return `https://www.youtube.com/watch?v=${validation.videoId}`
+}
+
+/** Define fonte_url = YouTube quando estiver vazio ou for curadoria://arquivo/... */
+async function garantirFonteUrlYoutube(acervoMusicaId, canonicalUrl) {
+  const db = admin()
+  const { data: row, error } = await db
+    .from('acervo_musicas')
+    .select('id, fonte_url')
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (error) throw error
+  if (!row) return { updated: false }
+  if (row.fonte_url === canonicalUrl) return { updated: false }
+
+  const { data: conflict, error: cErr } = await db
+    .from('acervo_musicas')
+    .select('id')
+    .eq('fonte_url', canonicalUrl)
+    .neq('id', acervoMusicaId)
+    .maybeSingle()
+  if (cErr) throw cErr
+  if (conflict) return { updated: false, conflictId: conflict.id }
+
+  const atual = String(row.fonte_url || '')
+  if (!atual || atual.startsWith('curadoria://')) {
+    const { error: upErr } = await db
+      .from('acervo_musicas')
+      .update({ fonte_url: canonicalUrl })
+      .eq('id', acervoMusicaId)
+    if (upErr) throw upErr
+    return { updated: true }
+  }
+
+  return { updated: false }
+}
+
+async function buscarAcervoPorFonteUrl(fonteUrl) {
+  const db = admin()
+  const { data, error } = await db
+    .from('acervo_musicas')
+    .select('*')
+    .eq('fonte_url', fonteUrl)
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+/**
+ * Usuário autenticado publica a cifra da cópia pessoal no acervo da comunidade.
+ * O YouTube canônico vira fonte_url — habilita o atalho no 2º import pelo mesmo link.
+ */
+export async function publicarCopiaPessoalNoAcervo({
+  musicaId,
+  userId,
+  youtubeUrl = null,
+  cifra = null,
+}) {
+  const db = admin()
+
+  const { data: musica, error } = await db
+    .from('musicas')
+    .select(
+      'id, user_id, titulo, artista, youtube_url, acervo_versao_id, tom_original, bpm, intro, import_status',
+    )
+    .eq('id', musicaId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!musica) {
+    const err = new Error('Música não encontrada.')
+    err.status = 404
+    throw err
+  }
+  if (musica.user_id !== userId) {
+    const err = new Error('Sem permissão para acessar esta música.')
+    err.status = 403
+    throw err
+  }
+
+  const rawYoutube = youtubeUrl || musica.youtube_url
+  if (!String(rawYoutube || '').trim()) {
+    const err = new Error(
+      'Informe o link do YouTube para publicar no acervo da comunidade.',
+    )
+    err.status = 400
+    throw err
+  }
+
+  const canonicalUrl = canonicalYoutubeUrlFromRaw(rawYoutube)
+
+  if (musica.youtube_url !== canonicalUrl) {
+    const { error: ytErr } = await db
+      .from('musicas')
+      .update({ youtube_url: canonicalUrl })
+      .eq('id', musicaId)
+    if (ytErr) throw ytErr
+  }
+
+  let cifraSalva = cifra
+  if (!cifraSalva?.secoes) {
+    const { data: secoesRows, error: sErr } = await db
+      .from('secoes_musica')
+      .select('slug, nome, ordem_original, linhas')
+      .eq('musica_id', musicaId)
+      .order('ordem_original', { ascending: true })
+    if (sErr) throw sErr
+    cifraSalva = buildCifraSnapshot({
+      tomOriginal: musica.tom_original,
+      bpm: musica.bpm,
+      intro: musica.intro || { lines: [] },
+      secoes: secoesRows || [],
+    })
+  }
+
+  if (musica.acervo_versao_id) {
+    const { data: origem, error: oErr } = await db
+      .from('acervo_versoes')
+      .select('id, acervo_musica_id')
+      .eq('id', musica.acervo_versao_id)
+      .maybeSingle()
+    if (oErr) throw oErr
+
+    if (origem?.acervo_musica_id) {
+      await garantirFonteUrlYoutube(origem.acervo_musica_id, canonicalUrl)
+      const feedback = await registrarFeedbackSalvamento({
+        acervoVersaoId: musica.acervo_versao_id,
+        cifraSalva,
+        userId,
+      })
+      return {
+        tipo: feedback?.tipo || 'feedback',
+        acervo_versao_id: feedback?.versaoId || musica.acervo_versao_id,
+        acervo_musica_id: origem.acervo_musica_id,
+        fonte_url: canonicalUrl,
+        youtube_url: canonicalUrl,
+      }
+    }
+  }
+
+  let acervoMusica = await buscarAcervoPorFonteUrl(canonicalUrl)
+  if (!acervoMusica) {
+    acervoMusica = await criarAcervoMusicaPendente({
+      titulo: musica.titulo,
+      artista: musica.artista,
+      fonteUrl: canonicalUrl,
+    })
+  }
+
+  const hash = hashCifraNorm(cifraSalva)
+  const bpmVal = normalizeBpmForDb(cifraSalva?.bpm, musica.bpm)
+
+  const { data: existente, error: findErr } = await db
+    .from('acervo_versoes')
+    .select('*')
+    .eq('acervo_musica_id', acervoMusica.id)
+    .eq('hash_norm', hash)
+    .maybeSingle()
+  if (findErr) throw findErr
+
+  let versao
+  let tipo
+  if (existente) {
+    await db
+      .from('acervo_versoes')
+      .update({ convergencia_count: (existente.convergencia_count || 0) + 1 })
+      .eq('id', existente.id)
+    versao = existente
+    tipo = 'convergencia'
+  } else {
+    const origemVersao = acervoMusica.versao_top_id ? 'correcao' : 'curadoria'
+    const { data: nova, error: insertErr } = await db
+      .from('acervo_versoes')
+      .insert({
+        acervo_musica_id: acervoMusica.id,
+        cifra: cifraSalva,
+        tom_original: cifraSalva.tom_original || musica.tom_original || null,
+        bpm: bpmVal,
+        hash_norm: hash,
+        origem: origemVersao,
+        criado_por: userId,
+        convergencia_count: 1,
+        score: calcularScoreVersao({ aceitacao_count: 0, convergencia_count: 1 }),
+      })
+      .select()
+      .single()
+    if (insertErr) throw insertErr
+    versao = nova
+    tipo = 'publicacao'
+  }
+
+  await db.from('acervo_musicas').update({ status: 'ready' }).eq('id', acervoMusica.id)
+  await recalcularVersaoTop(acervoMusica.id)
+  await garantirFonteUrlYoutube(acervoMusica.id, canonicalUrl)
+
+  const importStatus =
+    musica.import_status === 'pending' || musica.import_status === 'processing'
+      ? 'ready'
+      : musica.import_status
+
+  const { error: linkErr } = await db
+    .from('musicas')
+    .update({
+      acervo_versao_id: versao.id,
+      youtube_url: canonicalUrl,
+      import_status: importStatus,
+    })
+    .eq('id', musicaId)
+  if (linkErr) throw linkErr
+
+  return {
+    tipo,
+    acervo_versao_id: versao.id,
+    acervo_musica_id: acervoMusica.id,
+    fonte_url: canonicalUrl,
+    youtube_url: canonicalUrl,
+  }
 }
 
 /**

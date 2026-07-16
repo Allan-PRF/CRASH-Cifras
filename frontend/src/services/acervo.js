@@ -126,3 +126,23 @@ export async function publicarCuradoriaAcervo({
   )
   return data
 }
+
+/**
+ * Publica a cópia pessoal no acervo da comunidade (fonte_url = YouTube canônico).
+ * Se já houver acervo_versao_id, registra feedback e garante o link YouTube.
+ */
+export async function publicarCopiaNoAcervo({
+  musicaId,
+  youtubeUrl,
+  tomOriginal,
+  bpm,
+  secoes,
+}) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    '/acervo/copias/publicar',
+    { musicaId, youtubeUrl, tomOriginal, bpm, secoes },
+    { headers },
+  )
+  return data
+}
