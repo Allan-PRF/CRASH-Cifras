@@ -24,6 +24,7 @@
     "test:parse-pdf-coordinates": "node scripts/test-parse-pdf-coordinates.mjs",
     "test:auto-wrap": "node scripts/test-auto-wrap.mjs",
     "test:teleprompter-mobile-viewport": "node scripts/test-teleprompter-mobile-viewport.mjs",
+    "test:curadoria-duplicidade": "node scripts/test-curadoria-duplicidade.mjs",
     "fixtures:ha-poder": "node scripts/generate-ha-poder-fixtures.mjs"
   },
   "dependencies": {

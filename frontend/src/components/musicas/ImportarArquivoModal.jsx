@@ -15,10 +15,15 @@ import {
 } from '../../lib/posProcessamentoImport'
 import { EXTENSOES_CIFRA_SUPORTADAS } from '../../lib/extractTextoArquivo'
 import { createMusica, updateMusicaYoutubeUrl } from '../../services/musicas'
-import { publicarCuradoriaAcervo } from '../../services/acervo'
+import { buscarAcervoCatalogo, publicarCuradoriaAcervo } from '../../services/acervo'
 import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
 import { isAdminUser } from '../../lib/admin'
+import {
+  classificarChecagemCuradoria,
+  podePublicarDepoisDaChecagem,
+  resumoMusicaAcervo,
+} from '../../lib/curadoriaDuplicidade'
 import { buildCifraSnapshot } from '@crash-cifras/shared/acervo-snapshot'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { ensureAuthSession } from '../../lib/authSession'
@@ -57,6 +62,7 @@ export function ImportarArquivoModal({
   const isAdmin = isAdminUser(user)
   const errorRef = useRef(null)
   const savingRef = useRef(false)
+  const acervoCheckRequestRef = useRef(0)
 
   const [fila, setFila] = useState([])
   const [ativoId, setAtivoId] = useState(null)
@@ -91,6 +97,120 @@ export function ImportarArquivoModal({
     }
   }, [open])
 
+  const ativoIdCheck = ativo?.id || null
+  const ativoTituloCheck = String(ativo?.titulo || '').trim()
+  const ativoArtistaCheck = String(ativo?.artista || '').trim()
+  const ativoYoutubeCheck = String(ativo?.youtubeUrl || '').trim()
+  const ativoPublishedCheck = Boolean(ativo?.published)
+
+  useEffect(() => {
+    if (
+      !open ||
+      !isAdmin ||
+      destinoEfetivo !== 'acervo' ||
+      !ativoIdCheck ||
+      ativoPublishedCheck
+    ) {
+      return undefined
+    }
+
+    const youtubeValidation = ativoYoutubeCheck
+      ? validateYoutubeUrl(ativoYoutubeCheck)
+      : null
+    const q = ativoTituloCheck || ativoArtistaCheck
+
+    if (ativoYoutubeCheck && !youtubeValidation?.valid) {
+      setFila((prev) =>
+        prev.map((item) =>
+          item.id === ativoIdCheck
+            ? {
+                ...item,
+                acervoCheckStatus: 'invalid_url',
+                acervoCheck: null,
+                acervoCheckError: youtubeValidation?.error || 'Link do YouTube inválido.',
+                permitirDuplicataNome: false,
+              }
+            : item,
+        ),
+      )
+      return undefined
+    }
+
+    if (q.length < 2 && !youtubeValidation?.valid) {
+      return undefined
+    }
+
+    const requestId = ++acervoCheckRequestRef.current
+    setFila((prev) =>
+      prev.map((item) =>
+        item.id === ativoIdCheck
+          ? {
+              ...item,
+              acervoCheckStatus: 'loading',
+              acervoCheckError: null,
+              permitirDuplicataNome: false,
+            }
+          : item,
+      ),
+    )
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await buscarAcervoCatalogo({
+          q: q.length >= 2 ? q : null,
+          fonteUrl: youtubeValidation?.valid ? ativoYoutubeCheck : null,
+          titulo: ativoTituloCheck,
+          artista: ativoArtistaCheck,
+          limit: 10,
+        })
+        if (requestId !== acervoCheckRequestRef.current) return
+        setFila((prev) =>
+          prev.map((item) =>
+            item.id === ativoIdCheck
+              ? {
+                  ...item,
+                  acervoCheckStatus: 'ready',
+                  acervoCheck: result,
+                  acervoCheckError: null,
+                  permitirDuplicataNome: false,
+                }
+              : item,
+          ),
+        )
+      } catch (err) {
+        if (requestId !== acervoCheckRequestRef.current) return
+        setFila((prev) =>
+          prev.map((item) =>
+            item.id === ativoIdCheck
+              ? {
+                  ...item,
+                  acervoCheckStatus: 'error',
+                  acervoCheck: null,
+                  acervoCheckError:
+                    err?.message || 'Não foi possível consultar o acervo.',
+                  permitirDuplicataNome: false,
+                }
+              : item,
+          ),
+        )
+      }
+    }, 500)
+
+    return () => {
+      clearTimeout(timer)
+      acervoCheckRequestRef.current += 1
+    }
+  }, [
+    open,
+    isAdmin,
+    destinoEfetivo,
+    ativoIdCheck,
+    ativoTituloCheck,
+    ativoArtistaCheck,
+    ativoYoutubeCheck,
+    ativoPublishedCheck,
+  ])
+
   if (!open) return null
 
   if (!isAdmin) {
@@ -112,6 +232,45 @@ export function ImportarArquivoModal({
 
   function updateItem(id, patch) {
     setFila((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)))
+  }
+
+  async function checarItemAntesDePublicar(item) {
+    const youtubeUrl = String(item.youtubeUrl || '').trim()
+    const validation = validateYoutubeUrl(youtubeUrl)
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Link do YouTube inválido.')
+    }
+
+    setBusyLabel('Verificando duplicidade no acervo…')
+    const result = await buscarAcervoCatalogo({
+      q: String(item.titulo || item.artista || '').trim(),
+      fonteUrl: youtubeUrl,
+      titulo: item.titulo,
+      artista: item.artista,
+      limit: 10,
+    })
+    const estado = classificarChecagemCuradoria(result)
+
+    updateItem(item.id, {
+      acervoCheckStatus: 'ready',
+      acervoCheck: result,
+      acervoCheckError: null,
+    })
+
+    if (
+      estado.tipo === 'titulo_artista' &&
+      !podePublicarDepoisDaChecagem({
+        checagem: result,
+        permitirDuplicataNome: item.permitirDuplicataNome,
+      })
+    ) {
+      const primeira = resumoMusicaAcervo(estado.candidatos[0])
+      throw new Error(
+        `Possível duplicata no acervo${primeira ? `: ${primeira}` : ''}. Confirme “É outra gravação” antes de publicar.`,
+      )
+    }
+
+    return { result, estado }
   }
 
   async function onFilesChange(e) {
@@ -148,6 +307,10 @@ export function ImportarArquivoModal({
             artista: result.artista || '',
             tomOriginal: result.tom_original || result.tom_detectado || '',
             youtubeUrl: '',
+            acervoCheckStatus: 'idle',
+            acervoCheck: null,
+            acervoCheckError: null,
+            permitirDuplicataNome: false,
             status: result.status_revisao || 'ok',
             avisos,
             published: false,
@@ -166,6 +329,10 @@ export function ImportarArquivoModal({
             artista: '',
             tomOriginal: '',
             youtubeUrl: '',
+            acervoCheckStatus: 'idle',
+            acervoCheck: null,
+            acervoCheckError: null,
+            permitirDuplicataNome: false,
             status: 'precisa_revisao',
             avisos: err?.avisos || [msg],
             published: false,
@@ -205,7 +372,6 @@ export function ImportarArquivoModal({
     }
 
     let musica
-    let youtubeCanonical = null
 
     if (destinoEfetivo === 'acervo') {
       if (!isAdmin) throw new Error('Apenas admin pode publicar no acervo global')
@@ -217,7 +383,9 @@ export function ImportarArquivoModal({
       if (!ytCheck.valid) {
         throw new Error(ytCheck.error || 'Link do YouTube inválido.')
       }
-      youtubeCanonical = `https://www.youtube.com/watch?v=${ytCheck.videoId}`
+      const youtubeCanonical = `https://www.youtube.com/watch?v=${ytCheck.videoId}`
+
+      await checarItemAntesDePublicar(item)
 
       setBusyLabel('Publicando no acervo…')
       const cifra = buildCifraSnapshot({
@@ -406,6 +574,12 @@ export function ImportarArquivoModal({
   }
 
   const accept = EXTENSOES_CIFRA_SUPORTADAS.join(',')
+  const checagemAtiva = classificarChecagemCuradoria(ativo?.acervoCheck)
+  const duplicidadeNomePendente =
+    destinoEfetivo === 'acervo' &&
+    ativo?.acervoCheckStatus === 'ready' &&
+    checagemAtiva.tipo === 'titulo_artista' &&
+    !ativo?.permitirDuplicataNome
 
   const modal = (
     <div
@@ -539,7 +713,13 @@ export function ImportarArquivoModal({
                         value={ativo.titulo}
                         disabled={busy || ativo.published}
                         onChange={(e) =>
-                          updateItem(ativo.id, { titulo: e.target.value })
+                          updateItem(ativo.id, {
+                            titulo: e.target.value,
+                            acervoCheckStatus: 'idle',
+                            acervoCheck: null,
+                            acervoCheckError: null,
+                            permitirDuplicataNome: false,
+                          })
                         }
                       />
                     </FormField>
@@ -559,11 +739,102 @@ export function ImportarArquivoModal({
                             value={ativo.youtubeUrl || ''}
                             disabled={busy || ativo.published}
                             onChange={(e) =>
-                              updateItem(ativo.id, { youtubeUrl: e.target.value })
+                              updateItem(ativo.id, {
+                                youtubeUrl: e.target.value,
+                                acervoCheckStatus: 'idle',
+                                acervoCheck: null,
+                                acervoCheckError: null,
+                                permitirDuplicataNome: false,
+                              })
                             }
                           />
                         </FormField>
                       </div>
+                    ) : null}
+
+                    {destinoEfetivo === 'acervo' &&
+                    ativo.acervoCheckStatus === 'loading' ? (
+                      <p
+                        className="rounded-lg border border-[var(--crash-borda)] px-3 py-2 text-sm text-[var(--crash-texto-sec)]"
+                        role="status"
+                      >
+                        Verificando se esta música já existe no acervo…
+                      </p>
+                    ) : null}
+
+                    {destinoEfetivo === 'acervo' &&
+                    ['invalid_url', 'error'].includes(ativo.acervoCheckStatus) ? (
+                      <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                        {ativo.acervoCheckError}
+                      </p>
+                    ) : null}
+
+                    {destinoEfetivo === 'acervo' &&
+                    ativo.acervoCheckStatus === 'ready' &&
+                    checagemAtiva.tipo === 'fonte_url' ? (
+                      <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                        <p className="font-semibold">Este link já existe no acervo.</p>
+                        <p className="mt-1">
+                          {resumoMusicaAcervo(checagemAtiva.musica)}. A publicação será
+                          adicionada a essa entrada, sem criar música duplicada.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {destinoEfetivo === 'acervo' &&
+                    ativo.acervoCheckStatus === 'ready' &&
+                    checagemAtiva.tipo === 'titulo_artista' ? (
+                      <div className="space-y-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+                        <p className="font-semibold">
+                          Possível duplicata por título e artista
+                        </p>
+                        <p>
+                          O link é diferente, mas já existe uma música com os mesmos
+                          dados:
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5">
+                          {checagemAtiva.candidatos.slice(0, 3).map((candidato) => (
+                            <li key={candidato.id}>
+                              {resumoMusicaAcervo(candidato)}
+                              {candidato.fonte_url ? ' · com YouTube vinculado' : ''}
+                            </li>
+                          ))}
+                        </ul>
+                        {ativo.permitirDuplicataNome ? (
+                          <p className="font-semibold text-emerald-200">
+                            Confirmado: é outra gravação. Uma nova entrada poderá ser
+                            criada.
+                          </p>
+                        ) : (
+                          <>
+                            <p>
+                              Se for a mesma gravação, revise o link e não publique. Se
+                              realmente for outra, confirme abaixo.
+                            </p>
+                            <button
+                              type="button"
+                              className={btnSecondaryClassName}
+                              disabled={busy}
+                              onClick={() =>
+                                updateItem(ativo.id, {
+                                  permitirDuplicataNome: true,
+                                })
+                              }
+                            >
+                              Confirmar: é outra gravação
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {destinoEfetivo === 'acervo' &&
+                    ativo.acervoCheckStatus === 'ready' &&
+                    checagemAtiva.tipo === 'novo' ? (
+                      <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200">
+                        Nenhuma duplicata exata por link ou título+artista. Pronta para
+                        criar uma entrada no acervo.
+                      </p>
                     ) : null}
 
                     <FormField label="Artista">
@@ -572,7 +843,13 @@ export function ImportarArquivoModal({
                         value={ativo.artista}
                         disabled={busy || ativo.published}
                         onChange={(e) =>
-                          updateItem(ativo.id, { artista: e.target.value })
+                          updateItem(ativo.id, {
+                            artista: e.target.value,
+                            acervoCheckStatus: 'idle',
+                            acervoCheck: null,
+                            acervoCheckError: null,
+                            permitirDuplicataNome: false,
+                          })
                         }
                       />
                     </FormField>
@@ -701,6 +978,8 @@ export function ImportarArquivoModal({
                 className={`${btnPrimaryClassName} min-h-11 min-w-[9rem] touch-manipulation`}
                 disabled={
                   busy ||
+                  ativo?.acervoCheckStatus === 'loading' ||
+                  duplicidadeNomePendente ||
                   (destinoEfetivo === 'acervo' &&
                     !String(ativo?.youtubeUrl || '').trim())
                 }

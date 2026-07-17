@@ -12,6 +12,28 @@ async function authHeaders() {
 }
 
 /**
+ * Etapa 2 — consulta o motor único de busca/anti-duplicata do acervo.
+ * Usuário comum pode buscar sem YouTube; a Curadoria envia também URL+título+artista.
+ */
+export async function buscarAcervoCatalogo({
+  q,
+  fonteUrl,
+  titulo,
+  artista,
+  limit = 20,
+}) {
+  const headers = await authHeaders()
+  const params = { limit }
+  if (String(q || '').trim()) params.q = String(q).trim()
+  if (String(fonteUrl || '').trim()) params.fonteUrl = String(fonteUrl).trim()
+  if (String(titulo || '').trim()) params.titulo = String(titulo).trim()
+  if (String(artista || '').trim()) params.artista = String(artista).trim()
+
+  const { data } = await api.get('/acervo/buscar', { headers, params })
+  return data
+}
+
+/**
  * Fluxo 5.2 — informa ao acervo se a cópia salva aceitou ou corrigiu a versão de origem.
  */
 export async function enviarFeedbackAcervo({ acervoVersaoId, tomOriginal, bpm, secoes }) {
