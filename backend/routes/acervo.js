@@ -21,6 +21,10 @@ import {
 } from '../lib/acervo.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
+import {
+  buscarAcervoReady,
+  checarDuplicidadeAcervo,
+} from '../lib/acervoBusca.js'
 import { expirarImportJobsTravados } from '../lib/importManutencao.js'
 import { criarReportTom, resolverReportTom } from '../lib/reportTom.js'
 
@@ -37,6 +41,61 @@ function requireMotorSecret(req, res, next) {
   }
   next()
 }
+
+/**
+ * Busca unificada do acervo para usuários autenticados.
+ *
+ * GET /api/acervo/buscar?q=bondade&limit=20
+ * GET /api/acervo/buscar?fonteUrl=https://youtu.be/...&titulo=...&artista=...
+ *
+ * - resultados: somente acervo_musicas.status=ready, por título OU artista;
+ * - duplicidade: URL exata primeiro; título+artista apenas avisa e exige decisão do admin.
+ */
+acervoRouter.get('/buscar', requireAuth, async (req, res, next) => {
+  try {
+    const q = String(req.query?.q || '').trim()
+    const fonteUrl = String(req.query?.fonteUrl || '').trim()
+    const titulo = String(req.query?.titulo || '').trim()
+    const artista = String(req.query?.artista || '').trim()
+    const limit = req.query?.limit
+
+    if (!q && !fonteUrl && !titulo) {
+      return res.status(400).json({
+        error: 'Informe q, fonteUrl ou titulo para buscar no acervo.',
+      })
+    }
+
+    if (!req.supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Busca do acervo indisponível: service role não configurada.',
+      })
+    }
+
+    const busca = q
+      ? await buscarAcervoReady({ q, limit }, { db: req.supabaseAdmin })
+      : { query: '', query_norm: '', resultados: [] }
+
+    const duplicidade =
+      fonteUrl || titulo
+        ? await checarDuplicidadeAcervo(
+            { fonteUrl, titulo, artista },
+            { db: req.supabaseAdmin },
+          )
+        : null
+
+    res.json({
+      ok: true,
+      ...busca,
+      total: busca.resultados.length,
+      duplicidade,
+    })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
 
 /**
  * Fila para o motor Python — acervo pending/processing + jobs associados.
