@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import {
   buscarAcervoPorFonteUrl,
   buscarAcervoReady,
+  buscarItemAcervoReady,
   canonicalizarYoutubeUrl,
   checarDuplicidadeAcervo,
 } from '../lib/acervoBusca.js'
@@ -41,6 +42,28 @@ function fakeDb(rows, calls) {
   return {
     from(table) {
       return builder.from(table)
+    },
+  }
+}
+
+function fakeCatalogDb({ musica, versao }, calls) {
+  return {
+    from(table) {
+      calls.push(['from', table])
+      const row = table === 'acervo_musicas' ? musica : versao
+      return {
+        select(columns) {
+          calls.push(['select', table, columns])
+          return this
+        },
+        eq(column, value) {
+          calls.push(['eq', table, column, value])
+          return this
+        },
+        maybeSingle() {
+          return Promise.resolve({ data: row || null, error: null })
+        },
+      }
     },
   }
 }
@@ -93,12 +116,72 @@ assert.throws(
 
 {
   const calls = []
+  const result = await buscarItemAcervoReady('acervo-1', {
+    db: fakeCatalogDb(
+      {
+        musica: {
+          id: 'acervo-1',
+          titulo: 'Bondade de Deus',
+          artista: 'Isaías Saad',
+          status: 'ready',
+          versao_top_id: 'versao-1',
+        },
+        versao: {
+          id: 'versao-1',
+          acervo_musica_id: 'acervo-1',
+          origem: 'curadoria',
+          tom_original: 'D',
+          bpm: 68,
+          cifra: {
+            secoes: [
+              {
+                slug: 'verso',
+                nome: 'Verso 1',
+                ordem_original: 0,
+                linhas: { lines: [{ lyricLine: 'Eu te amo, Deus' }] },
+              },
+            ],
+          },
+        },
+      },
+      calls,
+    ),
+  })
+
+  assert.equal(result.musica.id, 'acervo-1')
+  assert.equal(result.versao.id, 'versao-1')
+  assert.equal(result.versao.secoes[0].slug, 'verso')
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === 'eq' &&
+        call[1] === 'acervo_musicas' &&
+        call[2] === 'status' &&
+        call[3] === 'ready',
+    ),
+    'preview só deve abrir item ready',
+  )
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === 'eq' &&
+        call[1] === 'acervo_versoes' &&
+        call[2] === 'id' &&
+        call[3] === 'versao-1',
+    ),
+    'preview deve buscar exatamente a versão principal',
+  )
+}
+
+{
+  const calls = []
   const rows = [
     {
       id: 'ready-1',
       titulo: 'Bondade de Deus',
       artista: 'Isaías Saad',
       status: 'ready',
+      versoes_comunidade: [{ id: 'correcao-1' }],
     },
   ]
   const result = await buscarAcervoReady(
@@ -108,6 +191,7 @@ assert.throws(
 
   assert.equal(result.resultados.length, 1)
   assert.equal(result.query_norm, 'bondade de deus')
+  assert.equal(result.resultados[0].tem_versao_comunidade, true)
   assert.ok(
     calls.some(
       (call) => call[0] === 'eq' && call[1] === 'status' && call[2] === 'ready',

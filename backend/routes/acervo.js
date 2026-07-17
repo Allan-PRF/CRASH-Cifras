@@ -23,6 +23,7 @@ import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
 import {
   buscarAcervoReady,
+  buscarItemAcervoReady,
   checarDuplicidadeAcervo,
 } from '../lib/acervoBusca.js'
 import { expirarImportJobsTravados } from '../lib/importManutencao.js'
@@ -89,6 +90,30 @@ acervoRouter.get('/buscar', requireAuth, async (req, res, next) => {
       total: busca.resultados.length,
       duplicidade,
     })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Preview da versão principal de uma música pronta encontrada pelo usuário.
+ * GET /api/acervo/catalogo/:acervoMusicaId
+ */
+acervoRouter.get('/catalogo/:acervoMusicaId', requireAuth, async (req, res, next) => {
+  try {
+    if (!req.supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Catálogo do acervo indisponível: service role não configurada.',
+      })
+    }
+
+    const item = await buscarItemAcervoReady(req.params.acervoMusicaId, {
+      db: req.supabaseAdmin,
+    })
+    res.json({ ok: true, ...item })
   } catch (err) {
     if (err.status) {
       return res.status(err.status).json({ error: err.message })

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ReferralModal } from '../components/referral/ReferralModal'
 import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
+import { ExplorarAcervoModal } from '../components/musicas/ExplorarAcervoModal'
 import { NovidadeBanner } from '../components/novidades/NovidadeBanner'
 import { MinistroFormModal } from '../components/ministros/MinistroFormModal'
 import { MinistroTable } from '../components/ministros/MinistroTable'
@@ -39,6 +40,7 @@ export function Home() {
   const [showArquivados, setShowArquivados] = useState(false)
   const [confirmArquivar, setConfirmArquivar] = useState(null)
   const [restaurandoId, setRestaurandoId] = useState(null)
+  const [explorarAcervoOpen, setExplorarAcervoOpen] = useState(false)
 
   const loadArquivados = useCallback(async () => {
     setLoadingArquivados(true)
@@ -170,22 +172,31 @@ export function Home() {
           </button>
 
           <div className="rounded-2xl border border-[var(--crash-cifra)] bg-black/50 p-5 space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-[var(--crash-cifra)]" />
                 <h2 className="text-base font-bold text-white">Modo Solo</h2>
               </div>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  emTrial
-                    ? 'bg-[var(--crash-cifra)]/15 text-[var(--crash-cifra)]'
-                    : assinaturaAtivaAgora
-                      ? 'bg-green-900/30 text-green-400'
-                      : 'bg-white/5 text-zinc-400'
-                }`}
-              >
-                {modoSoloBadge}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    emTrial
+                      ? 'bg-[var(--crash-cifra)]/15 text-[var(--crash-cifra)]'
+                      : assinaturaAtivaAgora
+                        ? 'bg-green-900/30 text-green-400'
+                        : 'bg-white/5 text-zinc-400'
+                  }`}
+                >
+                  {modoSoloBadge}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExplorarAcervoOpen(true)}
+                  className={`${btnSecondaryClassName} !px-3 !py-1.5 text-xs`}
+                >
+                  Explorar acervo
+                </button>
+              </div>
             </div>
 
             <label className="relative block">
@@ -300,6 +311,18 @@ export function Home() {
       )}
 
       <ReferralModal open={referralOpen} onClose={() => setReferralOpen(false)} />
+
+      <ExplorarAcervoModal
+        open={explorarAcervoOpen}
+        ministros={ministros}
+        onClose={() => setExplorarAcervoOpen(false)}
+        onMusicaAdicionada={() => {
+          const termo = search.trim()
+          if (termo.length >= 2) {
+            searchMusicas(termo).then(setMusicas).catch(() => setMusicas([]))
+          }
+        }}
+      />
 
       <CompartilharMusicaPopover
         open={!!copiarMusica}

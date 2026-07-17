@@ -33,6 +33,13 @@ export async function buscarAcervoCatalogo({
   return data
 }
 
+/** Carrega a versão principal pronta para preview e cópia à pasta do usuário. */
+export async function buscarItemAcervoCatalogo(acervoMusicaId) {
+  const headers = await authHeaders()
+  const { data } = await api.get(`/acervo/catalogo/${acervoMusicaId}`, { headers })
+  return data
+}
+
 /**
  * Fluxo 5.2 — informa ao acervo se a cópia salva aceitou ou corrigiu a versão de origem.
  */

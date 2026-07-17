@@ -4,12 +4,13 @@ import { PageNav } from '../components/layout/PageNav'
 import { PageBackButton } from '../components/layout/PageBackButton'
 import { CompartilharMusicaPopover } from '../components/musicas/CompartilharMusicaPopover'
 import { MusicaNovaMenu } from '../components/musicas/MusicaNovaMenu'
+import { ExplorarAcervoModal } from '../components/musicas/ExplorarAcervoModal'
 import { ImportacaoEmAndamentoBanner } from '../components/musicas/ImportacaoEmAndamentoBanner'
 import { ImportacaoConcluidaBanner } from '../components/musicas/ImportacaoConcluidaBanner'
 import { MusicaTable } from '../components/musicas/MusicaTable'
 import { useMinistros } from '../hooks/useMinistros'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
-import { inputClassName } from '../components/ui/inputClasses'
+import { btnCifraOutlineClassName, inputClassName } from '../components/ui/inputClasses'
 import { deleteMusica, fetchMusicasByMinistro } from '../services/musicas'
 import { fetchMinistroById } from '../services/ministros'
 import { fetchPlaylistsAtivasComMusica } from '../services/playlists'
@@ -41,6 +42,7 @@ export function Ministro() {
   const [buscaMusicas, setBuscaMusicas] = useState('')
   const [importJobAtivo, setImportJobAtivo] = useState(null)
   const [importModalOpen, setImportModalOpen] = useState(false)
+  const [explorarAcervoOpen, setExplorarAcervoOpen] = useState(false)
   const [importDoneInvite, setImportDoneInvite] = useState(() => loadImportDoneInvite(id))
   const { ministros } = useMinistros()
 
@@ -180,14 +182,23 @@ export function Ministro() {
               className={`${inputClassName} pl-10`}
             />
           </label>
-          <MusicaNovaMenu
-            ministroId={id}
-            ministroNome={ministro.nome}
-            resumeJob={importJobAtivo}
-            importOpen={importModalOpen}
-            onImportOpenChange={setImportModalOpen}
-            onImported={() => load()}
-          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setExplorarAcervoOpen(true)}
+              className={btnCifraOutlineClassName}
+            >
+              Explorar acervo
+            </button>
+            <MusicaNovaMenu
+              ministroId={id}
+              ministroNome={ministro.nome}
+              resumeJob={importJobAtivo}
+              importOpen={importModalOpen}
+              onImportOpenChange={setImportModalOpen}
+              onImported={() => load()}
+            />
+          </div>
         </div>
 
         <MusicaTable
@@ -216,6 +227,16 @@ export function Ministro() {
         ministroAtualId={id}
         onClose={() => setCompartilharMusica(null)}
         onCopied={() => load()}
+      />
+
+      <ExplorarAcervoModal
+        open={explorarAcervoOpen}
+        ministros={ministros}
+        ministroInicialId={id}
+        onClose={() => setExplorarAcervoOpen(false)}
+        onMusicaAdicionada={(_musica, destinoMinistroId) => {
+          if (destinoMinistroId === id) load()
+        }}
       />
     </section>
   )

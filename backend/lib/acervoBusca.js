@@ -1,9 +1,11 @@
-import { normalizeAcervoText } from '@crash-cifras/shared'
+import { normalizeAcervoText, unpackCifraToSecoes } from '@crash-cifras/shared'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { getSupabaseAdmin } from './supabase.js'
 
 const ACERVO_BUSCA_COLS =
   'id, titulo, artista, titulo_norm, artista_norm, fonte_url, status, versao_top_id, created_at, updated_at'
+const ACERVO_CATALOGO_COLS =
+  `${ACERVO_BUSCA_COLS}, versoes_comunidade:acervo_versoes!acervo_versoes_acervo_musica_id_fkey(id)`
 
 function dbOrAdmin(db) {
   return db || getSupabaseAdmin()
@@ -85,8 +87,9 @@ export async function buscarAcervoReady({ q, limit = 20 }, { db = null } = {}) {
   const filtro = `titulo_norm.ilike.%${qNorm}%,artista_norm.ilike.%${qNorm}%`
   const { data, error } = await dbOrAdmin(db)
     .from('acervo_musicas')
-    .select(ACERVO_BUSCA_COLS)
+    .select(ACERVO_CATALOGO_COLS)
     .eq('status', 'ready')
+    .eq('versoes_comunidade.origem', 'correcao')
     .or(filtro)
     .order('titulo', { ascending: true })
     .order('artista', { ascending: true })
@@ -96,7 +99,57 @@ export async function buscarAcervoReady({ q, limit = 20 }, { db = null } = {}) {
   return {
     query: String(q || '').trim(),
     query_norm: qNorm,
-    resultados: data || [],
+    resultados: (data || []).map(({ versoes_comunidade: versoes, ...musica }) => ({
+      ...musica,
+      tem_versao_comunidade: Boolean(versoes?.length),
+    })),
+  }
+}
+
+/**
+ * Abre o preview da versão principal de um item pesquisável do catálogo.
+ * A condição status=ready impede expor cifras ainda em processamento ou com falha.
+ */
+export async function buscarItemAcervoReady(acervoMusicaId, { db = null } = {}) {
+  const database = dbOrAdmin(db)
+  const { data: musica, error: musicaError } = await database
+    .from('acervo_musicas')
+    .select(ACERVO_BUSCA_COLS)
+    .eq('id', acervoMusicaId)
+    .eq('status', 'ready')
+    .maybeSingle()
+
+  if (musicaError) throw musicaError
+  if (!musica?.versao_top_id) {
+    const err = new Error('Música pronta não encontrada no acervo.')
+    err.status = 404
+    throw err
+  }
+
+  const { data: versao, error: versaoError } = await database
+    .from('acervo_versoes')
+    .select('id, acervo_musica_id, origem, cifra, tom_original, bpm')
+    .eq('id', musica.versao_top_id)
+    .eq('acervo_musica_id', musica.id)
+    .maybeSingle()
+
+  if (versaoError) throw versaoError
+  if (!versao?.cifra) {
+    const err = new Error('Versão principal do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  return {
+    musica,
+    versao: {
+      id: versao.id,
+      origem: versao.origem,
+      tom_original: versao.tom_original || versao.cifra?.tom_original || null,
+      bpm: versao.bpm || versao.cifra?.bpm || null,
+      cifra: versao.cifra,
+      secoes: unpackCifraToSecoes(versao.cifra),
+    },
   }
 }
 
