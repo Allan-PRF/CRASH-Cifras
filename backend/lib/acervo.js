@@ -1029,6 +1029,44 @@ export async function buscarVersaoMotorOriginal(acervoMusicaId) {
   return data
 }
 
+/**
+ * Versão “fonte” para restaurar na edição:
+ * 1) motor (se existir)
+ * 2) primeira curadoria
+ * 3) versao_top
+ */
+export async function buscarVersaoFonteOriginal(acervoMusicaId) {
+  const motor = await buscarVersaoMotorOriginal(acervoMusicaId)
+  if (motor?.cifra) return motor
+
+  const { data: curadoria, error: cErr } = await admin()
+    .from('acervo_versoes')
+    .select('*')
+    .eq('acervo_musica_id', acervoMusicaId)
+    .eq('origem', 'curadoria')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (cErr) throw cErr
+  if (curadoria?.cifra) return curadoria
+
+  const { data: acervo, error: aErr } = await admin()
+    .from('acervo_musicas')
+    .select('versao_top_id')
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (aErr) throw aErr
+  if (!acervo?.versao_top_id) return null
+
+  const { data: top, error: tErr } = await admin()
+    .from('acervo_versoes')
+    .select('*')
+    .eq('id', acervo.versao_top_id)
+    .maybeSingle()
+  if (tErr) throw tErr
+  return top?.cifra ? top : null
+}
+
 async function resolverAcervoMusicaIdDaCopia(musica) {
   if (musica.acervo_versao_id) {
     const { data: versao, error } = await admin()
@@ -1056,6 +1094,14 @@ async function resolverAcervoMusicaIdDaCopia(musica) {
 function formatAutorVersao(versao, profilesById) {
   if (versao.origem === 'motor') {
     return { id: null, display_name: 'Motor CRASH' }
+  }
+  if (versao.origem === 'curadoria') {
+    const profile = versao.criado_por ? profilesById[versao.criado_por] : null
+    const name = String(profile?.display_name || '').trim()
+    return {
+      id: versao.criado_por || null,
+      display_name: name || 'Curadoria',
+    }
   }
   if (!versao.criado_por) {
     return { id: null, display_name: 'Anônimo' }
@@ -1392,7 +1438,8 @@ export async function restaurarCopiaPessoalDaVersao({ musicaId, acervoVersaoId, 
 }
 
 /**
- * Substitui a cópia pessoal pela primeira versão origem=motor do acervo (read-only no acervo).
+ * Substitui a cópia pessoal pela cifra fonte do acervo:
+ * motor (se houver) ou curadoria publicada na Conta.
  * @param {{ musicaId: string, userId: string }}
  */
 export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
@@ -1405,9 +1452,11 @@ export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
     throw err
   }
 
-  const versaoMotor = await buscarVersaoMotorOriginal(acervoMusicaId)
-  if (!versaoMotor?.cifra) {
-    const err = new Error('Cifra do motor não encontrada para esta música.')
+  const versaoFonte = await buscarVersaoFonteOriginal(acervoMusicaId)
+  if (!versaoFonte?.cifra) {
+    const err = new Error(
+      'Nenhuma cifra fonte no acervo para esta música. Publique pela Curadoria (Conta) com o mesmo link do YouTube, ou aguarde o motor.',
+    )
     err.status = 404
     throw err
   }
@@ -1415,13 +1464,15 @@ export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
   const result = await aplicarVersaoAcervoNaCopiaPessoal({
     musicaId,
     musica,
-    versao: versaoMotor,
+    versao: versaoFonte,
     acervoMusicaId,
   })
 
   return {
     ...result,
-    versao_motor_id: versaoMotor.id,
+    versao_motor_id: versaoFonte.origem === 'motor' ? versaoFonte.id : null,
+    versao_fonte_id: versaoFonte.id,
+    origem_fonte: versaoFonte.origem,
   }
 }
 

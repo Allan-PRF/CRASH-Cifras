@@ -467,9 +467,14 @@ export function MusicaEditar() {
     try {
       const result = await restaurarCifraMotor(id)
       aplicarResultadoAcervoNaEdicao(result)
-      setToastMotor('Cifra do motor restaurada. Suas edições foram descartadas.')
+      const origem = result?.origem_fonte
+      setToastMotor(
+        origem === 'curadoria'
+          ? 'Cifra da curadoria restaurada. Suas edições foram descartadas.'
+          : 'Cifra fonte restaurada. Suas edições foram descartadas.',
+      )
     } catch (err) {
-      setError(err.message || 'Não foi possível restaurar a cifra do motor.')
+      setError(err.message || 'Não foi possível restaurar a cifra fonte.')
       throw err
     } finally {
       setRestaurandoMotor(false)
@@ -824,11 +829,11 @@ export function MusicaEditar() {
           className={`${btnCifraOutlineClassName} shrink-0 px-2 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm`}
           title={
             temLinhaAcervo
-              ? 'Trazer a cifra original do motor (descarta suas edições)'
+              ? 'Trazer a cifra fonte do acervo (motor ou curadoria)'
               : 'Música sem vínculo com o acervo'
           }
         >
-          {restaurandoMotor ? 'Restaurando…' : 'Cifra Motor'}
+          {restaurandoMotor ? 'Restaurando…' : 'Cifra fonte'}
         </button>
         <button
           type="button"
@@ -920,9 +925,9 @@ export function MusicaEditar() {
 
       <ConfirmDeleteModal
         open={restaurarMotorOpen}
-        title="Restaurar cifra do motor"
-        message="Isso vai descartar suas edições e trazer a cifra original do motor. Continuar?"
-        confirmLabel="Restaurar cifra do motor"
+        title="Restaurar cifra fonte"
+        message="Isso vai descartar suas edições e trazer a cifra do acervo (motor ou curadoria). Continuar?"
+        confirmLabel="Restaurar cifra fonte"
         confirmLoadingLabel="Restaurando…"
         confirmButtonClassName={btnCifraConfirmClassName}
         cancelLabel="Cancelar"
