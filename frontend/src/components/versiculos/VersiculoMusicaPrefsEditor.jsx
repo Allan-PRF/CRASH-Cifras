@@ -49,7 +49,7 @@ export function versiculoPrefsFromMusica(raw, versaoUsuario = 'NVI') {
     }
   }
 
-  const momentos_ativos = { verso: true, refrao: false, ponte: false }
+  const momentos_ativos = { verso: false, refrao: false, ponte: false }
   return {
     modo: 'ia',
     versao_biblica: versaoUsuario || 'NVI',

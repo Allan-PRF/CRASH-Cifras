@@ -20,7 +20,7 @@ const LABEL_MOMENTO = {
 }
 
 export function prefsEventoPadrao(versaoBiblica = 'NVI') {
-  const momentos_ativos = { verso: true, refrao: false, ponte: false }
+  const momentos_ativos = { verso: false, refrao: false, ponte: false }
   return {
     versao_biblica: versaoBiblica,
     quantidade_versiculos: quantidadeFromMomentosAtivos(momentos_ativos),
