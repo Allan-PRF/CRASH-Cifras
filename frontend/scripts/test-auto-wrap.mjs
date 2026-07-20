@@ -3,6 +3,7 @@
  */
 import {
   findLyricCutIndex,
+  findChordOverflowCutPos,
   autoWrapChordLine,
   splitChordOnlyLineAt,
   effectiveLineWidth,
@@ -33,6 +34,24 @@ console.log('findLyricCutIndex — último espaço (nunca no meio da palavra)')
   // não corta no meio da palavra
   const hard = 'Palavramuitolonga'
   assert(findLyricCutIndex(hard, 8) == null, 'sem espaço → null')
+}
+
+console.log('findLyricCutIndex — acorde estoura com letra ≤ maxCols')
+{
+  const lyric = 'Louvor a Deus pra sempre am'
+  const chords = [{ pos: 24, chord: 'F#m7' }]
+  assert(lyric.length <= 27, 'letra cabe em 27')
+  assert(effectiveLineWidth({ lyricLine: lyric, chords }) > 27, 'acorde estoura')
+  const cut = findLyricCutIndex(lyric, 27, chords)
+  assert(cut != null, 'com chords: corta na letra', String(cut))
+  const { lines, warnings } = autoWrapChordLine({ lyricLine: lyric, chords }, 27)
+  assert(warnings.length === 0, 'sem warnings', warnings.join('; '))
+  assert(lines.length >= 2, '2+ linhas', String(lines.length))
+  assert(
+    lines.every((l) => effectiveLineWidth(l) <= 27),
+    'todas ≤ 27',
+    lines.map((l) => effectiveLineWidth(l)).join(','),
+  )
 }
 
 console.log('Há Poder — F# sobre glória (maxCols 24 ≈ modelo Cifra Club)')
@@ -130,6 +149,53 @@ console.log('splitChordOnlyLineAt')
   assert(
     [...r.line1.chords, ...r.line2.chords].some((c) => c.chord === 'F#/A#'),
     'F#/A# intacto',
+  )
+}
+
+console.log('fallback — linha só de acordes (intro L/R)')
+{
+  const line = {
+    lyricLine: '',
+    chords: [
+      { pos: 0, chord: 'C' },
+      { pos: 40, chord: 'F#m7' },
+    ],
+  }
+  assert(findChordOverflowCutPos(line.chords, 27) === 40, 'cut pos = 40')
+  const { lines, warnings } = autoWrapChordLine(line, 27)
+  assert(warnings.length === 0, 'sem warnings', warnings.join('; '))
+  assert(lines.length === 2, '2 linhas', String(lines.length))
+  assert(
+    lines.every((l) => effectiveLineWidth(l) <= 27),
+    'ambas ≤ 27',
+    lines.map((l) => effectiveLineWidth(l)).join(','),
+  )
+  const symbols = lines.flatMap((l) => (l.chords || []).map((c) => c.chord)).sort()
+  assert(symbols.join(',') === 'C,F#m7', 'nenhum acorde perdido', symbols.join(','))
+}
+
+console.log('fallback — lyric sem espaço + acorde longe')
+{
+  const line = {
+    lyricLine: 'Aleluia',
+    chords: [{ pos: 30, chord: 'F#m7' }],
+  }
+  const { lines, warnings } = autoWrapChordLine(line, 27)
+  assert(warnings.length === 0, 'sem warnings', warnings.join('; '))
+  assert(lines.length >= 2, 'quebra 2+ linhas', String(lines.length))
+  assert(
+    lines.every((l) => effectiveLineWidth(l) <= 27),
+    'todas ≤ 27',
+    lines.map((l) => effectiveLineWidth(l)).join(','),
+  )
+  assert(
+    lines.some((l) => (l.chords || []).some((c) => c.chord === 'F#m7')),
+    'acorde desceu / preservado',
+  )
+  assert(
+    lines[0].lyricLine.includes('Aleluia'),
+    'Aleluia permanece',
+    lines[0].lyricLine,
   )
 }
 

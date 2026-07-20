@@ -13,6 +13,12 @@ export const TELEPROMPTER_NARROW_VIEWPORT_PX = 320
 /** Tailwind `px-4` no contentRef do teleprompter (Teleprompter.jsx). */
 export const TELEPROMPTER_CONTENT_PAD_X_PX = 16
 
+/**
+ * Folga de colunas no maxCols (canvas vs unidade CSS `ch` / subpixel).
+ * 1 é barato e evita corte na borda após aumento de fonte.
+ */
+export const TELEPROMPTER_MAX_COLS_SAFETY = 1
+
 /** Portrait defaultFontIndex=1 → value 34 (LAYOUT_POR_ORIENTACAO.portrait). */
 export const TELEPROMPTER_PORTRAIT_DEFAULT_FONT_BASE_PX = 34
 
@@ -58,7 +64,8 @@ export function getTeleprompterMaxCols(opts = {}) {
     0,
     viewportWidthPx - 2 * TELEPROMPTER_CONTENT_PAD_X_PX,
   )
-  const maxCols = Math.max(1, Math.floor(usableWidthPx / charWidthPx))
+  const raw = Math.floor(usableWidthPx / charWidthPx)
+  const maxCols = Math.max(1, raw - TELEPROMPTER_MAX_COLS_SAFETY)
 
   return { maxCols, fonteLetraPx, charWidthPx, usableWidthPx }
 }
@@ -72,6 +79,7 @@ export function getTeleprompterMaxCols(opts = {}) {
  * @param {{
  *   measureCharWidth?: (fontSizePx: number, fontWeight?: number) => number,
  *   fontWeight?: number | string,
+ *   safetyCols?: number,
  * }} [opts]
  */
 export function maxColsFromContentWidth(contentWidthPx, fonteLetraPx, opts = {}) {
@@ -79,10 +87,13 @@ export function maxColsFromContentWidth(contentWidthPx, fonteLetraPx, opts = {})
     opts.measureCharWidth ??
     ((fontSizePx, fontWeight) => measureMonoCharWidth(fontSizePx, fontWeight))
   const fontWeight = opts.fontWeight ?? tema.teleprompter.cifra.fontWeight
+  const safety =
+    opts.safetyCols != null ? opts.safetyCols : TELEPROMPTER_MAX_COLS_SAFETY
   const charWidthPx = measure(fonteLetraPx, fontWeight)
   const usableWidthPx = Math.max(0, Number(contentWidthPx) || 0)
+  const raw = Math.floor(usableWidthPx / Math.max(charWidthPx, 0.001))
   return {
-    maxCols: Math.max(1, Math.floor(usableWidthPx / Math.max(charWidthPx, 0.001))),
+    maxCols: Math.max(1, raw - safety),
     fonteLetraPx,
     charWidthPx,
     usableWidthPx,

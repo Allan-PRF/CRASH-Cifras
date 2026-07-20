@@ -1,6 +1,7 @@
 /**
  * Corte automático estilo Cifra Club: último espaço que cabe em maxCols;
  * acordes descem com a sílaba via splitChordLineAt (pos recalculado).
+ * Fallback: sem espaço na letra → corta antes do acorde que estoura maxCols.
  */
 
 import {
@@ -11,22 +12,46 @@ import {
 import { rebuildChordLineFromChords } from '@crash-cifras/shared/chord-schema'
 
 /**
- * Índice de corte: último espaço em [0, maxCols). Nunca no meio da palavra.
+ * Índice de corte na letra: último espaço que deixa a L1 cabendo em maxCols
+ * (considera extensão dos acordes, não só lyric.length).
  * @param {string} lyric
  * @param {number} maxCols
- * @returns {number | null} splitIndex para splitChordLineAt, ou null se não precisa/não dá
+ * @param {{ pos: number, chord: string }[]} [chords]
+ * @returns {number | null} splitIndex para splitChordLineAt, ou null
  */
-export function findLyricCutIndex(lyric, maxCols) {
+export function findLyricCutIndex(lyric, maxCols, chords = []) {
   const s = String(lyric ?? '')
-  if (s.length <= maxCols) return null
+  if (lineWidthForChords(s, chords) <= maxCols) return null
 
-  const window = s.slice(0, maxCols)
+  // Janela ≤ maxCols: se a letra cabe mas o acorde vaza, ainda cortamos na letra
+  // para o acorde descer (splitChordLineAt).
+  const window = s.slice(0, Math.min(s.length, maxCols))
   const lastSpace = window.lastIndexOf(' ')
   if (lastSpace > 0) {
-    return lastSpace + 1 // espaço fica na linha 1; próxima palavra começa na linha 2
+    return lastSpace + 1 // espaço fica na L1; próxima palavra começa na L2
   }
 
-  // Sem espaço: não corta no meio da palavra — falha controlada
+  return null
+}
+
+/**
+ * Coluna de corte antes do primeiro acorde que não cabe em maxCols
+ * (pos >= maxCols ou pos+len > maxCols).
+ * @param {{ pos: number, chord: string }[]} chords
+ * @param {number} maxCols
+ * @returns {number | null}
+ */
+export function findChordOverflowCutPos(chords, maxCols) {
+  const sorted = [...(chords || [])].sort((a, b) => a.pos - b.pos)
+  for (const c of sorted) {
+    const chordLen = String(c.chord || '').length
+    const end = c.pos + chordLen
+    if (c.pos >= maxCols || end > maxCols) {
+      // Acorde em pos 0 que sozinho já é mais largo que maxCols — não dá para cortar.
+      if (c.pos <= 0) return null
+      return c.pos
+    }
+  }
   return null
 }
 
@@ -36,47 +61,84 @@ export function findLyricCutIndex(lyric, maxCols) {
  * @param {number} maxCols
  */
 export function splitChordOnlyLineAt(line, maxCols) {
-  const chords = [...(line?.chords || [])].sort((a, b) => a.pos - b.pos)
-  if (chords.length < 2) {
-    return { ok: false, reason: 'too_few_chords' }
-  }
+  const cutPos = findChordOverflowCutPos(line?.chords || [], maxCols)
+  if (cutPos == null || cutPos <= 0) {
+    // Fallback: varre candidatos entre tokens (comportamento legado)
+    const chords = [...(line?.chords || [])].sort((a, b) => a.pos - b.pos)
+    if (chords.length < 2) {
+      return { ok: false, reason: 'too_few_chords' }
+    }
 
-  let cutPos = null
-  for (let i = 1; i < chords.length; i++) {
-    const prev = chords[i - 1]
-    const prevEnd = prev.pos + String(prev.chord).length
-    if (prevEnd <= maxCols && chords[i].pos >= 0) {
-      // candidato: cortar no início do acorde i (entre tokens)
-      if (chords[i].pos < maxCols || prevEnd <= maxCols) {
-        cutPos = chords[i].pos
+    let legacyCut = null
+    for (let i = 1; i < chords.length; i++) {
+      const prev = chords[i - 1]
+      const prevEnd = prev.pos + String(prev.chord).length
+      if (prevEnd <= maxCols && chords[i].pos >= 0) {
+        if (chords[i].pos < maxCols || prevEnd <= maxCols) {
+          legacyCut = chords[i].pos
+        }
+      }
+      if (chords[i].pos >= maxCols) {
+        legacyCut = chords[i].pos
+        break
       }
     }
-    if (chords[i].pos >= maxCols) {
-      cutPos = chords[i].pos
-      break
+    if (legacyCut == null || legacyCut <= 0) {
+      return { ok: false, reason: 'no_cut_between_tokens' }
     }
+    return splitAtColumn(line, legacyCut)
+  }
+  return splitAtColumn(line, cutPos)
+}
+
+/**
+ * Parte a linha na coluna `cutPos` (pode ser além do fim da letra).
+ * - cut dentro da letra → splitChordLineAt (alinha sílaba).
+ * - cut >= lyric.length ou lyric vazia → letra (se houver) fica na L1;
+ *   acordes com pos+len <= cut ficam na L1; demais descem com pos -= cut.
+ *
+ * @param {{ lyricLine?: string, chords?: { pos: number, chord: string }[] }} line
+ * @param {number} cutPos
+ */
+export function splitAtColumn(line, cutPos) {
+  const lyric = String(line?.lyricLine ?? '')
+  const chords = (line?.chords ?? []).map((c) => ({ pos: c.pos, chord: c.chord }))
+  const cut = Math.max(0, Math.round(Number(cutPos) || 0))
+
+  if (cut <= 0) {
+    return { ok: false, reason: 'cut_at_start' }
   }
 
-  if (cutPos == null || cutPos <= 0) {
-    return { ok: false, reason: 'no_cut_between_tokens' }
+  // Dentro da letra: preserva alinhamento sílaba (splitChordLineAt).
+  if (lyric.length > 0 && cut < lyric.length) {
+    return splitChordLineAt(line, cut)
   }
 
+  // cut >= lyric.length (inclui lyric vazia): não há sílaba à direita.
   const chords1 = []
   const chords2 = []
-  for (const c of chords) {
-    if (c.pos < cutPos) {
-      chords1.push({ pos: c.pos, chord: c.chord })
+  for (const { pos, chord } of chords) {
+    const chordLen = String(chord || '').length
+    if (pos + chordLen <= cut) {
+      chords1.push({ pos, chord })
     } else {
-      chords2.push({ pos: Math.max(0, c.pos - cutPos), chord: c.chord })
+      chords2.push({ pos: Math.max(0, pos - cut), chord })
     }
   }
-  if (!chords1.length || !chords2.length) {
+
+  if (!chords1.length && !lyric.trim() && !chords2.length) {
+    return { ok: false, reason: 'empty_side' }
+  }
+  if (!chords2.length && chords1.length && lineWidthForChords(lyric, chords1) > cut) {
+    return { ok: false, reason: 'no_progress' }
+  }
+  if (!chords2.length && !lyric.length) {
     return { ok: false, reason: 'empty_side' }
   }
 
   return {
     ok: true,
-    line1: serializeChordLine('', chords1),
+    line1: serializeChordLine(lyric, chords1),
     line2: serializeChordLine('', chords2),
   }
 }
@@ -112,14 +174,20 @@ export function autoWrapChordLine(line, maxCols) {
 
     let split
     if (hasLyric) {
-      const cut = findLyricCutIndex(lyric, maxCols)
-      if (cut == null) {
-        warnings.push(
-          `não foi possível cortar sem partir palavra: "${lyric.slice(0, 40)}…"`,
-        )
-        break
+      const cut = findLyricCutIndex(lyric, maxCols, current.chords)
+      if (cut != null) {
+        split = splitChordLineAt(current, cut)
+      } else {
+        // Sem espaço na letra: corta antes do acorde que estoura (pos).
+        const chordCut = findChordOverflowCutPos(current.chords, maxCols)
+        if (chordCut == null) {
+          warnings.push(
+            `não foi possível cortar sem partir palavra: "${lyric.slice(0, 40)}…"`,
+          )
+          break
+        }
+        split = splitAtColumn(current, chordCut)
       }
-      split = splitChordLineAt(current, cut)
     } else {
       split = splitChordOnlyLineAt(current, maxCols)
     }
@@ -129,8 +197,14 @@ export function autoWrapChordLine(line, maxCols) {
       break
     }
 
-    // Evita linha 1 vazia infinita
-    if (!split.line1.lyricLine.trim() && !(split.line1.chords || []).length) {
+    const line1Empty =
+      !split.line1.lyricLine.trim() && !(split.line1.chords || []).length
+    if (line1Empty) {
+      // Progresso: tudo foi para L2 (ex.: único acorde além de maxCols).
+      if (effectiveLineWidth(split.line2) < effectiveLineWidth(current)) {
+        current = split.line2
+        continue
+      }
       warnings.push('corte produziu linha vazia; abortado')
       break
     }
