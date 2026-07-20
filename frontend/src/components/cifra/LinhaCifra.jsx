@@ -26,7 +26,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
   visualizacao = false,
   lineHeightRatio = 1.25,
   corAcorde = tema.cores.cifra,
-  corLetra = '#FFFFFF',
+  corLetra = '#EDEDED',
 }) {
   const { chords: rawChords, lyricLine: rawLyric, chordLine: rawChordLine } = useMemo(
     () => normalizeChordLine(line),
@@ -135,7 +135,7 @@ export const LinhaCifraLinha = memo(function LinhaCifraLinha({
       className={`font-cifra-mono ${
         visualizacao
           ? 'mb-0 max-w-full overflow-x-hidden'
-          : 'mb-1 max-w-full overflow-x-auto touch-pan-x'
+          : 'mb-2 max-w-full overflow-x-auto touch-pan-x'
       }`}
       style={
         isTeleprompter
@@ -231,7 +231,7 @@ const LinhaComRef = memo(function LinhaComRef({
     <div
       ref={(node) => onLineRef?.(lineKey, node)}
       data-teleprompter-line={lineKey}
-      className={visualizacao ? 'py-0' : 'py-1'}
+      className={visualizacao ? 'py-0' : 'py-2'}
     >
       <LinhaCifraLinha
         line={line}
@@ -264,6 +264,8 @@ export const BlocoSecao = memo(function BlocoSecao({
 }) {
   const gapClass = lineGapClassName ?? (visualizacao ? 'space-y-0.5' : 'space-y-2')
   if (!linhas?.lines?.length) {
+    // Teleprompter: oculta seção vazia. Editor/preview: aviso.
+    if (!visualizacao) return null
     return (
       <p className="text-sm text-[var(--crash-texto-sec)]">Seção vazia</p>
     )

@@ -114,6 +114,14 @@ function linhaTemConteudo(line) {
   return Boolean(chordLine.trim() || lyricLine.trim())
 }
 
+function secaoTemConteudoExibivel(linhas) {
+  return (linhas?.lines || []).some((line) => linhaTemConteudo(line))
+}
+
+/** Fundo/letra do teleprompter — cinza escuro / branco suave (menos halation OLED). */
+const TELEPROMPTER_BG = '#121212'
+const TELEPROMPTER_LETRA = '#EDEDED'
+
 function sectionKeyFor(sec, index) {
   return sec.id ? String(sec.id) : `s${index}`
 }
@@ -137,8 +145,8 @@ const LAYOUT_POR_ORIENTACAO = {
       { label: 'XG', value: 68 },
     ],
     defaultFontIndex: 1,
-    sectionGap: 'space-y-20',
-    lineGap: 'space-y-6',
+    sectionGap: 'space-y-24',
+    lineGap: 'space-y-8',
     contentPadY: 'py-[38svh]',
     descricao: 'Fonte maior · ~2 linhas no foco',
   },
@@ -153,8 +161,8 @@ const LAYOUT_POR_ORIENTACAO = {
       { label: 'GG', value: 42 },
     ],
     defaultFontIndex: 1,
-    sectionGap: 'space-y-10',
-    lineGap: 'space-y-2',
+    sectionGap: 'space-y-16',
+    lineGap: 'space-y-4',
     contentPadY: 'py-[22svh]',
     descricao: 'Fonte menor · mais linhas visíveis',
   },
@@ -169,8 +177,8 @@ const LAYOUT_POR_ORIENTACAO = {
       { label: 'XG', value: 50 },
     ],
     defaultFontIndex: 1,
-    sectionGap: 'space-y-10',
-    lineGap: 'space-y-3',
+    sectionGap: 'space-y-16',
+    lineGap: 'space-y-5',
     contentPadY: '',
     descricao: 'Uma seção por tela · sem rolagem · ◄ ► para avançar',
   },
@@ -1259,7 +1267,10 @@ export function Teleprompter() {
 
   if (loading) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-black text-white">
+      <div
+        className="flex min-h-svh items-center justify-center text-[#EDEDED]"
+        style={{ backgroundColor: TELEPROMPTER_BG }}
+      >
         Carregando teleprompter…
       </div>
     )
@@ -1267,7 +1278,10 @@ export function Teleprompter() {
 
   if (error || !musica) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center gap-4 bg-black p-6 text-center text-white">
+      <div
+        className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center text-[#EDEDED]"
+        style={{ backgroundColor: TELEPROMPTER_BG }}
+      >
         <p className="text-red-400">{error || 'Música não encontrada'}</p>
         <Link to="/" className="text-[var(--crash-cifra)] hover:underline">
           Voltar ao início
@@ -1283,7 +1297,10 @@ export function Teleprompter() {
       : '/'
 
   return (
-    <div className="min-h-svh overflow-hidden bg-black text-white">
+    <div
+      className="min-h-svh overflow-hidden text-[#EDEDED]"
+      style={{ backgroundColor: TELEPROMPTER_BG }}
+    >
       <BarraSuperiorTeleprompter
         musica={musica}
         secaoAtual={secaoAtual}
@@ -1375,7 +1392,7 @@ export function Teleprompter() {
                         sectionKey={sk}
                         lineGapClassName={layout.lineGap}
                         lineHeightRatio={lineHeightRatio}
-                        corLetra="#FFFFFF"
+                        corLetra={TELEPROMPTER_LETRA}
                       />
                     </div>
                   )
@@ -1431,6 +1448,8 @@ export function Teleprompter() {
           )}
 
           {secoes.map((sec, index) => {
+            const linhasSecao = linhasPorSecao[index]
+            if (!secaoTemConteudoExibivel(linhasSecao)) return null
             const sk = sectionKeyFor(sec, index)
             return (
               <section
@@ -1440,14 +1459,14 @@ export function Teleprompter() {
                 }}
                 className="scroll-mt-24"
               >
-                <div className="mb-4 flex items-center gap-3 sm:mb-6">
+                <div className="mb-5 flex items-center gap-3 sm:mb-7">
                   <span className="h-2 w-2 rounded-full bg-[var(--crash-cifra)]" />
                   <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--crash-cifra)]">
                     {sec.nome}
                   </h2>
                 </div>
                 <BlocoSecao
-                  linhas={linhasPorSecao[index]}
+                  linhas={linhasSecao}
                   tomOriginal={tomGraus}
                   mostrarAcordes={showChords}
                   mostrarGrau={showGrades}
@@ -1456,7 +1475,7 @@ export function Teleprompter() {
                   lineGapClassName={layout.lineGap}
                   onLineRef={registerLineRef}
                   lineHeightRatio={lineHeightRatio}
-                  corLetra="#FFFFFF"
+                  corLetra={TELEPROMPTER_LETRA}
                 />
               </section>
             )

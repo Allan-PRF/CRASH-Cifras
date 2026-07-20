@@ -1,6 +1,6 @@
 /**
  * Largura-alvo (colunas monoespaçadas) do teleprompter na viewport mais estreita.
- * Espelha Teleprompter.jsx (px-4) + teleprompterMobile.js + portrait default M.
+ * Espelha Teleprompter.jsx (px-4) + teleprompterMobile.js + portrait default M (~21px).
  */
 
 import { TELEPROMPTER_MOBILE_FONT_SCALE } from './teleprompterMobile.js'

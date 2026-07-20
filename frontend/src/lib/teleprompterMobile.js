@@ -1,11 +1,11 @@
-/** Escala de fonte por modo — alvo ~15px portrait/landscape e ~16px fixo no passo default. */
+/** Escala de fonte por modo — alvo ~21px no passo default (legibilidade estilo Cifra Club). */
 export const TELEPROMPTER_MOBILE_FONT_SCALE = {
-  portrait: 0.5,
-  fixo: 16 / 38,
-  landscape: 0.32,
+  portrait: 0.62,
+  fixo: 21 / 38,
+  landscape: 0.4,
 }
 
-export const TELEPROMPTER_MOBILE_LINE_HEIGHT = 1.6
+export const TELEPROMPTER_MOBILE_LINE_HEIGHT = 1.85
 
 /** Largura de referência para ajuste proporcional (iPhone ~390px). */
 const MOBILE_FONT_REF_WIDTH = 390

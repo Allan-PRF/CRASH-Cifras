@@ -14,9 +14,9 @@ export const tema = {
     versiculoTexto: '#E5E7EB',
   },
   teleprompter: {
-    cifra: { fontSize: 24, fontWeight: 700 },
-    letra: { fontSizeMin: 32, fontSizeMax: 56, fontWeight: 700, fontWeightDestaque: 700 },
-    grau: { fontSize: 20, fontWeight: 700 },
+    cifra: { fontSize: 24, fontWeight: 600 },
+    letra: { fontSizeMin: 32, fontSizeMax: 56, fontWeight: 600, fontWeightDestaque: 700 },
+    grau: { fontSize: 20, fontWeight: 600 },
     versiculo: { fontSize: 15 },
     palavra: { fontSize: 14 },
     barra: { fontSize: 13, fontWeight: 500 },

@@ -64,7 +64,7 @@ export function BarraSuperiorTeleprompter({
   )
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-black/85 px-3 py-2 text-[13px] font-medium text-white backdrop-blur sm:px-4">
+    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-[#121212]/90 px-3 py-2 text-[13px] font-medium text-[#EDEDED] backdrop-blur sm:px-4">
       {/* Mobile: linha 1 = controles; linha 2 = título */}
       <div className="mx-auto max-w-7xl sm:hidden">
         <div className="flex items-center justify-between gap-2">
@@ -264,7 +264,7 @@ export function BarraInferiorTeleprompter({
 
   return (
     <footer
-      className={`fixed bottom-0 left-0 right-0 z-30 flex items-center border-t border-white/10 bg-black/90 px-2 backdrop-blur sm:px-4 ${footerClassName}`}
+      className={`fixed bottom-0 left-0 right-0 z-30 flex items-center border-t border-white/10 bg-[#121212]/95 px-2 backdrop-blur sm:px-4 ${footerClassName}`}
       style={{ height: TELEPROMPTER_BARRA_INFERIOR_ALTURA }}
     >
       <div className="mx-auto flex w-full max-w-4xl items-center justify-start gap-1.5 sm:justify-center sm:gap-3">
