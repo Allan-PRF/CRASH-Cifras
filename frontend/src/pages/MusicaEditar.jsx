@@ -15,6 +15,7 @@ import { ReportTomErradoModal } from '../components/musicas/ReportTomErradoModal
 import { TomMotorConferenciaBanner } from '../components/musicas/TomMotorConferenciaBanner'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import { useAuth } from '../hooks/useAuth'
+import { secoesContentEqual } from '../lib/editorHistory'
 import {
   DRAFT_DEBOUNCE_MS,
   buildMusicaEditDraftPayload,
@@ -41,14 +42,13 @@ import {
   secoesFromCifraEvento,
 } from '@crash-cifras/shared/cifra-evento'
 import { musicaBreadcrumbItems } from '../lib/pageNavItems'
-import { semitonesBetween, transposeLinhas, transposeIntro } from '../lib/transpose'
+import { semitonesBetween, transposeLinhas } from '../lib/transpose'
 import { fetchUserSettings } from '../services/settings'
 import {
   VersiculoMusicaPrefsEditor,
   versiculoPrefsFromMusica,
 } from '../components/versiculos/VersiculoMusicaPrefsEditor'
 import {
-  deleteSecao,
   fetchMusicaCompleta,
   markTomMotorConferido,
   resetOffsetTomPessoal,
@@ -57,7 +57,6 @@ import {
 } from '../services/musicas'
 import { corrigirTomVersaoMotor, isFonteJaCorrigidaError, publicarCopiaNoAcervo, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
 import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
-import { normalizarIntroParaCopia } from '../lib/copiarMusicaHelpers'
 
 function secaoTemConteudo(linhas) {
   if (!linhas?.lines?.length) return false
@@ -73,24 +72,15 @@ function musicasTemSecaoPreenchida(secoes) {
   return secoes.some((sec) => secaoTemConteudo(sec.linhas))
 }
 
-/** Seção CC "Intro" com cifra/letra — editada só via card Introdução (mãos). */
-function isSecaoIntroDuplicada(sec) {
-  return sec?.slug === 'intro'
-}
-
-function secoesParaEditor(secoes) {
-  return (secoes || []).filter((sec) => !isSecaoIntroDuplicada(sec))
-}
-
 const UNDO_STACK_LIMIT = 40
 
-function cloneEditorSnapshot(secoes, intro, tomOriginal) {
+function cloneEditorSnapshot(secoes, tomOriginal) {
   return {
     secoes: structuredClone(secoes),
-    intro: structuredClone(intro),
     tom_original: tomOriginal ?? null,
   }
 }
+
 
 export function MusicaEditar() {
   const { id } = useParams()
@@ -105,11 +95,9 @@ export function MusicaEditar() {
       : null
   const editandoCifraEvento = Boolean(editEventoItemId)
   const [meta, setMeta] = useState(null)
-  const [intro, setIntro] = useState({ mao_esquerda: '', mao_direita: '' })
   const [versiculoPrefs, setVersiculoPrefs] = useState(() => versiculoPrefsFromMusica(null))
   const [versaoPadraoUsuario, setVersaoPadraoUsuario] = useState('NVI')
   const [secoes, setSecoes] = useState([])
-  const [introSecaoIds, setIntroSecaoIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sharingAcervo, setSharingAcervo] = useState(false)
@@ -128,8 +116,6 @@ export function MusicaEditar() {
   const [reportTomOpen, setReportTomOpen] = useState(false)
   const [tomReferenciaTrigger, setTomReferenciaTrigger] = useState(0)
   const [rascunhoModalOpen, setRascunhoModalOpen] = useState(false)
-  const introEditorRef = useRef(null)
-  const introRef = useRef(intro)
   const secoesRef = useRef(secoes)
   const undoStackRef = useRef(undoStack)
   const tomOriginalInicialRef = useRef(null)
@@ -141,22 +127,13 @@ export function MusicaEditar() {
   const skipDraftSaveRef = useRef(true)
 
   useLayoutEffect(() => {
-    introRef.current = intro
     secoesRef.current = secoes
     undoStackRef.current = undoStack
     metaRef.current = meta
     versiculoPrefsRef.current = versiculoPrefs
     offsetVisualRef.current = offsetVisual
     tomDestinoRef.current = tomDestino
-  }, [
-    intro,
-    secoes,
-    undoStack,
-    meta,
-    versiculoPrefs,
-    offsetVisual,
-    tomDestino,
-  ])
+  }, [secoes, undoStack, meta, versiculoPrefs, offsetVisual, tomDestino])
 
   const pushUndoSnapshot = useCallback((snapshot) => {
     setUndoStack((prev) => [...prev.slice(-(UNDO_STACK_LIMIT - 1)), snapshot])
@@ -165,17 +142,11 @@ export function MusicaEditar() {
   const setSecoesWithHistory = useCallback(
     (updater) => {
       const prev = secoesRef.current
-      pushUndoSnapshot(cloneEditorSnapshot(prev, introRef.current, metaRef.current?.tom_original))
       const next = typeof updater === 'function' ? updater(prev) : updater
+      // Só empilha Desfazer se o conteúdo musical mudou de verdade.
+      if (secoesContentEqual(prev, next)) return
+      pushUndoSnapshot(cloneEditorSnapshot(prev, metaRef.current?.tom_original))
       setSecoes(next)
-    },
-    [pushUndoSnapshot],
-  )
-
-  const setIntroWithHistory = useCallback(
-    (nextIntro) => {
-      pushUndoSnapshot(cloneEditorSnapshot(secoesRef.current, introRef.current, metaRef.current?.tom_original))
-      setIntro(nextIntro)
     },
     [pushUndoSnapshot],
   )
@@ -186,7 +157,6 @@ export function MusicaEditar() {
     const snapshot = stack[stack.length - 1]
     setUndoStack(stack.slice(0, -1))
     setSecoes(structuredClone(snapshot.secoes))
-    setIntro(structuredClone(snapshot.intro))
     setMeta((prev) => (prev ? { ...prev, tom_original: snapshot.tom_original } : prev))
     setTomDestino(null)
     setOffsetVisual(0)
@@ -199,16 +169,13 @@ export function MusicaEditar() {
     if (!tomBase || !tomDestino || tomDestino === tomBase) return
 
     const st = semitonesBetween(tomBase, tomDestino)
-    pushUndoSnapshot(
-      cloneEditorSnapshot(secoesRef.current, introRef.current, metaRef.current?.tom_original),
-    )
+    pushUndoSnapshot(cloneEditorSnapshot(secoesRef.current, metaRef.current?.tom_original))
     setSecoes((prev) =>
       prev.map((sec) => ({
         ...sec,
         linhas: transposeLinhas(sec.linhas, st, { tonDestino: tomDestino }),
       })),
     )
-    setIntro((prev) => transposeIntro(prev, st, { tonDestino: tomDestino }))
     setMeta((prev) => (prev ? { ...prev, tom_original: tomDestino } : prev))
     setTomDestino(null)
     setOffsetVisual(0)
@@ -236,16 +203,9 @@ export function MusicaEditar() {
 
         if (usarCifraEvento) {
           const cifra = playlistItem.cifra_evento
-          setIntro(cifra.intro || { mao_esquerda: '', mao_direita: '' })
-          setIntroSecaoIds([])
-          setSecoes(secoesParaEditor(secoesFromCifraEvento(cifra)))
+          setSecoes(secoesFromCifraEvento(cifra))
         } else {
-          setIntro(data.intro || { mao_esquerda: '', mao_direita: '' })
-          const todas = data.secoes || []
-          setIntroSecaoIds(
-            todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
-          )
-          setSecoes(secoesParaEditor(todas))
+          setSecoes(data.secoes || [])
         }
 
         setUndoStack([])
@@ -255,18 +215,15 @@ export function MusicaEditar() {
         const userId = user?.id || data.user_id
         if (userId) {
           const draft = await getMusicaEditDraft(userId, id, editEventoItemId)
-          const introSaved = usarCifraEvento
-            ? playlistItem.cifra_evento.intro || { mao_esquerda: '', mao_direita: '' }
-            : data.intro || { mao_esquerda: '', mao_direita: '' }
           const secoesSaved = usarCifraEvento
-            ? secoesParaEditor(secoesFromCifraEvento(playlistItem.cifra_evento))
-            : secoesParaEditor(data.secoes || [])
+            ? secoesFromCifraEvento(playlistItem.cifra_evento)
+            : data.secoes || []
           const savedComparable = buildMusicaEditDraftPayload({
             userId,
             musicaId: id,
             eventoItemId: editEventoItemId,
             meta: data,
-            intro: introSaved,
+            intro: null,
             secoes: secoesSaved,
             versiculoPrefs: versiculoPrefsFromMusica(data.versiculo_prefs),
             offsetVisual: 0,
@@ -300,13 +257,12 @@ export function MusicaEditar() {
     const userId = user?.id || metaRef.current?.user_id
     if (!userId || !id || !metaRef.current) return
     if (skipDraftSaveRef.current) return
-    const introAtual = introEditorRef.current?.flush?.() ?? introRef.current
     const payload = buildMusicaEditDraftPayload({
       userId,
       musicaId: id,
       eventoItemId: editEventoItemId,
       meta: metaRef.current,
-      intro: introAtual,
+      intro: null,
       secoes: secoesRef.current,
       versiculoPrefs: versiculoPrefsRef.current,
       offsetVisual: offsetVisualRef.current,
@@ -359,7 +315,6 @@ export function MusicaEditar() {
     meta?.bpm,
     id,
     editEventoItemId,
-    intro,
     secoes,
     versiculoPrefs,
     offsetVisual,
@@ -382,7 +337,6 @@ export function MusicaEditar() {
           }
         : prev,
     )
-    setIntro(structuredClone(draft.intro || { mao_esquerda: '', mao_direita: '' }))
     setSecoes(structuredClone(draft.secoes || []))
     if (draft.versiculoPrefs != null) {
       setVersiculoPrefs(versiculoPrefsFromMusica(draft.versiculoPrefs))
@@ -438,12 +392,7 @@ export function MusicaEditar() {
     !meta?.tom_motor_conferido_em
 
   function aplicarResultadoAcervoNaEdicao(result) {
-    const todas = result.secoes || []
-    setIntroSecaoIds(
-      todas.filter(isSecaoIntroDuplicada).map((s) => s.id).filter(Boolean),
-    )
-    setSecoes(secoesParaEditor(todas))
-    setIntro(result.intro || { mao_esquerda: '', mao_direita: '' })
+    setSecoes(result.secoes || [])
     setMeta((prev) => ({
       ...prev,
       tom_original: result.tom_original ?? prev.tom_original,
@@ -518,13 +467,10 @@ export function MusicaEditar() {
     // Estado completo no IndexedDB ANTES das mutações (rede de segurança se a sessão cair).
     await flushEditorDraftNow()
 
-    const introAtual = introEditorRef.current?.flush() ?? intro
-    const introToSave = normalizarIntroParaCopia(introAtual)
-
     if (editandoCifraEvento && editEventoItemId) {
       await updatePlaylistItem(editEventoItemId, {
         cifra_evento: buildCifraEventoSnapshot({
-          intro: introToSave || { mao_esquerda: '', mao_direita: '' },
+          intro: null,
           secoes,
         }),
       })
@@ -565,7 +511,7 @@ export function MusicaEditar() {
       artista: meta.artista,
       tomOriginal: meta.tom_original,
       bpm,
-      intro: introToSave,
+      intro: null,
       versiculoPrefs: prefsSalvas,
       ...(conferidoEm ? { tomMotorConferidoEm: conferidoEm } : {}),
       ...(meta.import_status === 'pending' && musicasTemSecaoPreenchida(secoes)
@@ -587,9 +533,6 @@ export function MusicaEditar() {
     }
 
     console.log('[versiculos] prefs salvas em musicas.versiculo_prefs:', prefsSalvas)
-    for (const secId of introSecaoIds) {
-      await deleteSecao(secId)
-    }
     for (let i = 0; i < secoes.length; i++) {
       const sec = { ...secoes[i], ordem_original: i }
       await upsertSecao(id, sec)
@@ -861,9 +804,6 @@ export function MusicaEditar() {
       </div>
 
       <CifraEditorFolhaMaquete
-        intro={intro}
-        introEditorRef={introEditorRef}
-        onIntroChange={setIntroWithHistory}
         secoes={secoes}
         tomOriginal={meta.tom_original}
         offsetVisual={offsetVisual}

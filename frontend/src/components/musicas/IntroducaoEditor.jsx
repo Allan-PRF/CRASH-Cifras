@@ -18,13 +18,26 @@ export const IntroducaoEditor = forwardRef(function IntroducaoEditor(
     return { mao_esquerda: maoEsquerda, mao_direita: maoDireita }
   }
 
+  function introIgual(a, b) {
+    return (
+      String(a?.mao_esquerda ?? '') === String(b?.mao_esquerda ?? '') &&
+      String(a?.mao_direita ?? '') === String(b?.mao_direita ?? '')
+    )
+  }
+
+  /** Sincroniza o pai só quando o conteúdo local mudou (evita Desfazer fantasma). */
   function flush() {
     const next = snapshot()
-    onChange(next)
+    if (!introIgual(next, intro)) onChange(next)
     return next
   }
 
-  useImperativeHandle(ref, () => ({ flush, snapshot }), [maoEsquerda, maoDireita, onChange])
+  useImperativeHandle(ref, () => ({ flush, snapshot }), [
+    maoEsquerda,
+    maoDireita,
+    intro,
+    onChange,
+  ])
 
   const labelClassName = isFolha
     ? 'mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[var(--crash-texto-sec)]'

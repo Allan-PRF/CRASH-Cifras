@@ -13,18 +13,16 @@ export function normalizarIntroParaCopia(intro) {
 }
 
 /**
- * Seções para cópia. Omitimos slug `intro` só quando o card de introdução já foi copiado,
- * para não duplicar. Se a intro existir só como seção (import CC), mantemos a seção.
+ * Seções para cópia — todas as seções, inclusive slug `intro`
+ * (intro especial de mãos foi descontinuada).
  */
-export function secoesParaCopia(secoes, { omitirSecaoIntro = false } = {}) {
-  return (secoes || [])
-    .filter((sec) => !(omitirSecaoIntro && sec.slug === 'intro'))
-    .map(({ slug, nome, ordem_original, linhas }) => ({
-      slug,
-      nome,
-      ordem_original,
-      linhas,
-    }))
+export function secoesParaCopia(secoes) {
+  return (secoes || []).map(({ slug, nome, ordem_original, linhas }) => ({
+    slug,
+    nome,
+    ordem_original,
+    linhas,
+  }))
 }
 
 export function logCompartilharCopia({

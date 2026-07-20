@@ -5,6 +5,7 @@ import {
   serializeChordLine,
   splitChordLineAt,
 } from '../../lib/cifraEdit'
+import { linhasContentEqual } from '../../lib/editorHistory'
 import { btnSecondaryClassName } from '../ui/inputClasses'
 import { CifraLinhaEditor } from './CifraLinhaEditor.jsx'
 
@@ -19,7 +20,9 @@ export function CifraSecaoEditorVisual({
   const [focusLineIndex, setFocusLineIndex] = useState(null)
 
   function emitLines(nextLines) {
-    onChange({ lines: nextLines })
+    const next = { lines: nextLines }
+    if (linhasContentEqual(linhas, next)) return
+    onChange(next)
   }
 
   function updateLine(index, nextLine) {
@@ -46,7 +49,14 @@ export function CifraSecaoEditorVisual({
     emitLines(next)
   }
 
+  /** Linha só de acordes (lyricLine vazia) no topo — “linha laranja”. */
+  function handleAddLineAtTop() {
+    onEditStart?.()
+    emitLines([emptyChordLine(), ...lines])
+  }
+
   function handleAddLine() {
+    onEditStart?.()
     emitLines([...lines, emptyChordLine()])
   }
 
@@ -66,11 +76,19 @@ export function CifraSecaoEditorVisual({
     setFocusLineIndex(index + 1)
   }
 
+  const addLineButtonClass = isFolha
+    ? `${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`
+    : btnSecondaryClassName
+
   return (
     <div className={isFolha ? 'max-w-full space-y-0.5 overflow-x-auto' : 'space-y-2'}>
+      <button type="button" onClick={handleAddLineAtTop} className={addLineButtonClass}>
+        + Adicionar linha
+      </button>
+
       {lines.length === 0 ? (
-        <p className="text-sm text-[var(--crash-texto-sec)]">
-          Nenhuma linha nesta seção. Adicione uma linha para começar.
+        <p className="py-2 text-sm text-[var(--crash-texto-sec)]">
+          Nenhuma linha nesta seção. Use o botão acima ou abaixo para começar.
         </p>
       ) : (
         lines.map((line, index) => (
@@ -98,7 +116,7 @@ export function CifraSecaoEditorVisual({
         ))
       )}
 
-      <button type="button" onClick={handleAddLine} className={btnSecondaryClassName}>
+      <button type="button" onClick={handleAddLine} className={addLineButtonClass}>
         + Adicionar linha
       </button>
     </div>

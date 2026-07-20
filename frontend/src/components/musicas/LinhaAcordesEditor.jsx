@@ -4,6 +4,7 @@ import { normalizeChordBR } from '@crash-cifras/shared/notacao-br'
 import {
   validateEditableChordLine,
 } from '../../lib/cifraEdit'
+import { chordsContentEqual } from '../../lib/editorHistory'
 import { estiloMono } from '../cifra/LinhaPosicionada.jsx'
 
 /** Padding/borda idênticos no input e na régua — alinhamento coluna a coluna. */
@@ -76,9 +77,11 @@ export function LinhaAcordesEditor({
       setInvalidTokens(result.invalidTokens)
       return
     }
-    onChordsChange?.(result.chords)
+    if (!chordsContentEqual(chords, result.chords)) {
+      onChordsChange?.(result.chords)
+    }
     closeEditor()
-  }, [closeEditor, draft, onChordsChange])
+  }, [chords, closeEditor, draft, onChordsChange])
 
   useEffect(() => {
     if (!editing) return

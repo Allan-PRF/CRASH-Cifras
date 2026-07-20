@@ -15,14 +15,6 @@ function admin() {
   return getSupabaseAdmin()
 }
 
-/** Intro do card mãos esquerda/direita (formato musicas.intro). */
-function introMaosTemConteudo(intro) {
-  if (!intro || typeof intro !== 'object') return false
-  return Boolean(
-    String(intro.mao_esquerda ?? '').trim() || String(intro.mao_direita ?? '').trim(),
-  )
-}
-
 /** BPM válido no banco: null ou inteiro em (0, 400). Zero vira null. */
 function normalizeBpmForDb(...candidates) {
   for (const raw of candidates) {
@@ -605,7 +597,6 @@ export async function preencherMusicasAguardandoAcervo({
   const secoes = unpackCifraToSecoes(cifra)
   const tom = tomOriginal || cifra?.tom_original || null
   const bpmVal = normalizeBpmForDb(bpm, cifra?.bpm)
-  const introMotor = cifra?.intro || null
 
   const preenchidas = []
   const ignoradas = []
@@ -613,7 +604,7 @@ export async function preencherMusicasAguardandoAcervo({
   for (const musicaId of musicaIds) {
     const { data: musica, error: mErr } = await db
       .from('musicas')
-      .select('id, ministro_id, import_status, acervo_versao_id, intro')
+      .select('id, ministro_id, import_status, acervo_versao_id')
       .eq('id', musicaId)
       .maybeSingle()
 
@@ -660,13 +651,7 @@ export async function preencherMusicasAguardandoAcervo({
       bpm: bpmVal,
       acervo_versao_id: versaoId,
       import_status: 'ready',
-    }
-
-    if (!introMaosTemConteudo(musica.intro) && introMaosTemConteudo(introMotor)) {
-      updateMusica.intro = {
-        mao_esquerda: String(introMotor.mao_esquerda ?? '').trim(),
-        mao_direita: String(introMotor.mao_direita ?? '').trim() || '',
-      }
+      intro: null,
     }
 
     const { error: upErr } = await db.from('musicas').update(updateMusica).eq('id', musicaId)
@@ -1321,17 +1306,6 @@ export async function buscarVersaoAcervoDetalhe({ acervoVersaoId, userId }) {
   }
 }
 
-function introFromCifraMotor(cifra) {
-  const introMotor = cifra?.intro
-  if (!introMotor || typeof introMotor !== 'object') {
-    return { mao_esquerda: '', mao_direita: '' }
-  }
-  return {
-    mao_esquerda: String(introMotor.mao_esquerda ?? '').trim(),
-    mao_direita: String(introMotor.mao_direita ?? '').trim() || '',
-  }
-}
-
 /**
  * Substitui seções e metadados da cópia pessoal a partir de uma versão do acervo (SELECT no acervo).
  * @param {{ musicaId: string, musica: object, versao: object, acervoMusicaId: string }}
@@ -1346,10 +1320,10 @@ async function aplicarVersaoAcervoNaCopiaPessoal({ musicaId, musica, versao, ace
   }
 
   const cifra = versao.cifra
-  const secoes = unpackCifraToSecoes(cifra).filter((sec) => sec.slug !== 'intro')
+  const secoes = unpackCifraToSecoes(cifra)
   const tom = versao.tom_original || cifra.tom_original || null
   const bpmVal = normalizeBpmForDb(versao.bpm, cifra.bpm)
-  const intro = introFromCifraMotor(cifra)
+  const intro = null
 
   const { error: delErr } = await db.from('secoes_musica').delete().eq('musica_id', musicaId)
   if (delErr) throw delErr

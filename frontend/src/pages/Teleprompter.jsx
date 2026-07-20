@@ -71,8 +71,8 @@ import {
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
-import { tomParaGrausMusica, getTomExibido, transposeLinhas, transposeIntro } from '../lib/transpose'
-import { simplifyIntro, simplifyLinhas } from '../lib/simplify'
+import { tomParaGrausMusica, getTomExibido, transposeLinhas } from '../lib/transpose'
+import { simplifyLinhas } from '../lib/simplify'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
 import { normalizarAnotacaoEvento } from '../components/playlist/AnotacaoEventoItemBloco'
@@ -591,14 +591,6 @@ export function Teleprompter() {
 
   const secoes = musica?.secoes ?? []
   const secaoAtual = secoes[activeSection]
-  const introPreenchida =
-    musica?.intro?.mao_esquerda?.trim() || musica?.intro?.mao_direita?.trim()
-  const introExibida = useMemo(() => {
-    const intro = transposeIntro(musica?.intro, offsetSessao, {
-      tonDestino: tomDestinoSessao,
-    })
-    return simplificar ? simplifyIntro(intro) : intro
-  }, [musica?.intro, offsetSessao, tomDestinoSessao, simplificar])
   const momentosAtivosVersiculo = useMemo(
     () => momentosAtivosFromRecord(versiculosRecord),
     [versiculosRecord],
@@ -1436,38 +1428,6 @@ export function Teleprompter() {
               className="shrink-0"
               style={{ height: TELEPROMPTER_EVENTO_SPACER_HEIGHT }}
             />
-          )}
-          {introPreenchida && (
-            <section className="scroll-mt-24">
-              <div className="mb-4 flex items-center gap-3 sm:mb-6">
-                <span className="h-2 w-2 rounded-full bg-[var(--crash-cifra)]" />
-                <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--crash-cifra)]">
-                  Introdução
-                </h2>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                {musica.intro.mao_esquerda?.trim() && (
-                  <div>
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[var(--crash-texto-sec)]">
-                      Mão esquerda
-                    </p>
-                    <p className="whitespace-pre-wrap text-white" style={{ fontSize: fonteLetra * 0.85 }}>
-                      {introExibida?.mao_esquerda}
-                    </p>
-                  </div>
-                )}
-                {musica.intro.mao_direita?.trim() && (
-                  <div>
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[var(--crash-texto-sec)]">
-                      Mão direita
-                    </p>
-                    <p className="whitespace-pre-wrap text-white" style={{ fontSize: fonteLetra * 0.85 }}>
-                      {introExibida?.mao_direita}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </section>
           )}
 
           {secoes.map((sec, index) => {

@@ -179,7 +179,7 @@ export function CifraLinhaEditor({
         onKeyUp={syncSelectionFromTextarea}
         onClick={syncSelectionFromTextarea}
         rows={1}
-        spellCheck
+        spellCheck={false}
         className={
           isFolha
             ? 'relative z-0 mt-0.5 w-full resize-none overflow-x-auto border-0 border-b border-white/10 bg-transparent font-cifra-mono text-base leading-snug text-white outline-none placeholder:text-[var(--crash-texto-sec)] focus:border-[var(--crash-cifra)]/50'

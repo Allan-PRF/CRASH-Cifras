@@ -7,9 +7,7 @@ import {
 } from '../lib/authSession'
 import { supabase } from '../lib/supabase'
 import {
-  introComConteudo,
   logCompartilharCopia,
-  normalizarIntroParaCopia,
   secoesParaCopia,
 } from '../lib/copiarMusicaHelpers'
 import {
@@ -163,11 +161,9 @@ export async function searchMusicas(term) {
 export async function copiarMusica(musicaId, { ministroIdDestino }) {
   const original = await fetchMusicaCompleta(musicaId)
 
-  const intro = normalizarIntroParaCopia(original.intro)
-  const omitirSecaoIntro = introComConteudo(intro)
-
+  const intro = null
   const tomOriginal = original.tom_original
-  const secoes = secoesParaCopia(original.secoes, { omitirSecaoIntro })
+  const secoes = secoesParaCopia(original.secoes)
 
   logCompartilharCopia({
     titulo: original.titulo,

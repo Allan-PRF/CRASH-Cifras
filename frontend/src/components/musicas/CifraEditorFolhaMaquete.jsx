@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BlocoSecao } from '../cifra/LinhaCifra.jsx'
 import { getTomExibido, transposeLinhas } from '../../lib/transpose'
-import { simplifyIntro, simplifyLinhas } from '../../lib/simplify'
+import { simplifyLinhas } from '../../lib/simplify'
 import { CifraSecaoEditorVisual } from './CifraSecaoEditorVisual.jsx'
-import { IntroducaoEditor } from './IntroducaoEditor.jsx'
 import { btnCifraOutlineClassName, btnSecondaryClassName } from '../ui/inputClasses'
 
 function TituloSecaoFolha({ children }) {
@@ -128,11 +127,9 @@ function CifraEditorSecaoBloco({
 
 /**
  * Folha corrida — letra editável (tom original); transpose/simplificar visuais (não persistem).
+ * Intro é seção/linhas normais (sem card mão esquerda/direita).
  */
 export function CifraEditorFolhaMaquete({
-  intro,
-  introEditorRef,
-  onIntroChange,
   secoes,
   tomOriginal,
   offsetVisual = 0,
@@ -146,11 +143,6 @@ export function CifraEditorFolhaMaquete({
   const [simplificar, setSimplificar] = useState(false)
   const [avisoTransposeDesativado, setAvisoTransposeDesativado] = useState(false)
   const avisoTimerRef = useRef(null)
-
-  const introPreview = useMemo(
-    () => (simplificar ? simplifyIntro(intro) : intro),
-    [intro, simplificar],
-  )
 
   const mostrarAvisoTransposeDesativado = useCallback(() => {
     setAvisoTransposeDesativado(true)
@@ -205,50 +197,14 @@ export function CifraEditorFolhaMaquete({
       <FolhaAvisoTransposeDesativado visivel={avisoTransposeDesativado} />
 
       <div className="pb-2">
-        {simplificar ? (
-          <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--crash-cifra)]">
-              Introdução
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:gap-6">
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--crash-texto-sec)]">
-                  Mão esquerda
-                </p>
-                <p className="whitespace-pre-wrap font-cifra-mono text-base leading-snug text-white">
-                  {introPreview?.mao_esquerda || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--crash-texto-sec)]">
-                  Mão direita
-                </p>
-                <p className="whitespace-pre-wrap font-cifra-mono text-base leading-snug text-white">
-                  {introPreview?.mao_direita || '—'}
-                </p>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-[var(--crash-texto-sec)]">
-              Preview simplificado — desative Simplificar para editar a introdução.
-            </p>
-          </section>
-        ) : (
-          <IntroducaoEditor
-            ref={introEditorRef}
-            intro={intro}
-            variant="folha"
-            onChange={onIntroChange}
-          />
-        )}
-
         {listaSecoes.length === 0 ? (
-          <p className="mt-8 text-sm text-[var(--crash-texto-sec)]">
+          <p className="mt-2 text-sm text-[var(--crash-texto-sec)]">
             Nenhuma seção ainda. Use o botão abaixo para adicionar blocos à folha.
           </p>
         ) : (
           listaSecoes.map((secao, index) => (
             <div key={secao.id || `sec-${index}`}>
-              <FolhaDivisor />
+              {index > 0 ? <FolhaDivisor /> : null}
               <CifraEditorSecaoBloco
                 secao={secao}
                 tomOriginal={tomOriginal}

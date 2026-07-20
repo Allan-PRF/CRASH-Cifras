@@ -11,18 +11,8 @@ import {
 } from '../../services/acervo'
 import { createMusica } from '../../services/musicas'
 
-function introDaCifra(cifra) {
-  const intro = cifra?.intro
-  if (!intro || typeof intro !== 'object') return null
-  const maoEsquerda = String(intro.mao_esquerda ?? '').trim()
-  const maoDireita = String(intro.mao_direita ?? '').trim()
-  if (!maoEsquerda && !maoDireita) return null
-  return { mao_esquerda: maoEsquerda, mao_direita: maoDireita }
-}
-
 function linhasPreview(secoes) {
   return (secoes || [])
-    .filter((secao) => secao.slug !== 'intro')
     .flatMap((secao) => secao.linhas?.lines || [])
     .map((linha) =>
       String(
@@ -153,14 +143,14 @@ export function ExplorarAcervoModal({
     try {
       const detail = await carregarDetalhe(item)
       if (!detail?.versao) return
-      const secoes = (detail.versao.secoes || []).filter((secao) => secao.slug !== 'intro')
+      const secoes = detail.versao.secoes || []
       const musica = await createMusica({
         ministroId: ministroSelecionado.id,
         titulo: detail.musica.titulo,
         artista: detail.musica.artista,
         tomOriginal: detail.versao.tom_original,
         bpm: detail.versao.bpm,
-        intro: introDaCifra(detail.versao.cifra),
+        intro: null,
         youtubeUrl: detail.musica.fonte_url,
         secoesIniciais: secoes,
         acervoVersaoId: detail.versao.id,
