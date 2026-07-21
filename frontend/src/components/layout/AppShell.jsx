@@ -32,13 +32,13 @@ export function AppShell() {
       <AuthenticatedNoIndex />
       <header className="sticky top-0 z-10 border-b border-[var(--crash-borda)] bg-black/90 backdrop-blur">
         {user && <TrialBanner />}
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-start gap-3 px-3 sm:gap-6 sm:px-4">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-4 px-3 sm:px-4">
           <Link to="/" className="shrink-0 text-base font-bold tracking-tight text-white sm:text-lg">
             CRASH <span className="text-[var(--crash-cifra)]">Cifras</span>
           </Link>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <PwaInstallButton />
-            <nav className="flex shrink-0 items-center gap-2.5 sm:gap-4">
+            <nav className="flex items-center gap-3 sm:gap-4">
               {navItems.map(({ to, label, end }) => (
                 <NavLink
                   key={to}
