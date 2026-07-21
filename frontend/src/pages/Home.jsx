@@ -135,12 +135,12 @@ export function Home() {
   }
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6 sm:space-y-8">
       <header>
-        <h1 className="text-3xl font-bold text-white">
+        <h1 className="text-[1.75rem] font-bold leading-tight text-white sm:text-3xl">
           CRASH <span className="text-[#F97316]">Cifras</span>
         </h1>
-        <p className="mt-1 text-sm text-[var(--crash-texto-sec)]">
+        <p className="mt-1.5 text-base text-[var(--crash-texto-sec)] sm:text-sm">
           Plataforma de cifras e eventos para músicos
         </p>
       </header>
@@ -148,7 +148,7 @@ export function Home() {
       {!user && (
         <Link
           to="/login"
-          className="block rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/5 p-4 text-center text-sm text-white"
+          className="block rounded-xl border border-[var(--crash-cifra)]/40 bg-[var(--crash-cifra)]/5 p-4 text-center text-base text-white sm:text-sm"
         >
           Entrar para cadastrar ministros e músicas
         </Link>
@@ -161,7 +161,7 @@ export function Home() {
           <button
             type="button"
             onClick={() => setReferralOpen(true)}
-            className="flex w-full max-w-md items-center justify-start gap-2 rounded-xl bg-green-600 px-6 py-3 text-lg font-bold text-white transition hover:bg-green-500"
+            className="flex w-full max-w-md items-center justify-start gap-2 rounded-xl bg-green-600 px-5 py-3 text-base font-bold text-white transition hover:bg-green-500 sm:px-6 sm:text-lg"
           >
             Convide um amigo músico e tire ele do sufoco
             <InfoTooltip
@@ -171,15 +171,12 @@ export function Home() {
             />
           </button>
 
-          <div className="rounded-2xl border border-[var(--crash-cifra)] bg-black/50 p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[var(--crash-cifra)]" />
-                <h2 className="text-base font-bold text-white">Modo Solo</h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="space-y-4 rounded-2xl border border-[var(--crash-cifra)] bg-black/50 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--crash-cifra)]" />
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  className={`rounded-full px-2.5 py-1 text-sm font-semibold ${
                     emTrial
                       ? 'bg-[var(--crash-cifra)]/15 text-[var(--crash-cifra)]'
                       : assinaturaAtivaAgora
@@ -189,14 +186,14 @@ export function Home() {
                 >
                   {modoSoloBadge}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setExplorarAcervoOpen(true)}
-                  className={`${btnSecondaryClassName} !px-3 !py-1.5 text-xs`}
-                >
-                  Explorar acervo
-                </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setExplorarAcervoOpen(true)}
+                className={`${btnSecondaryClassName} shrink-0 !px-3 !py-2 text-sm`}
+              >
+                Explorar acervo
+              </button>
             </div>
 
             <label className="relative block">
@@ -209,17 +206,17 @@ export function Home() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por título ou artista…"
-                className="w-full rounded-lg border border-[var(--crash-borda)] bg-black py-2 pl-10 pr-3 text-sm text-white outline-none focus:border-[var(--crash-cifra)]"
+                className="w-full rounded-lg border border-[var(--crash-borda)] bg-black py-2.5 pl-10 pr-3 text-base text-white outline-none focus:border-[var(--crash-cifra)] sm:py-2 sm:text-sm"
               />
             </label>
 
             {search.trim().length >= 2 && (
               <div className="rounded-lg border border-[var(--crash-borda)] bg-black/40 p-3">
-                <h3 className="text-xs font-semibold text-[var(--crash-texto-sec)]">
+                <h3 className="text-sm font-semibold text-[var(--crash-texto-sec)] sm:text-xs">
                   Resultados em todas as pastas
                 </h3>
                 {searchingSongs && (
-                  <p className="mt-2 text-xs text-[var(--crash-texto-sec)]">Buscando…</p>
+                  <p className="mt-2 text-sm text-[var(--crash-texto-sec)] sm:text-xs">Buscando…</p>
                 )}
                 {musicas.length > 0 && (
                   <ul className="mt-2 space-y-1.5">
@@ -230,10 +227,10 @@ export function Home() {
                       >
                         <Link
                           to={`/teleprompter/musica/${musica.id}`}
-                          className="min-w-0 flex-1 text-sm"
+                          className="min-w-0 flex-1 text-base sm:text-sm"
                         >
                           <span className="font-medium text-white">{musica.titulo}</span>
-                          <span className="mt-0.5 block text-xs text-[var(--crash-texto-sec)]">
+                          <span className="mt-0.5 block text-sm text-[var(--crash-texto-sec)] sm:text-xs">
                             {[
                               musica.artista || 'Sem artista',
                               musica.ministro?.nome || 'Sem ministro',
@@ -249,16 +246,16 @@ export function Home() {
                           onClick={(e) =>
                             setCopiarMusica({ musica, anchorEl: e.currentTarget })
                           }
-                          className={`shrink-0 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-xs`}
+                          className={`shrink-0 ${btnSecondaryClassName} !px-2.5 !py-1.5 text-sm sm:text-xs`}
                         >
-                          Copiar para…
+                          Copiar
                         </button>
                       </li>
                     ))}
                   </ul>
                 )}
                 {!searchingSongs && musicas.length === 0 && (
-                  <p className="mt-2 text-xs text-[var(--crash-texto-sec)]">
+                  <p className="mt-2 text-sm text-[var(--crash-texto-sec)] sm:text-xs">
                     Nenhuma música encontrada.
                   </p>
                 )}
@@ -268,7 +265,7 @@ export function Home() {
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-bold text-white">Ministros</h2>
+              <h2 className="text-xl font-bold text-white sm:text-lg">Ministros</h2>
               {!loading && !error && (
                 <MinistrosArquivadosPanel
                   ministros={ministrosArquivados}

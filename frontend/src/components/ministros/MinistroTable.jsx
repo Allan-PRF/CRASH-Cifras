@@ -61,38 +61,58 @@ export function MinistroTable({ ministros, onEdit, onCreate, onArchive }) {
           placeholder="Buscar ministro…"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          className={`max-w-xs text-sm ${inputClassName}`}
+          className={`max-w-xs text-base sm:text-sm ${inputClassName}`}
         />
-        <button type="button" onClick={onCreate} className={btnPrimaryClassName}>
+        <button
+          type="button"
+          onClick={onCreate}
+          className={`${btnPrimaryClassName} text-base sm:text-sm`}
+        >
           + Novo ministro
         </button>
       </div>
 
       {filtrados.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[var(--crash-borda)] p-8 text-center text-sm text-[var(--crash-texto-sec)]">
+        <p className="rounded-xl border border-dashed border-[var(--crash-borda)] p-8 text-center text-base text-[var(--crash-texto-sec)] sm:text-sm">
           {busca ? 'Nenhum ministro encontrado.' : 'Nenhum ministro cadastrado.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--crash-borda)]">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-hidden rounded-xl border border-[var(--crash-borda)]">
+          <table className="w-full table-fixed text-left text-base sm:text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.03] text-xs uppercase tracking-wider text-[var(--crash-texto-sec)]">
-                <th className="px-3 py-2.5 font-medium w-10">#</th>
-                <th className="px-3 py-2.5 font-medium w-12">Foto</th>
+                <th className="w-14 px-2 py-2.5 font-medium sm:w-16 sm:px-3">Foto</th>
                 {COLUNAS.map((col) => (
-                  <th key={col.key} className="px-3 py-2.5 font-medium">
+                  <th
+                    key={col.key}
+                    className={`px-1.5 py-2.5 font-medium sm:px-3 ${
+                      col.key === 'musicas_count' ? 'w-14 sm:w-20' : ''
+                    }`}
+                  >
                     {col.sortable ? (
                       <button
                         type="button"
                         onClick={() => toggleSort(col.key)}
                         className="hover:text-white"
                       >
-                        {col.label}{arrow(col.key)}
+                        {col.key === 'musicas_count' ? (
+                          <>
+                            <span className="sm:hidden">Mús.</span>
+                            <span className="hidden sm:inline">{col.label}</span>
+                          </>
+                        ) : (
+                          col.label
+                        )}
+                        {arrow(col.key)}
                       </button>
-                    ) : col.label}
+                    ) : (
+                      col.label
+                    )}
                   </th>
                 ))}
-                <th className="px-3 py-2.5 font-medium text-right">Ações</th>
+                <th className="w-[5.75rem] px-1.5 py-2.5 text-right font-medium sm:w-40 sm:px-3">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -103,37 +123,47 @@ export function MinistroTable({ ministros, onEdit, onCreate, onArchive }) {
                     i % 2 === 1 ? 'bg-white/[0.015]' : ''
                   }`}
                 >
-                  <td className="px-3 py-2 text-[var(--crash-texto-sec)]">{i + 1}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2.5 sm:px-3">
                     {m.foto_url ? (
-                      <img src={m.foto_url} alt="" className="h-9 w-9 rounded-md object-cover" />
+                      <img
+                        src={m.foto_url}
+                        alt=""
+                        className="h-12 w-12 rounded-md object-cover sm:h-11 sm:w-11"
+                      />
                     ) : (
-                      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--crash-borda)] text-xs font-bold text-[var(--crash-cifra)]">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--crash-borda)] text-sm font-bold text-[var(--crash-cifra)] sm:h-11 sm:w-11">
                         {iniciais(m.nome)}
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="min-w-0 px-1.5 py-2.5 sm:px-3">
                     <Link
                       to={`/ministro/${m.id}`}
-                      className="font-medium text-white hover:text-[var(--crash-cifra)]"
+                      className="block truncate text-base font-semibold text-white hover:text-[var(--crash-cifra)] sm:text-[15px]"
                     >
                       {m.nome}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-[var(--crash-texto-sec)]">{m.musicas_count ?? 0}</td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-1.5 py-2.5 text-[var(--crash-texto-sec)] sm:px-2">
+                    {m.musicas_count ?? 0}
+                  </td>
+                  <td className="px-1 py-2.5 text-right sm:px-2">
+                    <div className="flex items-center justify-end gap-0.5 sm:gap-1.5">
                       <Link
                         to={`/ministro/${m.id}`}
-                        className="rounded px-2 py-1 text-xs text-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/10"
+                        className="rounded px-1.5 py-1 text-base text-[var(--crash-cifra)] hover:bg-[var(--crash-cifra)]/10 sm:px-2 sm:text-xs"
+                        aria-label={`Abrir ${m.nome}`}
+                        title="Abrir"
                       >
-                        Abrir →
+                        <span className="sm:hidden" aria-hidden>
+                          →
+                        </span>
+                        <span className="hidden sm:inline">Abrir →</span>
                       </Link>
                       <button
                         type="button"
                         onClick={() => onEdit(m)}
-                        className="rounded px-2 py-1 text-xs text-[var(--crash-texto-sec)] hover:bg-white/10 hover:text-white"
+                        className="rounded px-1.5 py-1 text-sm text-[var(--crash-texto-sec)] hover:bg-white/10 hover:text-white sm:px-2 sm:text-xs"
                       >
                         Editar
                       </button>
@@ -141,11 +171,12 @@ export function MinistroTable({ ministros, onEdit, onCreate, onArchive }) {
                         <button
                           type="button"
                           onClick={() => onArchive(m)}
-                          className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-white/10 hover:text-zinc-300"
+                          className="rounded px-1.5 py-1 text-sm text-zinc-500 hover:bg-white/10 hover:text-zinc-300 sm:px-2 sm:text-xs"
                           title="Colocar ministro em modo soneca"
+                          aria-label={`Modo soneca: ${m.nome}`}
                         >
-                          <span aria-hidden="true">😴 </span>
-                          Modo soneca
+                          <span aria-hidden="true">😴</span>
+                          <span className="hidden sm:inline"> Modo soneca</span>
                         </button>
                       )}
                     </div>

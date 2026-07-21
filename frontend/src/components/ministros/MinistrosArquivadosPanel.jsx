@@ -25,11 +25,14 @@ export function MinistrosArquivadosPanel({
       <button
         type="button"
         onClick={onToggle}
-        className={`inline-flex items-center gap-1.5 text-sm text-[var(--crash-texto-sec)] transition hover:text-[var(--crash-cifra)] ${btnSecondaryClassName} !border-dashed !px-3 !py-1.5 !text-xs`}
+        className={`inline-flex max-w-full items-center gap-1.5 text-sm text-[var(--crash-texto-sec)] transition hover:text-[var(--crash-cifra)] ${btnSecondaryClassName} !border-dashed !px-2.5 !py-1.5 !text-sm sm:!px-3 sm:!text-xs`}
         aria-expanded={open}
       >
         <span aria-hidden="true">😴</span>
-        Ministros em soneca ({loading ? '…' : count})
+        <span className="truncate sm:hidden">Soneca ({loading ? '…' : count})</span>
+        <span className="hidden truncate sm:inline">
+          Ministros em soneca ({loading ? '…' : count})
+        </span>
       </button>
 
       {open && (

@@ -12,7 +12,7 @@ const navItems = [
 ]
 
 const navLinkClassName = ({ isActive }) =>
-  `border-b-2 py-1 text-sm font-medium transition ${
+  `border-b-2 py-1 text-[13px] font-medium transition sm:text-sm ${
     isActive
       ? 'border-[var(--crash-cifra)] text-white'
       : 'border-transparent text-[var(--crash-texto-sec)] hover:text-white'
@@ -32,13 +32,13 @@ export function AppShell() {
       <AuthenticatedNoIndex />
       <header className="sticky top-0 z-10 border-b border-[var(--crash-borda)] bg-black/90 backdrop-blur">
         {user && <TrialBanner />}
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-2 px-4">
-          <Link to="/" className="shrink-0 text-lg font-bold tracking-tight text-white">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-start gap-3 px-3 sm:gap-6 sm:px-4">
+          <Link to="/" className="shrink-0 text-base font-bold tracking-tight text-white sm:text-lg">
             CRASH <span className="text-[var(--crash-cifra)]">Cifras</span>
           </Link>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <PwaInstallButton />
-            <nav className="flex shrink-0 items-center gap-4">
+            <nav className="flex shrink-0 items-center gap-2.5 sm:gap-4">
               {navItems.map(({ to, label, end }) => (
                 <NavLink
                   key={to}
@@ -60,7 +60,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-3 py-5 sm:px-4 sm:py-6">
         {user ? (
           <TrialAccessRedirect>
             <Outlet />
