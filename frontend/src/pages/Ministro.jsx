@@ -133,20 +133,22 @@ export function Ministro() {
         backVariant="cifra"
       />
 
-      <header className="flex items-center gap-4">
+      <header className="flex items-center gap-3 sm:gap-4">
         {ministro.foto_url ? (
           <img
             src={ministro.foto_url}
             alt=""
-            className="h-20 w-20 rounded-full object-cover"
+            className="h-28 w-28 shrink-0 rounded-full object-cover sm:h-32 sm:w-32"
           />
         ) : (
-          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--crash-borda)] text-2xl font-bold text-[var(--crash-cifra)]">
+          <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-[var(--crash-borda)] text-3xl font-bold text-[var(--crash-cifra)] sm:h-32 sm:w-32 sm:text-4xl">
             {iniciais(ministro.nome)}
           </span>
         )}
-        <div>
-          <h1 className="text-2xl font-bold text-white">{ministro.nome}</h1>
+        <div className="min-w-0">
+          <h1 className="truncate text-3xl font-bold leading-tight text-white sm:text-4xl">
+            {ministro.nome}
+          </h1>
         </div>
       </header>
 
