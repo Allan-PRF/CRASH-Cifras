@@ -22,6 +22,8 @@ export function BarraSuperiorTeleprompter({
   onOffsetSessaoChange,
   tomDestino = null,
   onTomDestinoChange,
+  tomExibidoChip = null,
+  onVoltarTomOriginal,
   onToggleOrientacao,
   onToggleGraus,
   onOpenSettings,
@@ -40,6 +42,31 @@ export function BarraSuperiorTeleprompter({
       )}
     </>
   )
+
+  const tomPessoal = tomExibidoChip || tomOriginal
+  const tomDiferenteDoOriginal = Boolean(
+    tomOriginal && tomPessoal && tomPessoal !== tomOriginal,
+  )
+
+  const tomChip = tomOriginal ? (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] leading-tight sm:text-xs">
+      <span className="text-[var(--crash-texto-sec)]">
+        Tom:{' '}
+        <span className="font-semibold text-[var(--crash-cifra)]">{tomPessoal}</span>
+        {' · '}
+        original <span className="text-white/80">{tomOriginal}</span>
+      </span>
+      {tomDiferenteDoOriginal && onVoltarTomOriginal ? (
+        <button
+          type="button"
+          onClick={onVoltarTomOriginal}
+          className="shrink-0 rounded border border-[var(--crash-cifra)]/50 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--crash-cifra)] transition hover:bg-[var(--crash-cifra)]/15 sm:text-[11px]"
+        >
+          Voltar ao original
+        </button>
+      ) : null}
+    </div>
+  ) : null
 
   const mobileOrientButton = (
     <button
@@ -84,12 +111,16 @@ export function BarraSuperiorTeleprompter({
           </div>
         </div>
         <div className="mt-1.5 min-w-0 truncate text-sm leading-snug">{tituloMusica}</div>
+        {tomChip ? <div className="mt-1">{tomChip}</div> : null}
       </div>
 
       {/* Desktop: layout original numa linha */}
       <div className="mx-auto hidden max-w-7xl items-center justify-between gap-3 sm:flex">
         <PageBackButton to={backTo} variant="cifra" className="shrink-0" />
-        <div className="min-w-0 flex-1 truncate">{tituloMusica}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{tituloMusica}</div>
+          {tomChip ? <div className="mt-0.5">{tomChip}</div> : null}
+        </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="text-[var(--crash-texto-sec)]">{progresso}</span>
           <TransporTomControle

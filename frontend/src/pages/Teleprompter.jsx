@@ -71,7 +71,7 @@ import {
   saveYoutubeSync,
 } from '../lib/teleprompterYoutube'
 import { CifraSecaoCarousel } from '../components/musicas/CifraSecaoCarousel'
-import { tomParaGrausMusica, getTomExibido, transposeLinhas } from '../lib/transpose'
+import { tomParaGrausMusica, getTomExibido, transposeLinhas, semitonesBetween } from '../lib/transpose'
 import { simplifyLinhas } from '../lib/simplify'
 import { EquipeLiveIndicator } from '../components/teleprompter/EquipeLiveIndicator'
 import { AnotacaoPainelLeitura } from '../components/musicas/AnotacaoPainelLeitura'
@@ -82,6 +82,7 @@ import {
   fetchMusicaCompleta,
   fetchAnotacaoMusica,
   saveBpmPessoal,
+  saveTomPessoal,
 } from '../services/musicas'
 import { SalvarBpmPessoalModal } from '../components/teleprompter/SalvarBpmPessoalModal'
 import { resolveVersiculosForTeleprompter } from '../lib/resolveVersiculosTeleprompter'
@@ -258,6 +259,11 @@ export function Teleprompter() {
   const [anotacaoPainelOpen, setAnotacaoPainelOpen] = useState(false)
   const [offsetSessao, setOffsetSessao] = useState(0)
   const [tomDestinoSessao, setTomDestinoSessao] = useState(null)
+  const offsetSessaoRef = useRef(0)
+  const tomDestinoSessaoRef = useRef(null)
+  const tomBaseSalvoRef = useRef({ offset: 0, tom: null })
+  const tomPessoalDirtyRef = useRef(false)
+  const tomPersistInFlightRef = useRef(null)
   const [simplificar, setSimplificar] = useState(false)
   const [youtubeEnabled, setYoutubeEnabled] = useState(() => loadYoutubePlayerEnabled())
   const [youtubeSync, setYoutubeSync] = useState(() => loadYoutubeSync())
@@ -526,6 +532,8 @@ export function Teleprompter() {
     setActiveLineKey(null)
     scrollAccumRef.current = 0
     setTomDestinoSessao(null)
+    tomDestinoSessaoRef.current = null
+    tomPessoalDirtyRef.current = false
   }, [musicaId])
 
   const proximaMusicaCulto = useMemo(
@@ -543,16 +551,21 @@ export function Teleprompter() {
   useEffect(() => {
     if (!musica || String(musica.id) !== String(musicaId)) return
     const offset = musica.semitone_offset ?? 0
-    setOffsetSessao(offset)
-    if (
+    const tomSalvo =
       offset !== 0 &&
       musica.tom_exibido &&
       musica.tom_exibido !== musica.tom_original
-    ) {
-      setTomDestinoSessao(musica.tom_exibido)
-    } else {
-      setTomDestinoSessao(null)
+        ? musica.tom_exibido
+        : null
+    setOffsetSessao(offset)
+    setTomDestinoSessao(tomSalvo)
+    offsetSessaoRef.current = offset
+    tomDestinoSessaoRef.current = tomSalvo
+    tomBaseSalvoRef.current = {
+      offset,
+      tom: tomSalvo || musica.tom_original || null,
     }
+    tomPessoalDirtyRef.current = false
   }, [
     musicaId,
     musica?.id,
@@ -560,6 +573,174 @@ export function Teleprompter() {
     musica?.tom_exibido,
     musica?.tom_original,
   ])
+
+  const markTomSessao = useCallback(
+    (nextOffset, nextTomDestino) => {
+      const offset = Number(nextOffset) || 0
+      const tomDest =
+        nextTomDestino ||
+        (musica?.tom_original
+          ? getTomExibido(musica.tom_original, offset, nextTomDestino)
+          : null)
+      offsetSessaoRef.current = offset
+      tomDestinoSessaoRef.current = nextTomDestino ?? null
+      setOffsetSessao(offset)
+      setTomDestinoSessao(nextTomDestino ?? null)
+
+      const base = tomBaseSalvoRef.current
+      const tomAtual = tomDest || musica?.tom_original || null
+      tomPessoalDirtyRef.current = Boolean(
+        musica?.ministro_id &&
+          musica?.tom_original &&
+          (offset !== (base.offset || 0) ||
+            String(tomAtual || '') !== String(base.tom || '')),
+      )
+    },
+    [musica?.ministro_id, musica?.tom_original],
+  )
+
+  const handleOffsetSessaoChange = useCallback(
+    (next) => {
+      const offset = Number(next) || 0
+      const tomDest =
+        offset === 0
+          ? null
+          : tomDestinoSessaoRef.current ||
+            (musica?.tom_original
+              ? getTomExibido(musica.tom_original, offset, null)
+              : null)
+      markTomSessao(offset, tomDest)
+    },
+    [markTomSessao, musica?.tom_original],
+  )
+
+  const handleTomDestinoChange = useCallback(
+    (nextTom) => {
+      if (!nextTom || (musica?.tom_original && nextTom === musica.tom_original)) {
+        markTomSessao(0, null)
+        return
+      }
+      const st = musica?.tom_original
+        ? semitonesBetween(musica.tom_original, nextTom)
+        : 0
+      markTomSessao(st || 0, nextTom)
+    },
+    [markTomSessao, musica?.tom_original],
+  )
+
+  const persistTomPessoalIfDirty = useCallback(async () => {
+    if (!tomPessoalDirtyRef.current) return false
+    if (!musicaId || !musica?.ministro_id || !musica?.tom_original) return false
+
+    const offset = offsetSessaoRef.current || 0
+    const tom =
+      tomDestinoSessaoRef.current ||
+      getTomExibido(musica.tom_original, offset, tomDestinoSessaoRef.current) ||
+      musica.tom_original
+
+    if (tomPersistInFlightRef.current) {
+      await tomPersistInFlightRef.current
+    }
+
+    const job = saveTomPessoal(musicaId, musica.ministro_id, tom, offset)
+      .then((saved) => {
+        tomPessoalDirtyRef.current = false
+        tomBaseSalvoRef.current = {
+          offset: saved.semitone_offset,
+          tom: saved.tom_atual,
+        }
+        setMusica((prev) =>
+          prev
+            ? {
+                ...prev,
+                tom_exibido: saved.tom_atual,
+                semitone_offset: saved.semitone_offset,
+              }
+            : prev,
+        )
+        return true
+      })
+      .finally(() => {
+        if (tomPersistInFlightRef.current === job) {
+          tomPersistInFlightRef.current = null
+        }
+      })
+
+    tomPersistInFlightRef.current = job
+    return job
+  }, [musica?.ministro_id, musica?.tom_original, musicaId])
+
+  const handleVoltarTomOriginal = useCallback(() => {
+    markTomSessao(0, null)
+    if (!musicaId || !musica?.ministro_id || !musica?.tom_original) return
+    void saveTomPessoal(musicaId, musica.ministro_id, musica.tom_original, 0)
+      .then((saved) => {
+        tomPessoalDirtyRef.current = false
+        tomBaseSalvoRef.current = {
+          offset: saved.semitone_offset,
+          tom: saved.tom_atual,
+        }
+        setMusica((prev) =>
+          prev
+            ? {
+                ...prev,
+                tom_exibido: saved.tom_atual,
+                semitone_offset: saved.semitone_offset,
+              }
+            : prev,
+        )
+      })
+      .catch((err) => {
+        console.error('[tom] falha ao voltar ao original:', err?.message || err)
+      })
+  }, [markTomSessao, musica?.ministro_id, musica?.tom_original, musicaId])
+
+  // Minimizar / PWA em background: auto-save (useBlocker não cobre isso).
+  useEffect(() => {
+    function onHide() {
+      if (document.visibilityState === 'hidden') {
+        void persistTomPessoalIfDirty()
+      }
+    }
+    function onPageHide() {
+      void persistTomPessoalIfDirty()
+    }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', onPageHide)
+    }
+  }, [persistTomPessoalIfDirty])
+
+  // Navegação in-app: salvar calado e seguir (sem modal).
+  const shouldBlockTomLeave = useCallback(() => {
+    return Boolean(
+      musica?.ministro_id &&
+        tomPessoalDirtyRef.current &&
+        musica?.tom_original,
+    )
+  }, [musica?.ministro_id, musica?.tom_original])
+
+  const tomLeaveBlocker = useBlocker(shouldBlockTomLeave)
+
+  useEffect(() => {
+    if (tomLeaveBlocker.state !== 'blocked') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        await persistTomPessoalIfDirty()
+      } catch (err) {
+        console.error('[tom] falha ao persistir ao sair:', err?.message || err)
+      }
+      if (!cancelled && tomLeaveBlocker.state === 'blocked') {
+        tomLeaveBlocker.proceed()
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tomLeaveBlocker, persistTomPessoalIfDirty])
 
   useEffect(() => {
     if (!musicaId || !musica) return
@@ -1314,9 +1495,11 @@ export function Teleprompter() {
         orientacaoIcon={layout.icon}
         tomOriginal={musica.tom_original}
         offsetSessao={offsetSessao}
-        onOffsetSessaoChange={setOffsetSessao}
+        onOffsetSessaoChange={handleOffsetSessaoChange}
         tomDestino={tomDestinoSessao}
-        onTomDestinoChange={setTomDestinoSessao}
+        onTomDestinoChange={handleTomDestinoChange}
+        tomExibidoChip={tomExibido}
+        onVoltarTomOriginal={handleVoltarTomOriginal}
         onToggleOrientacao={toggleOrientacao}
         onToggleGraus={toggleGrades}
         onOpenSettings={() => setPanelOpen(true)}
@@ -1602,9 +1785,9 @@ export function Teleprompter() {
         bpm={bpm}
         tomOriginal={musica.tom_original}
         offsetSessao={offsetSessao}
-        onOffsetSessaoChange={setOffsetSessao}
+        onOffsetSessaoChange={handleOffsetSessaoChange}
         tomDestino={tomDestinoSessao}
-        onTomDestinoChange={setTomDestinoSessao}
+        onTomDestinoChange={handleTomDestinoChange}
         onClose={() => setPanelOpen(false)}
         onToggleModo={toggleModoEvento}
         onToggleOrientacao={toggleOrientacao}

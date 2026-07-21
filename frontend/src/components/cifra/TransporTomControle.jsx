@@ -5,7 +5,9 @@ import { getTomExibido, semitonesBetween } from '../../lib/transpose'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 /**
- * Seletor de tom com popover — folha de edição ou teleprompter (só visual, não persiste).
+ * Seletor de tom com popover — folha de edição ou teleprompter.
+ * No teleprompter a sessão atualiza na hora; a persistência em musica_ministro
+ * fica a cargo do Teleprompter (auto-save ao sair / background).
  * @param {'folha'|'teleprompter'} variant
  */
 export function TransporTomControle({

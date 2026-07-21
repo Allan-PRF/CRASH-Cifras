@@ -362,6 +362,35 @@ export async function saveBpmPessoal(musicaId, ministroId, bpm) {
   return { bpm_pessoal: value }
 }
 
+/**
+ * Óculos de tom pessoal (musica_ministro.tom_atual + semitone_offset).
+ * Upsert só com campos de tom + PK — não envia bpm_pessoal (não zera o BPM).
+ * Não reescreve acordes das seções.
+ */
+export async function saveTomPessoal(musicaId, ministroId, tomAtual, semitoneOffset) {
+  if (!musicaId || !ministroId) {
+    throw new Error('Música e ministro são obrigatórios para salvar tom pessoal')
+  }
+  const tom = String(tomAtual || '').trim()
+  if (!tom) {
+    throw new Error('Tom inválido')
+  }
+  const offset = Math.round(Number(semitoneOffset) || 0)
+
+  const { error } = await supabase.from('musica_ministro').upsert(
+    {
+      musica_id: musicaId,
+      ministro_id: ministroId,
+      tom_atual: tom,
+      semitone_offset: offset,
+    },
+    { onConflict: 'musica_id,ministro_id' },
+  )
+
+  if (error) throw error
+  return { tom_atual: tom, semitone_offset: offset }
+}
+
 export async function updateMusica(id, fields) {
   const update = {
     titulo: fields.titulo?.trim(),
