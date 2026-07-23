@@ -18,6 +18,8 @@ import {
   usuarioPossuiCopiaLigadaAVersao,
   registrarVersaoCuradoria,
   publicarCopiaPessoalNoAcervo,
+  impactoMetadadosAcervoMusica,
+  corrigirMetadadosAcervoMusica,
 } from '../lib/acervo.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
@@ -510,6 +512,72 @@ acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
     next(err)
   }
 })
+
+/**
+ * Admin — preview do impacto ao corrigir metadados (cópias elegíveis + conflito de URL).
+ * GET /api/acervo/musicas/:id/metadados/impacto?fonte_url=...
+ */
+acervoRouter.get(
+  '/musicas/:id/metadados/impacto',
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const result = await impactoMetadadosAcervoMusica({
+        acervoMusicaId: req.params.id,
+        fonteUrlNova: req.query.fonte_url || req.query.fonteUrl || null,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message })
+      }
+      next(err)
+    }
+  },
+)
+
+/**
+ * Admin — corrige fonte_url / titulo / artista em acervo_musicas (cifra intacta).
+ * PATCH /api/acervo/musicas/:id/metadados
+ * Body: { fonte_url?, titulo?, artista?, propagar_youtube?: true }
+ */
+acervoRouter.patch(
+  '/musicas/:id/metadados',
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const body = req.body ?? {}
+      const hasFonte = Object.prototype.hasOwnProperty.call(body, 'fonte_url')
+      const hasTitulo = Object.prototype.hasOwnProperty.call(body, 'titulo')
+      const hasArtista = Object.prototype.hasOwnProperty.call(body, 'artista')
+
+      const result = await corrigirMetadadosAcervoMusica({
+        acervoMusicaId: req.params.id,
+        fonteUrl: hasFonte ? body.fonte_url : undefined,
+        titulo: hasTitulo ? body.titulo : undefined,
+        artista: hasArtista ? body.artista : undefined,
+        propagarYoutube:
+          body.propagar_youtube === undefined
+            ? true
+            : Boolean(body.propagar_youtube),
+        userId: req.user.id,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({
+          error: err.message,
+          ...(err.code ? { code: err.code } : {}),
+          ...(err.conflito ? { conflito: err.conflito } : {}),
+          ...(err.prova ? { prova: err.prova } : {}),
+        })
+      }
+      next(err)
+    }
+  },
+)
 
 /**
  * Admin — publica cifra de arquivo no acervo global (origem=curadoria).

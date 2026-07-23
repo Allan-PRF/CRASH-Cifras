@@ -1,6 +1,7 @@
 import {
   aplicarTomOriginalNaCifra,
   buildCifraSnapshot,
+  buildCifraSnapshotFromMusica,
   calcularScoreVersao,
   cifrasEssencialmenteIguais,
   hashCifraNorm,
@@ -1447,6 +1448,413 @@ export async function restaurarCopiaPessoalDoMotor({ musicaId, userId }) {
     versao_motor_id: versaoFonte.origem === 'motor' ? versaoFonte.id : null,
     versao_fonte_id: versaoFonte.id,
     origem_fonte: versaoFonte.origem,
+  }
+}
+
+/**
+ * Cópias pessoais ligadas a qualquer versão desta entrada do acervo.
+ * @param {string} acervoMusicaId
+ * @returns {Promise<Array<{ id: string, youtube_url: string|null, titulo: string|null }>>}
+ */
+async function listarCopiasLigadasAcervoMusica(acervoMusicaId) {
+  const db = admin()
+  const { data: versoes, error: vErr } = await db
+    .from('acervo_versoes')
+    .select('id')
+    .eq('acervo_musica_id', acervoMusicaId)
+  if (vErr) throw vErr
+  const versaoIds = (versoes || []).map((v) => v.id)
+  if (!versaoIds.length) return []
+
+  const { data: musicas, error: mErr } = await db
+    .from('musicas')
+    .select('id, youtube_url, titulo')
+    .in('acervo_versao_id', versaoIds)
+  if (mErr) throw mErr
+  return musicas || []
+}
+
+async function snapshotProvaVersoes(acervoMusicaId) {
+  const db = admin()
+  const { data: versoes, error } = await db
+    .from('acervo_versoes')
+    .select('id, hash_norm, cifra')
+    .eq('acervo_musica_id', acervoMusicaId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (versoes || []).map((v) => ({
+    id: v.id,
+    hash_norm: v.hash_norm || hashCifraNorm(v.cifra),
+    hash_secoes: hashSecoesNorm(v.cifra),
+  }))
+}
+
+async function snapshotProvaCopias(musicaIds) {
+  if (!musicaIds.length) return []
+  const db = admin()
+  const { data: musicas, error: mErr } = await db
+    .from('musicas')
+    .select('id, tom_original, bpm')
+    .in('id', musicaIds)
+  if (mErr) throw mErr
+
+  const { data: secoes, error: sErr } = await db
+    .from('secoes_musica')
+    .select('musica_id, slug, nome, ordem_original, linhas')
+    .in('musica_id', musicaIds)
+    .order('ordem_original', { ascending: true })
+  if (sErr) throw sErr
+
+  const secoesPorMusica = new Map()
+  for (const sec of secoes || []) {
+    const list = secoesPorMusica.get(sec.musica_id) || []
+    list.push({
+      slug: sec.slug,
+      nome: sec.nome,
+      ordem_original: sec.ordem_original,
+      linhas: sec.linhas || { lines: [] },
+    })
+    secoesPorMusica.set(sec.musica_id, list)
+  }
+
+  return (musicas || []).map((m) => {
+    const cifra = buildCifraSnapshotFromMusica({
+      tomOriginal: m.tom_original,
+      bpm: m.bpm,
+      secoes: secoesPorMusica.get(m.id) || [],
+    })
+    return {
+      id: m.id,
+      hash_secoes: hashSecoesNorm(cifra),
+      hash_norm: hashCifraNorm(cifra),
+    }
+  })
+}
+
+function rotuloEntradaAcervo(musica) {
+  const titulo = String(musica?.titulo || '').trim() || '(sem título)'
+  const artista = String(musica?.artista || '').trim()
+  return artista ? `${titulo} — ${artista}` : titulo
+}
+
+/**
+ * Preview admin: quantas cópias seriam afetadas ao corrigir fonte_url, e conflito do URL novo.
+ */
+export async function impactoMetadadosAcervoMusica({
+  acervoMusicaId,
+  fonteUrlNova = null,
+}) {
+  if (!acervoMusicaId) {
+    const err = new Error('acervoMusicaId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+  const { data: musica, error } = await db
+    .from('acervo_musicas')
+    .select(
+      'id, titulo, artista, fonte_url, titulo_norm, artista_norm, status, metadados_corrigido_em',
+    )
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (error) throw error
+  if (!musica) {
+    const err = new Error('Entrada do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  const copias = await listarCopiasLigadasAcervoMusica(acervoMusicaId)
+  const fonteAtual = musica.fonte_url || null
+  const elegiveis = copias.filter(
+    (c) => fonteAtual && c.youtube_url && c.youtube_url === fonteAtual,
+  )
+
+  let fonteUrlNovaCanonical = null
+  let conflito = null
+  const rawNova = String(fonteUrlNova || '').trim()
+  if (rawNova) {
+    fonteUrlNovaCanonical = canonicalYoutubeUrlFromRaw(rawNova)
+    if (fonteUrlNovaCanonical !== fonteAtual) {
+      const outra = await buscarAcervoPorFonteUrl(fonteUrlNovaCanonical)
+      if (outra && outra.id !== acervoMusicaId) {
+        conflito = {
+          id: outra.id,
+          titulo: outra.titulo,
+          artista: outra.artista,
+          fonte_url: outra.fonte_url,
+          rotulo: rotuloEntradaAcervo(outra),
+        }
+      }
+    }
+  }
+
+  return {
+    musica: {
+      id: musica.id,
+      titulo: musica.titulo,
+      artista: musica.artista,
+      fonte_url: musica.fonte_url,
+      titulo_norm: musica.titulo_norm,
+      artista_norm: musica.artista_norm,
+      status: musica.status,
+    },
+    copias_ligadas: copias.length,
+    elegiveis_propagacao: elegiveis.length,
+    elegiveis_ids: elegiveis.map((c) => c.id),
+    fonte_url_nova: fonteUrlNovaCanonical,
+    conflito,
+  }
+}
+
+/**
+ * Admin — corrige metadados da entrada (fonte_url / titulo / artista).
+ * Nunca escreve em acervo_versoes.cifra nem em secoes_musica.
+ * Propagação opcional: só musicas.youtube_url quando igual ao fonte_url antigo.
+ */
+export async function corrigirMetadadosAcervoMusica({
+  acervoMusicaId,
+  fonteUrl,
+  titulo,
+  artista,
+  propagarYoutube = true,
+  userId,
+}) {
+  if (!acervoMusicaId) {
+    const err = new Error('acervoMusicaId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+  if (!userId) {
+    const err = new Error('userId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+
+  const temFonte = fonteUrl !== undefined
+  const temTitulo = titulo !== undefined
+  const temArtista = artista !== undefined
+  if (!temFonte && !temTitulo && !temArtista) {
+    const err = new Error('Informe fonte_url, titulo e/ou artista para corrigir.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+  const { data: row, error: loadErr } = await db
+    .from('acervo_musicas')
+    .select(
+      'id, titulo, artista, titulo_norm, artista_norm, fonte_url, status',
+    )
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (loadErr) throw loadErr
+  if (!row) {
+    const err = new Error('Entrada do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  const update = {}
+  const antes = {}
+
+  if (temFonte) {
+    const canonical = canonicalYoutubeUrlFromRaw(fonteUrl)
+    if (canonical !== row.fonte_url) {
+      const outra = await buscarAcervoPorFonteUrl(canonical)
+      if (outra && outra.id !== acervoMusicaId) {
+        const err = new Error(
+          `Este link do YouTube já está em uso por «${rotuloEntradaAcervo(outra)}».`,
+        )
+        err.status = 409
+        err.code = 'FONTE_URL_EM_USO'
+        err.conflito = {
+          id: outra.id,
+          titulo: outra.titulo,
+          artista: outra.artista,
+          fonte_url: outra.fonte_url,
+          rotulo: rotuloEntradaAcervo(outra),
+        }
+        throw err
+      }
+      antes.fonte_url = row.fonte_url
+      update.fonte_url = canonical
+    }
+  }
+
+  if (temTitulo) {
+    const tituloTrim = String(titulo ?? '').trim()
+    if (tituloTrim.length < 1) {
+      const err = new Error('titulo não pode ser vazio.')
+      err.status = 400
+      throw err
+    }
+    if (tituloTrim !== row.titulo) {
+      antes.titulo = row.titulo
+      antes.titulo_norm = row.titulo_norm
+      update.titulo = tituloTrim
+      update.titulo_norm = normalizeAcervoText(tituloTrim)
+    }
+  }
+
+  if (temArtista) {
+    const artistaVal =
+      artista == null || String(artista).trim() === ''
+        ? null
+        : String(artista).trim()
+    if (artistaVal !== row.artista) {
+      antes.artista = row.artista
+      antes.artista_norm = row.artista_norm
+      update.artista = artistaVal
+      update.artista_norm = normalizeAcervoText(artistaVal)
+    }
+  }
+
+  const copias = await listarCopiasLigadasAcervoMusica(acervoMusicaId)
+  const copiaIds = copias.map((c) => c.id)
+  const provaVersoesAntes = await snapshotProvaVersoes(acervoMusicaId)
+  const provaCopiasAntes = await snapshotProvaCopias(copiaIds)
+
+  if (!Object.keys(update).length) {
+    return {
+      alterado: false,
+      musica: row,
+      antes: {},
+      propagacao_youtube: {
+        solicitada: false,
+        copias_ligadas: copias.length,
+        elegiveis: 0,
+        atualizadas: 0,
+        ids: [],
+      },
+      prova: montarProvaMetadados({
+        versoesAntes: provaVersoesAntes,
+        versoesDepois: provaVersoesAntes,
+        copiasAntes: provaCopiasAntes,
+        copiasDepois: provaCopiasAntes,
+        camposAlterados: [],
+      }),
+    }
+  }
+
+  const corrigidoEm = new Date().toISOString()
+  const payload = {
+    ...update,
+    metadados_corrigido_por: userId,
+    metadados_corrigido_em: corrigidoEm,
+    metadados_corrigido_antes: antes,
+  }
+
+  const { data: atualizada, error: upErr } = await db
+    .from('acervo_musicas')
+    .update(payload)
+    .eq('id', acervoMusicaId)
+    .select(
+      'id, titulo, artista, titulo_norm, artista_norm, fonte_url, status, metadados_corrigido_por, metadados_corrigido_em, metadados_corrigido_antes',
+    )
+    .single()
+  if (upErr) throw upErr
+
+  const fonteAntiga = antes.fonte_url
+  const fonteNova = update.fonte_url
+  const querPropagar = Boolean(fonteNova) && propagarYoutube !== false
+  const elegiveis = querPropagar
+    ? copias.filter(
+        (c) => fonteAntiga && c.youtube_url && c.youtube_url === fonteAntiga,
+      )
+    : []
+  const elegiveisIds = elegiveis.map((c) => c.id)
+
+  if (elegiveisIds.length) {
+    const { error: ytErr } = await db
+      .from('musicas')
+      .update({ youtube_url: fonteNova })
+      .in('id', elegiveisIds)
+    if (ytErr) throw ytErr
+  }
+
+  const provaVersoesDepois = await snapshotProvaVersoes(acervoMusicaId)
+  const provaCopiasDepois = await snapshotProvaCopias(copiaIds)
+  const prova = montarProvaMetadados({
+    versoesAntes: provaVersoesAntes,
+    versoesDepois: provaVersoesDepois,
+    copiasAntes: provaCopiasAntes,
+    copiasDepois: provaCopiasDepois,
+    camposAlterados: Object.keys(update),
+  })
+
+  if (!prova.cifra_intacta) {
+    const err = new Error(
+      'Prova falhou: hashes de cifra/seções mudaram após correção de metadados.',
+    )
+    err.status = 500
+    err.prova = prova
+    throw err
+  }
+
+  return {
+    alterado: true,
+    musica: atualizada,
+    antes,
+    propagacao_youtube: {
+      solicitada: querPropagar,
+      copias_ligadas: copias.length,
+      elegiveis: elegiveisIds.length,
+      atualizadas: elegiveisIds.length,
+      ids: elegiveisIds,
+    },
+    prova,
+  }
+}
+
+function montarProvaMetadados({
+  versoesAntes,
+  versoesDepois,
+  copiasAntes,
+  copiasDepois,
+  camposAlterados,
+}) {
+  const porIdDepois = new Map(versoesDepois.map((v) => [v.id, v]))
+  const versoes = versoesAntes.map((antes) => {
+    const depois = porIdDepois.get(antes.id) || antes
+    return {
+      id: antes.id,
+      hash_norm_antes: antes.hash_norm,
+      hash_norm_depois: depois.hash_norm,
+      hash_secoes_antes: antes.hash_secoes,
+      hash_secoes_depois: depois.hash_secoes,
+      inalterada:
+        antes.hash_norm === depois.hash_norm &&
+        antes.hash_secoes === depois.hash_secoes,
+    }
+  })
+
+  const copiasPorId = new Map(copiasDepois.map((c) => [c.id, c]))
+  const copias = copiasAntes.map((antes) => {
+    const depois = copiasPorId.get(antes.id) || antes
+    return {
+      id: antes.id,
+      hash_secoes_antes: antes.hash_secoes,
+      hash_secoes_depois: depois.hash_secoes,
+      hash_norm_antes: antes.hash_norm,
+      hash_norm_depois: depois.hash_norm,
+      inalterada:
+        antes.hash_secoes === depois.hash_secoes &&
+        antes.hash_norm === depois.hash_norm,
+    }
+  })
+
+  const cifraIntacta =
+    versoes.every((v) => v.inalterada) && copias.every((c) => c.inalterada)
+
+  return {
+    cifra_intacta: cifraIntacta,
+    versoes,
+    copias,
+    campos_acervo_alterados: camposAlterados,
+    escreveu_em_acervo_versoes_cifra: false,
+    escreveu_em_secoes: false,
   }
 }
 

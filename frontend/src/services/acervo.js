@@ -176,3 +176,41 @@ export async function publicarCopiaNoAcervo({
   )
   return data
 }
+
+/**
+ * Admin — preview: cópias elegíveis à propagação do YouTube + conflito do URL novo.
+ */
+export async function impactoMetadadosAcervo(acervoMusicaId, { fonteUrl } = {}) {
+  const headers = await authHeaders()
+  const params = {}
+  if (String(fonteUrl || '').trim()) params.fonte_url = String(fonteUrl).trim()
+  const { data } = await api.get(`/acervo/musicas/${acervoMusicaId}/metadados/impacto`, {
+    headers,
+    params,
+  })
+  return data
+}
+
+/**
+ * Admin — corrige fonte_url / titulo / artista (cifra intacta; propaga só o link).
+ */
+export async function corrigirMetadadosAcervo(
+  acervoMusicaId,
+  { fonteUrl, titulo, artista, propagarYoutube = true } = {},
+) {
+  const headers = await authHeaders()
+  const body = {}
+  if (fonteUrl !== undefined) body.fonte_url = fonteUrl
+  if (titulo !== undefined) body.titulo = titulo
+  if (artista !== undefined) body.artista = artista
+  body.propagar_youtube = propagarYoutube
+  const { data } = await api.patch(`/acervo/musicas/${acervoMusicaId}/metadados`, body, {
+    headers,
+  })
+  return data
+}
+
+/** 409 quando o novo fonte_url já pertence a outra entrada. */
+export function isFonteUrlEmUsoError(err) {
+  return err?.code === 'FONTE_URL_EM_USO'
+}

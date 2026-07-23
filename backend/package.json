@@ -7,6 +7,7 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test:corrigir-tom": "node scripts/test-corrigir-tom.mjs",
+    "test:corrigir-metadados-acervo": "node --env-file=../.env scripts/test-corrigir-metadados-acervo.mjs",
     "test:acervo-busca": "node scripts/test-acervo-busca.mjs"
   },
   "dependencies": {
