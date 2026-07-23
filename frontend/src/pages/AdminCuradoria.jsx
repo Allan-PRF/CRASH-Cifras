@@ -41,6 +41,7 @@ export function AdminCuradoria() {
   const [salvarMsg, setSalvarMsg] = useState(null)
   const [salvarErro, setSalvarErro] = useState(null)
 
+  // Impacto é somente leitura: atualiza contagens/conflito, NUNCA os drafts do form.
   const carregarImpacto = useCallback(async (acervoMusicaId, fonteUrl) => {
     if (!acervoMusicaId) return
     setImpactoLoading(true)
@@ -100,25 +101,26 @@ export function AdminCuradoria() {
   async function salvarMetadados(e) {
     e?.preventDefault?.()
     if (!selecionadaId) return
+    // Snapshot no clique — não depende de re-render / debounce do impacto.
+    const enviado = {
+      titulo: tituloDraft,
+      artista: artistaDraft,
+      fonteUrl: fonteUrlDraft,
+      propagarYoutube,
+    }
     setSalvando(true)
     setSalvarMsg(null)
     setSalvarErro(null)
     try {
-      const payload = {
-        titulo: tituloDraft,
-        artista: artistaDraft,
-        fonteUrl: fonteUrlDraft,
-        propagarYoutube,
-      }
-      const result = await corrigirMetadadosAcervo(selecionadaId, payload)
+      const result = await corrigirMetadadosAcervo(selecionadaId, enviado)
       const n = result?.propagacao_youtube?.atualizadas ?? 0
       setSalvarMsg(
         result.alterado
           ? `Metadados salvos.${propagarYoutube ? ` YouTube propagado para ${n} cópia(s).` : ''} Cifra intacta: ${result?.prova?.cifra_intacta ? 'sim' : 'não'}.`
-          : 'Nenhuma alteração detectada.',
+          : `Nenhuma alteração detectada. Enviado: ${enviado.fonteUrl || '(vazio)'} · Salvo: ${result?.musica?.fonte_url || '(vazio)'}.`,
       )
-      await carregarImpacto(selecionadaId, fonteUrlDraft)
-      if (result?.musica) {
+      // Só reescreve o form quando o servidor de fato alterou — no-op não cloba o draft.
+      if (result.alterado && result?.musica) {
         setTituloDraft(result.musica.titulo || '')
         setArtistaDraft(result.musica.artista || '')
         setFonteUrlDraft(result.musica.fonte_url || '')
@@ -135,6 +137,10 @@ export function AdminCuradoria() {
           ),
         )
       }
+      await carregarImpacto(
+        selecionadaId,
+        result.alterado ? result.musica?.fonte_url : enviado.fonteUrl,
+      )
     } catch (err) {
       if (isFonteUrlEmUsoError(err)) {
         setSalvarErro(err.message)
