@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import { InstrucaoArranjo } from '../components/playlist/InstrucaoArranjo'
 import { PageNav } from '../components/layout/PageNav'
 import { MedleyToggle } from '../components/playlist/MedleyToggle'
-import { BuscaMusicaEvento } from '../components/playlist/BuscaMusicaEvento'
 import { ConfirmDeleteModal } from '../components/ui/ConfirmDeleteModal'
 import {
   btnPrimaryClassName,
@@ -381,15 +380,6 @@ export function Playlist() {
         </div>
       )}
 
-      {isRascunho && (
-        <BuscaMusicaEvento
-          playlistId={id}
-          musicaIdsNaPlaylist={alreadyInPlaylist}
-          disabled={false}
-          onMusicaAdicionada={() => load({ silent: true })}
-        />
-      )}
-
       {error && (
         <p className="rounded-lg border border-red-900/40 bg-red-950/20 p-3 text-sm text-red-400">
           {error}
@@ -461,8 +451,8 @@ export function Playlist() {
           ) : (
             <>
               Nenhuma música ainda. Toque em{' '}
-              <strong className="text-white">+ Adicionar músicas</strong> ou use a busca do YouTube
-              acima e monte a ordem do evento (de 3 a 6 músicas é o ideal).
+              <strong className="text-white">+ Adicionar músicas</strong> e monte a ordem do
+              evento (de 3 a 6 músicas é o ideal).
             </>
           )}
         </p>
