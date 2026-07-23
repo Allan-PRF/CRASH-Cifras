@@ -482,7 +482,8 @@ acervoRouter.post('/copias/restaurar-motor', requireAuth, async (req, res, next)
  */
 acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
   try {
-    const { musicaId, youtubeUrl, tomOriginal, bpm, secoes } = req.body ?? {}
+    const body = req.body ?? {}
+    const { musicaId, youtubeUrl, tomOriginal, bpm, secoes } = body
     if (!musicaId) {
       return res.status(400).json({ error: 'musicaId é obrigatório.' })
     }
@@ -502,12 +503,23 @@ acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
       userId: req.user.id,
       youtubeUrl: youtubeUrl || null,
       cifra,
+      confirmarMesmoLink: Boolean(
+        body.confirmar_mesmo_link ?? body.confirmarMesmoLink,
+      ),
     })
 
     res.json({ ok: true, ...result })
   } catch (err) {
     if (err.status) {
-      return res.status(err.status).json({ error: err.message })
+      return res.status(err.status).json({
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+        ...(err.requer_confirmacao ? { requer_confirmacao: true } : {}),
+        ...(err.entrada_encontrada
+          ? { entrada_encontrada: err.entrada_encontrada }
+          : {}),
+        ...(err.copia ? { copia: err.copia } : {}),
+      })
     }
     next(err)
   }
@@ -585,8 +597,9 @@ acervoRouter.patch(
  */
 acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const body = req.body ?? {}
     const { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem, youtubeUrl } =
-      req.body ?? {}
+      body
     if (!cifra || typeof cifra !== 'object') {
       return res.status(400).json({ error: 'cifra (snapshot) é obrigatória.' })
     }
@@ -599,6 +612,9 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
       criadoPor: req.user.id,
       arquivoOrigem,
       youtubeUrl,
+      confirmarMesmoLink: Boolean(
+        body.confirmar_mesmo_link ?? body.confirmarMesmoLink,
+      ),
     })
     res.json({
       ok: true,
@@ -609,7 +625,15 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
     })
   } catch (err) {
     if (err.status) {
-      return res.status(err.status).json({ error: err.message })
+      return res.status(err.status).json({
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+        ...(err.requer_confirmacao ? { requer_confirmacao: true } : {}),
+        ...(err.entrada_encontrada
+          ? { entrada_encontrada: err.entrada_encontrada }
+          : {}),
+        ...(err.copia ? { copia: err.copia } : {}),
+      })
     }
     next(err)
   }

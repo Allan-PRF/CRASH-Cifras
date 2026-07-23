@@ -25,6 +25,15 @@ api.interceptors.response.use(
     if (error.response?.data?.code) {
       err.code = error.response.data.code
     }
+    if (error.response?.data?.requer_confirmacao) {
+      err.requer_confirmacao = true
+    }
+    if (error.response?.data?.entrada_encontrada) {
+      err.entrada_encontrada = error.response.data.entrada_encontrada
+    }
+    if (error.response?.data?.copia) {
+      err.copia = error.response.data.copia
+    }
     return Promise.reject(err)
   },
 )

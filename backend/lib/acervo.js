@@ -7,6 +7,7 @@ import {
   hashCifraNorm,
   hashSecoesNorm,
   normalizeAcervoText,
+  precisaConfirmacaoTituloAcervo,
   unpackCifraToSecoes,
 } from '@crash-cifras/shared'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
@@ -229,6 +230,61 @@ async function buscarAcervoPorFonteUrl(fonteUrl) {
   return data
 }
 
+function rotuloEntradaAcervo(musica) {
+  const titulo = String(musica?.titulo || '').trim() || '(sem título)'
+  const artista = String(musica?.artista || '').trim()
+  return artista ? `${titulo} — ${artista}` : titulo
+}
+
+/**
+ * Guarda: URL aponta para entrada cujo título/artista divergem da cópia.
+ * Sem confirmarMesmoLink → 409 ACERVO_TITULO_DIVERGENTE (nada gravado).
+ */
+function assertTituloCompativelComEntradaUrl({
+  tituloCopia,
+  artistaCopia,
+  acervoMusica,
+  confirmarMesmoLink = false,
+}) {
+  if (!acervoMusica) return
+  if (confirmarMesmoLink) return
+  if (
+    !precisaConfirmacaoTituloAcervo({
+      tituloCopia,
+      artistaCopia,
+      tituloAcervo: acervoMusica.titulo,
+      artistaAcervo: acervoMusica.artista,
+    })
+  ) {
+    return
+  }
+
+  const rotuloEntrada = rotuloEntradaAcervo(acervoMusica)
+  const rotuloCopia = rotuloEntradaAcervo({
+    titulo: tituloCopia,
+    artista: artistaCopia,
+  })
+  const err = new Error(
+    `O link aponta para «${rotuloEntrada}», mas sua música chama «${rotuloCopia}». Confirme se é a mesma música ou corrija o link.`,
+  )
+  err.status = 409
+  err.code = 'ACERVO_TITULO_DIVERGENTE'
+  err.requer_confirmacao = true
+  err.entrada_encontrada = {
+    id: acervoMusica.id,
+    titulo: acervoMusica.titulo,
+    artista: acervoMusica.artista,
+    fonte_url: acervoMusica.fonte_url,
+    rotulo: rotuloEntrada,
+  }
+  err.copia = {
+    titulo: tituloCopia || null,
+    artista: artistaCopia || null,
+    rotulo: rotuloCopia,
+  }
+  throw err
+}
+
 /**
  * Admin publica cifra importada de arquivo no acervo global (origem=curadoria).
  * Com youtubeUrl, fonte_url vira o link canônico — habilita atalho no import YouTube.
@@ -242,6 +298,7 @@ export async function registrarVersaoCuradoria({
   criadoPor,
   arquivoOrigem = null,
   youtubeUrl = null,
+  confirmarMesmoLink = false,
 }) {
   const db = admin()
   const tituloTrim = String(titulo || '').trim()
@@ -258,6 +315,14 @@ export async function registrarVersaoCuradoria({
     (arquivoOrigem ? `curadoria://arquivo/${encodeURIComponent(arquivoOrigem)}` : null)
 
   let acervoMusica = canonicalUrl ? await buscarAcervoPorFonteUrl(canonicalUrl) : null
+  if (acervoMusica) {
+    assertTituloCompativelComEntradaUrl({
+      tituloCopia: tituloTrim,
+      artistaCopia: artista,
+      acervoMusica,
+      confirmarMesmoLink,
+    })
+  }
   if (!acervoMusica) {
     acervoMusica = await criarAcervoMusicaPendente({
       titulo: tituloTrim,
@@ -350,12 +415,15 @@ async function garantirFonteUrlYoutube(acervoMusicaId, canonicalUrl) {
 /**
  * Usuário autenticado publica a cifra da cópia pessoal no acervo da comunidade.
  * O YouTube canônico vira fonte_url — habilita o atalho no 2º import pelo mesmo link.
+ * Guarda: se o URL já é de outra música (título/artista divergente), exige
+ * confirmarMesmoLink — senão 409 ACERVO_TITULO_DIVERGENTE sem gravar.
  */
 export async function publicarCopiaPessoalNoAcervo({
   musicaId,
   userId,
   youtubeUrl = null,
   cifra = null,
+  confirmarMesmoLink = false,
 }) {
   const db = admin()
 
@@ -389,6 +457,17 @@ export async function publicarCopiaPessoalNoAcervo({
   }
 
   const canonicalUrl = canonicalYoutubeUrlFromRaw(rawYoutube)
+
+  // Guarda ANTES de qualquer escrita: URL → entrada existente com título/artista divergente.
+  const acervoPorUrl = await buscarAcervoPorFonteUrl(canonicalUrl)
+  if (acervoPorUrl) {
+    assertTituloCompativelComEntradaUrl({
+      tituloCopia: musica.titulo,
+      artistaCopia: musica.artista,
+      acervoMusica: acervoPorUrl,
+      confirmarMesmoLink,
+    })
+  }
 
   if (musica.youtube_url !== canonicalUrl) {
     const { error: ytErr } = await db
@@ -439,7 +518,7 @@ export async function publicarCopiaPessoalNoAcervo({
     }
   }
 
-  let acervoMusica = await buscarAcervoPorFonteUrl(canonicalUrl)
+  let acervoMusica = acervoPorUrl
   if (!acervoMusica) {
     acervoMusica = await criarAcervoMusicaPendente({
       titulo: musica.titulo,
@@ -1529,12 +1608,6 @@ async function snapshotProvaCopias(musicaIds) {
       hash_norm: hashCifraNorm(cifra),
     }
   })
-}
-
-function rotuloEntradaAcervo(musica) {
-  const titulo = String(musica?.titulo || '').trim() || '(sem título)'
-  const artista = String(musica?.artista || '').trim()
-  return artista ? `${titulo} — ${artista}` : titulo
 }
 
 /**

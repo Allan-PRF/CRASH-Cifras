@@ -15,7 +15,8 @@ import {
 } from '../../lib/posProcessamentoImport'
 import { EXTENSOES_CIFRA_SUPORTADAS } from '../../lib/extractTextoArquivo'
 import { createMusica, updateMusicaYoutubeUrl } from '../../services/musicas'
-import { buscarAcervoCatalogo, publicarCuradoriaAcervo } from '../../services/acervo'
+import { buscarAcervoCatalogo, isAcervoTituloDivergenteError, publicarCuradoriaAcervo } from '../../services/acervo'
+import { ConfirmPublishTituloModal } from './ConfirmPublishTituloModal'
 import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
 import { isAdminUser } from '../../lib/admin'
@@ -74,6 +75,7 @@ export function ImportarArquivoModal({
   /** Após salvar fora do acervo: vincular YouTube sem worker. */
   const [posSalvar, setPosSalvar] = useState(null)
   const [youtubeDraft, setYoutubeDraft] = useState('')
+  const [publishTituloGuard, setPublishTituloGuard] = useState(null)
 
   const destinoEfetivo = somenteAcervo ? 'acervo' : destino
 
@@ -354,7 +356,7 @@ export function ImportarArquivoModal({
     }
   }
 
-  async function salvarItem(item, { openEditor } = { openEditor: true }) {
+  async function salvarItem(item, { openEditor = true, confirmarMesmoLink = false } = {}) {
     if (!item?.processed) throw new Error(item?.erro || 'Item sem cifra processada')
     if (!String(item.titulo || '').trim()) {
       throw new Error('Informe o título antes de salvar')
@@ -401,7 +403,9 @@ export function ImportarArquivoModal({
         cifra,
         arquivoOrigem: item.filename,
         youtubeUrl: youtubeCanonical,
+        confirmarMesmoLink,
       })
+      setPublishTituloGuard(null)
       musica = await createMusica({
         ministroId: null,
         titulo: item.titulo.trim(),
@@ -527,6 +531,14 @@ export function ImportarArquivoModal({
     try {
       await salvarItem(ativo, { openEditor: true })
     } catch (err) {
+      if (isAcervoTituloDivergenteError(err)) {
+        setPublishTituloGuard({
+          itemId: ativo.id,
+          entradaRotulo: err.entrada_encontrada?.rotulo,
+          copiaRotulo: err.copia?.rotulo,
+        })
+        return
+      }
       setError(formatSaveError(err))
     } finally {
       savingRef.current = false
@@ -998,5 +1010,34 @@ export function ImportarArquivoModal({
     </div>
   )
 
-  return createPortal(modal, document.body)
+  return (
+    <>
+      {createPortal(modal, document.body)}
+      <ConfirmPublishTituloModal
+        open={Boolean(publishTituloGuard)}
+        entradaRotulo={publishTituloGuard?.entradaRotulo}
+        copiaRotulo={publishTituloGuard?.copiaRotulo}
+        confirming={busy}
+        onClose={() => setPublishTituloGuard(null)}
+        onCorrigirLink={() => {
+          setPublishTituloGuard(null)
+          setError('Corrija o link do YouTube e tente publicar de novo.')
+        }}
+        onPublicarMesmoAssim={() => {
+          const item = fila.find((i) => i.id === publishTituloGuard?.itemId) || ativo
+          if (!item) return
+          savingRef.current = true
+          setBusy(true)
+          setBusyLabel('Publicando no acervo…')
+          void salvarItem(item, { openEditor: true, confirmarMesmoLink: true })
+            .catch((err) => setError(formatSaveError(err)))
+            .finally(() => {
+              savingRef.current = false
+              setBusy(false)
+              setBusyLabel('')
+            })
+        }}
+      />
+    </>
+  )
 }

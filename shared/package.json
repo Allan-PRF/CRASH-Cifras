@@ -16,6 +16,7 @@
     "./referral": "./referral.js",
     "./acervo": "./acervo.js",
     "./acervo-snapshot": "./acervo-snapshot.js",
+    "./acervo-titulo-match": "./acervoTituloMatch.js",
     "./evento": "./evento.js",
     "./cifra-evento": "./cifra-evento.js"
   }

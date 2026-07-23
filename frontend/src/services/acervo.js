@@ -147,11 +147,21 @@ export async function publicarCuradoriaAcervo({
   cifra,
   arquivoOrigem,
   youtubeUrl,
+  confirmarMesmoLink = false,
 }) {
   const headers = await authHeaders()
   const { data } = await api.post(
     '/acervo/curadoria',
-    { titulo, artista, tomOriginal, bpm, cifra, arquivoOrigem, youtubeUrl },
+    {
+      titulo,
+      artista,
+      tomOriginal,
+      bpm,
+      cifra,
+      arquivoOrigem,
+      youtubeUrl,
+      confirmar_mesmo_link: confirmarMesmoLink,
+    },
     { headers },
   )
   return data
@@ -167,14 +177,27 @@ export async function publicarCopiaNoAcervo({
   tomOriginal,
   bpm,
   secoes,
+  confirmarMesmoLink = false,
 }) {
   const headers = await authHeaders()
   const { data } = await api.post(
     '/acervo/copias/publicar',
-    { musicaId, youtubeUrl, tomOriginal, bpm, secoes },
+    {
+      musicaId,
+      youtubeUrl,
+      tomOriginal,
+      bpm,
+      secoes,
+      confirmar_mesmo_link: confirmarMesmoLink,
+    },
     { headers },
   )
   return data
+}
+
+/** 409 quando o YouTube aponta para entrada de outra música. */
+export function isAcervoTituloDivergenteError(err) {
+  return err?.code === 'ACERVO_TITULO_DIVERGENTE'
 }
 
 /**

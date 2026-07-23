@@ -10,6 +10,7 @@ import { AcervoVitrineModal } from '../components/musicas/AcervoVitrineModal'
 import { CompartilharAcervoCard } from '../components/musicas/CompartilharAcervoCard'
 import { PropagarTomAcervoModal } from '../components/musicas/PropagarTomAcervoModal'
 import { FonteTomJaCorrigidaModal } from '../components/musicas/FonteTomJaCorrigidaModal'
+import { ConfirmPublishTituloModal } from '../components/musicas/ConfirmPublishTituloModal'
 import { RascunhoEdicaoModal } from '../components/musicas/RascunhoEdicaoModal'
 import { ReportTomErradoModal } from '../components/musicas/ReportTomErradoModal'
 import { TomMotorConferenciaBanner } from '../components/musicas/TomMotorConferenciaBanner'
@@ -55,7 +56,7 @@ import {
   updateMusica,
   upsertSecao,
 } from '../services/musicas'
-import { corrigirTomVersaoMotor, isFonteJaCorrigidaError, publicarCopiaNoAcervo, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
+import { corrigirTomVersaoMotor, isAcervoTituloDivergenteError, isFonteJaCorrigidaError, publicarCopiaNoAcervo, reportarTomErrado, restaurarCifraMotor } from '../services/acervo'
 import { fetchPlaylistItem, updatePlaylistItem } from '../services/playlists'
 
 function secaoTemConteudo(linhas) {
@@ -113,6 +114,7 @@ export function MusicaEditar() {
   const [confirmandoTomMotor, setConfirmandoTomMotor] = useState(false)
   const [propagarTomOpen, setPropagarTomOpen] = useState(false)
   const [fonteJaCorrigidaOpen, setFonteJaCorrigidaOpen] = useState(false)
+  const [publishTituloGuard, setPublishTituloGuard] = useState(null)
   const [reportTomOpen, setReportTomOpen] = useState(false)
   const [tomReferenciaTrigger, setTomReferenciaTrigger] = useState(0)
   const [rascunhoModalOpen, setRascunhoModalOpen] = useState(false)
@@ -560,7 +562,7 @@ export function MusicaEditar() {
     }
   }
 
-  async function handleCompartilharComunidade() {
+  async function handleCompartilharComunidade({ confirmarMesmoLink = false } = {}) {
     if (!meta || editandoCifraEvento) return
     setSharingAcervo(true)
     setError('')
@@ -580,8 +582,10 @@ export function MusicaEditar() {
         tomOriginal: meta.tom_original,
         bpm,
         secoes: secoesPayload,
+        confirmarMesmoLink,
       })
 
+      setPublishTituloGuard(null)
       setMeta((prev) =>
         prev
           ? {
@@ -606,6 +610,13 @@ export function MusicaEditar() {
         setToastMotor('Cifra compartilhada com a comunidade.')
       }
     } catch (err) {
+      if (isAcervoTituloDivergenteError(err)) {
+        setPublishTituloGuard({
+          entradaRotulo: err.entrada_encontrada?.rotulo,
+          copiaRotulo: err.copia?.rotulo,
+        })
+        return
+      }
       setError(err.message || 'Não foi possível compartilhar com a comunidade.')
     } finally {
       setSharingAcervo(false)
@@ -941,6 +952,21 @@ export function MusicaEditar() {
           } finally {
             setSaving(false)
           }
+        }}
+      />
+
+      <ConfirmPublishTituloModal
+        open={Boolean(publishTituloGuard)}
+        entradaRotulo={publishTituloGuard?.entradaRotulo}
+        copiaRotulo={publishTituloGuard?.copiaRotulo}
+        confirming={sharingAcervo}
+        onClose={() => setPublishTituloGuard(null)}
+        onCorrigirLink={() => {
+          setPublishTituloGuard(null)
+          setError('Corrija o link do YouTube e tente publicar de novo.')
+        }}
+        onPublicarMesmoAssim={() => {
+          void handleCompartilharComunidade({ confirmarMesmoLink: true })
         }}
       />
 
