@@ -8,7 +8,6 @@ import { AssinaturaErro } from '../pages/AssinaturaErro'
 import { AssinaturaSucesso } from '../pages/AssinaturaSucesso'
 import { Historico } from '../pages/Historico'
 import { Home } from '../pages/Home'
-import { Importar } from '../pages/Importar'
 import { LoginPage } from '../pages/LoginPage'
 import { Ministro } from '../pages/Ministro'
 import { Musica } from '../pages/Musica'
@@ -47,16 +46,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Ministro />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'importar',
-        element: (
-          <ProtectedRoute>
-            <PlanoGate minimo="solo">
-              <Importar />
-            </PlanoGate>
           </ProtectedRoute>
         ),
       },

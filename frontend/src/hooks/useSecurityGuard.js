@@ -5,7 +5,6 @@ import { api } from '../lib/api'
 const PROTECTED_PREFIXES = [
   '/',
   '/playlist',
-  '/importar',
   '/assinatura',
   '/configuracoes',
   '/conta',

@@ -435,10 +435,12 @@ export function Playlist() {
           </div>
           {addableSongs.length === 0 && (
             <p className="text-xs text-[var(--crash-texto-sec)]">
-              Todas as suas músicas já estão nesta playlist.{' '}
-              <Link to="/importar" className="text-[var(--crash-cifra)] hover:underline">
-                Importe mais músicas
+              Todas as suas músicas já estão nesta playlist. Cadastre novas na pasta do
+              ministro em{' '}
+              <Link to="/" className="text-[var(--crash-cifra)] hover:underline">
+                Início
               </Link>
+              .
             </p>
           )}
         </form>
