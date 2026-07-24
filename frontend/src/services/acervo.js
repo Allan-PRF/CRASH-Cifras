@@ -33,6 +33,16 @@ export async function buscarAcervoCatalogo({
   return data
 }
 
+/** Admin — busca ready incluindo despublicadas (Curadoria). */
+export async function buscarAcervoAdminCatalogo({ q, limit = 20 }) {
+  const headers = await authHeaders()
+  const { data } = await api.get('/acervo/buscar-admin', {
+    headers,
+    params: { q: String(q || '').trim(), limit },
+  })
+  return data
+}
+
 /** Carrega a versão principal pronta para preview e cópia à pasta do usuário. */
 export async function buscarItemAcervoCatalogo(acervoMusicaId) {
   const headers = await authHeaders()
@@ -148,6 +158,7 @@ export async function publicarCuradoriaAcervo({
   arquivoOrigem,
   youtubeUrl,
   confirmarMesmoLink = false,
+  reativarDespublicada = false,
 }) {
   const headers = await authHeaders()
   const { data } = await api.post(
@@ -161,6 +172,7 @@ export async function publicarCuradoriaAcervo({
       arquivoOrigem,
       youtubeUrl,
       confirmar_mesmo_link: confirmarMesmoLink,
+      reativar_despublicada: reativarDespublicada,
     },
     { headers },
   )
@@ -178,6 +190,7 @@ export async function publicarCopiaNoAcervo({
   bpm,
   secoes,
   confirmarMesmoLink = false,
+  reativarDespublicada = false,
 }) {
   const headers = await authHeaders()
   const { data } = await api.post(
@@ -189,6 +202,7 @@ export async function publicarCopiaNoAcervo({
       bpm,
       secoes,
       confirmar_mesmo_link: confirmarMesmoLink,
+      reativar_despublicada: reativarDespublicada,
     },
     { headers },
   )
@@ -198,6 +212,11 @@ export async function publicarCopiaNoAcervo({
 /** 409 quando o YouTube aponta para entrada de outra música. */
 export function isAcervoTituloDivergenteError(err) {
   return err?.code === 'ACERVO_TITULO_DIVERGENTE'
+}
+
+/** 409 quando o YouTube aponta para entrada soft-unpublished. */
+export function isAcervoFonteDespublicadaError(err) {
+  return err?.code === 'ACERVO_FONTE_DESPUBLICADA'
 }
 
 /**
@@ -236,4 +255,26 @@ export async function corrigirMetadadosAcervo(
 /** 409 quando o novo fonte_url já pertence a outra entrada. */
 export function isFonteUrlEmUsoError(err) {
   return err?.code === 'FONTE_URL_EM_USO'
+}
+
+/** Admin — soft-unpublish. */
+export async function despublicarAcervo(acervoMusicaId) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    `/acervo/musicas/${acervoMusicaId}/despublicar`,
+    {},
+    { headers },
+  )
+  return data
+}
+
+/** Admin — republicar no catálogo. */
+export async function republicarAcervo(acervoMusicaId) {
+  const headers = await authHeaders()
+  const { data } = await api.post(
+    `/acervo/musicas/${acervoMusicaId}/republicar`,
+    {},
+    { headers },
+  )
+  return data
 }

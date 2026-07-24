@@ -3,7 +3,7 @@ import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
 import { getSupabaseAdmin } from './supabase.js'
 
 const ACERVO_BUSCA_COLS =
-  'id, titulo, artista, titulo_norm, artista_norm, fonte_url, status, versao_top_id, created_at, updated_at'
+  'id, titulo, artista, titulo_norm, artista_norm, fonte_url, status, publicado, despublicado_por, despublicado_em, republicado_por, republicado_em, versao_top_id, created_at, updated_at'
 const ACERVO_CATALOGO_COLS =
   `${ACERVO_BUSCA_COLS}, versoes_comunidade:acervo_versoes!acervo_versoes_acervo_musica_id_fkey(id)`
 
@@ -15,6 +15,12 @@ function normalizeLimit(limit) {
   const parsed = Number.parseInt(limit, 10)
   if (!Number.isFinite(parsed)) return 20
   return Math.min(50, Math.max(1, parsed))
+}
+
+/** Catálogo público: ready + publicado (publicado null/undefined conta como true pré-migration). */
+export function estaNoCatalogoPublico(musica) {
+  if (!musica || musica.status !== 'ready') return false
+  return musica.publicado !== false
 }
 
 /**
@@ -33,7 +39,8 @@ export function canonicalizarYoutubeUrl(rawUrl) {
 
 /**
  * Checagem exata e isolada por acervo_musicas.fonte_url.
- * Não filtra por status: pending/failed também devem impedir duplicação.
+ * Não filtra por status nem por publicado: pending/failed/despublicada também
+ * devem impedir duplicação (unique index).
  */
 export async function buscarAcervoPorFonteUrl(fonteUrl, { db = null } = {}) {
   const canonicalUrl = canonicalizarYoutubeUrl(fonteUrl)
@@ -73,8 +80,7 @@ export async function buscarAcervoPorTituloArtista(
 }
 
 /**
- * Busca pública do catálogo: somente músicas ready, por trecho de título OU artista.
- * O texto é normalizado antes de montar o filtro PostgREST.
+ * Busca pública do catálogo: somente músicas ready E publicadas, por trecho de título OU artista.
  */
 export async function buscarAcervoReady({ q, limit = 20 }, { db = null } = {}) {
   const qNorm = normalizeAcervoText(q)
@@ -89,6 +95,7 @@ export async function buscarAcervoReady({ q, limit = 20 }, { db = null } = {}) {
     .from('acervo_musicas')
     .select(ACERVO_CATALOGO_COLS)
     .eq('status', 'ready')
+    .eq('publicado', true)
     .eq('versoes_comunidade.origem', 'correcao')
     .or(filtro)
     .order('titulo', { ascending: true })
@@ -107,8 +114,39 @@ export async function buscarAcervoReady({ q, limit = 20 }, { db = null } = {}) {
 }
 
 /**
+ * Admin — busca entradas ready (publicadas e despublicadas) por título/artista.
+ * Usado na Curadoria para achar entradas soft-unpublished e republicá-las.
+ */
+export async function buscarAcervoAdmin({ q, limit = 20 }, { db = null } = {}) {
+  const qNorm = normalizeAcervoText(q)
+  if (qNorm.length < 2) {
+    const err = new Error('Digite ao menos 2 caracteres para buscar no acervo.')
+    err.status = 400
+    throw err
+  }
+
+  const filtro = `titulo_norm.ilike.%${qNorm}%,artista_norm.ilike.%${qNorm}%`
+  const { data, error } = await dbOrAdmin(db)
+    .from('acervo_musicas')
+    .select(ACERVO_BUSCA_COLS)
+    .eq('status', 'ready')
+    .or(filtro)
+    .order('publicado', { ascending: true })
+    .order('titulo', { ascending: true })
+    .order('artista', { ascending: true })
+    .limit(normalizeLimit(limit))
+
+  if (error) throw error
+  return {
+    query: String(q || '').trim(),
+    query_norm: qNorm,
+    resultados: data || [],
+  }
+}
+
+/**
  * Abre o preview da versão principal de um item pesquisável do catálogo.
- * A condição status=ready impede expor cifras ainda em processamento ou com falha.
+ * status=ready + publicado impede expor cifras em fila, falha ou soft-unpublished.
  */
 export async function buscarItemAcervoReady(acervoMusicaId, { db = null } = {}) {
   const database = dbOrAdmin(db)
@@ -117,6 +155,7 @@ export async function buscarItemAcervoReady(acervoMusicaId, { db = null } = {}) 
     .select(ACERVO_BUSCA_COLS)
     .eq('id', acervoMusicaId)
     .eq('status', 'ready')
+    .eq('publicado', true)
     .maybeSingle()
 
   if (musicaError) throw musicaError
@@ -182,6 +221,7 @@ export async function checarDuplicidadeAcervo(
         candidatos: [],
         requer_confirmacao_admin: false,
         pode_criar: false,
+        despublicada: porUrl.musica.publicado === false,
       }
     }
   }
@@ -199,6 +239,7 @@ export async function checarDuplicidadeAcervo(
       candidatos,
       requer_confirmacao_admin: true,
       pode_criar: false,
+      despublicada: false,
     }
   }
 
@@ -209,5 +250,6 @@ export async function checarDuplicidadeAcervo(
     candidatos: [],
     requer_confirmacao_admin: false,
     pode_criar: true,
+    despublicada: false,
   }
 }

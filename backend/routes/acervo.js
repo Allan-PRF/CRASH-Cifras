@@ -20,11 +20,14 @@ import {
   publicarCopiaPessoalNoAcervo,
   impactoMetadadosAcervoMusica,
   corrigirMetadadosAcervoMusica,
+  despublicarAcervoMusica,
+  republicarAcervoMusica,
 } from '../lib/acervo.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { requireAuth } from '../lib/supabase.js'
 import {
   buscarAcervoReady,
+  buscarAcervoAdmin,
   buscarItemAcervoReady,
   checarDuplicidadeAcervo,
 } from '../lib/acervoBusca.js'
@@ -51,7 +54,7 @@ function requireMotorSecret(req, res, next) {
  * GET /api/acervo/buscar?q=bondade&limit=20
  * GET /api/acervo/buscar?fonteUrl=https://youtu.be/...&titulo=...&artista=...
  *
- * - resultados: somente acervo_musicas.status=ready, por título OU artista;
+ * - resultados: somente acervo_musicas.status=ready AND publicado=true;
  * - duplicidade: URL exata primeiro; título+artista apenas avisa e exige decisão do admin.
  */
 acervoRouter.get('/buscar', requireAuth, async (req, res, next) => {
@@ -91,6 +94,38 @@ acervoRouter.get('/buscar', requireAuth, async (req, res, next) => {
       ...busca,
       total: busca.resultados.length,
       duplicidade,
+    })
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    next(err)
+  }
+})
+
+/**
+ * Admin — busca ready incluindo despublicadas (Curadoria).
+ * GET /api/acervo/buscar-admin?q=...
+ */
+acervoRouter.get('/buscar-admin', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const q = String(req.query?.q || '').trim()
+    if (!q) {
+      return res.status(400).json({ error: 'Informe q para buscar no acervo.' })
+    }
+    if (!req.supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Busca do acervo indisponível: service role não configurada.',
+      })
+    }
+    const busca = await buscarAcervoAdmin(
+      { q, limit: req.query?.limit },
+      { db: req.supabaseAdmin },
+    )
+    res.json({
+      ok: true,
+      ...busca,
+      total: busca.resultados.length,
     })
   } catch (err) {
     if (err.status) {
@@ -506,6 +541,9 @@ acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
       confirmarMesmoLink: Boolean(
         body.confirmar_mesmo_link ?? body.confirmarMesmoLink,
       ),
+      reativarDespublicada: Boolean(
+        body.reativar_despublicada ?? body.reativarDespublicada,
+      ),
     })
 
     res.json({ ok: true, ...result })
@@ -515,15 +553,68 @@ acervoRouter.post('/copias/publicar', requireAuth, async (req, res, next) => {
         error: err.message,
         ...(err.code ? { code: err.code } : {}),
         ...(err.requer_confirmacao ? { requer_confirmacao: true } : {}),
+        ...(err.requer_reativacao ? { requer_reativacao: true } : {}),
         ...(err.entrada_encontrada
           ? { entrada_encontrada: err.entrada_encontrada }
           : {}),
+        ...(err.entrada_despublicada
+          ? { entrada_despublicada: err.entrada_despublicada }
+          : {}),
+        ...(err.saidas ? { saidas: err.saidas } : {}),
         ...(err.copia ? { copia: err.copia } : {}),
       })
     }
     next(err)
   }
 })
+
+/**
+ * Admin — soft-unpublish (some do catálogo; cópias intactas).
+ * POST /api/acervo/musicas/:id/despublicar
+ */
+acervoRouter.post(
+  '/musicas/:id/despublicar',
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const result = await despublicarAcervoMusica({
+        acervoMusicaId: req.params.id,
+        userId: req.user.id,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message })
+      }
+      next(err)
+    }
+  },
+)
+
+/**
+ * Admin — republica no catálogo (publicado=true). Cifra intacta.
+ * POST /api/acervo/musicas/:id/republicar
+ */
+acervoRouter.post(
+  '/musicas/:id/republicar',
+  requireAuth,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const result = await republicarAcervoMusica({
+        acervoMusicaId: req.params.id,
+        userId: req.user.id,
+      })
+      res.json({ ok: true, ...result })
+    } catch (err) {
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message })
+      }
+      next(err)
+    }
+  },
+)
 
 /**
  * Admin — preview do impacto ao corrigir metadados (cópias elegíveis + conflito de URL).
@@ -615,6 +706,9 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
       confirmarMesmoLink: Boolean(
         body.confirmar_mesmo_link ?? body.confirmarMesmoLink,
       ),
+      reativarDespublicada: Boolean(
+        body.reativar_despublicada ?? body.reativarDespublicada,
+      ),
     })
     res.json({
       ok: true,
@@ -622,6 +716,7 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
       acervo_versao_id: result.versao.id,
       fonte_url: result.fonte_url || null,
       youtube_url: result.youtube_url || null,
+      reativada: Boolean(result.reativada),
     })
   } catch (err) {
     if (err.status) {
@@ -629,9 +724,14 @@ acervoRouter.post('/curadoria', requireAuth, requireAdmin, async (req, res, next
         error: err.message,
         ...(err.code ? { code: err.code } : {}),
         ...(err.requer_confirmacao ? { requer_confirmacao: true } : {}),
+        ...(err.requer_reativacao ? { requer_reativacao: true } : {}),
         ...(err.entrada_encontrada
           ? { entrada_encontrada: err.entrada_encontrada }
           : {}),
+        ...(err.entrada_despublicada
+          ? { entrada_despublicada: err.entrada_despublicada }
+          : {}),
+        ...(err.saidas ? { saidas: err.saidas } : {}),
         ...(err.copia ? { copia: err.copia } : {}),
       })
     }

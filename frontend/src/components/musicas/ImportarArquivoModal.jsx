@@ -15,8 +15,9 @@ import {
 } from '../../lib/posProcessamentoImport'
 import { EXTENSOES_CIFRA_SUPORTADAS } from '../../lib/extractTextoArquivo'
 import { createMusica, updateMusicaYoutubeUrl } from '../../services/musicas'
-import { buscarAcervoCatalogo, isAcervoTituloDivergenteError, publicarCuradoriaAcervo } from '../../services/acervo'
+import { buscarAcervoCatalogo, isAcervoFonteDespublicadaError, isAcervoTituloDivergenteError, publicarCuradoriaAcervo } from '../../services/acervo'
 import { ConfirmPublishTituloModal } from './ConfirmPublishTituloModal'
+import { ConfirmPublishDespublicadaModal } from './ConfirmPublishDespublicadaModal'
 import { loadCifraMonoFont } from '../../lib/monoCharWidth'
 import { useAuth } from '../../hooks/useAuth'
 import { isAdminUser } from '../../lib/admin'
@@ -76,6 +77,7 @@ export function ImportarArquivoModal({
   const [posSalvar, setPosSalvar] = useState(null)
   const [youtubeDraft, setYoutubeDraft] = useState('')
   const [publishTituloGuard, setPublishTituloGuard] = useState(null)
+  const [publishDespublicadaGuard, setPublishDespublicadaGuard] = useState(null)
 
   const destinoEfetivo = somenteAcervo ? 'acervo' : destino
 
@@ -356,7 +358,10 @@ export function ImportarArquivoModal({
     }
   }
 
-  async function salvarItem(item, { openEditor = true, confirmarMesmoLink = false } = {}) {
+  async function salvarItem(
+    item,
+    { openEditor = true, confirmarMesmoLink = false, reativarDespublicada = false } = {},
+  ) {
     if (!item?.processed) throw new Error(item?.erro || 'Item sem cifra processada')
     if (!String(item.titulo || '').trim()) {
       throw new Error('Informe o título antes de salvar')
@@ -404,8 +409,10 @@ export function ImportarArquivoModal({
         arquivoOrigem: item.filename,
         youtubeUrl: youtubeCanonical,
         confirmarMesmoLink,
+        reativarDespublicada,
       })
       setPublishTituloGuard(null)
+      setPublishDespublicadaGuard(null)
       musica = await createMusica({
         ministroId: null,
         titulo: item.titulo.trim(),
@@ -536,6 +543,13 @@ export function ImportarArquivoModal({
           itemId: ativo.id,
           entradaRotulo: err.entrada_encontrada?.rotulo,
           copiaRotulo: err.copia?.rotulo,
+        })
+        return
+      }
+      if (isAcervoFonteDespublicadaError(err)) {
+        setPublishDespublicadaGuard({
+          itemId: ativo.id,
+          entradaRotulo: err.entrada_despublicada?.rotulo,
         })
         return
       }
@@ -1030,6 +1044,41 @@ export function ImportarArquivoModal({
           setBusy(true)
           setBusyLabel('Publicando no acervo…')
           void salvarItem(item, { openEditor: true, confirmarMesmoLink: true })
+            .catch((err) => {
+              if (isAcervoFonteDespublicadaError(err)) {
+                setPublishTituloGuard(null)
+                setPublishDespublicadaGuard({
+                  itemId: item.id,
+                  entradaRotulo: err.entrada_despublicada?.rotulo,
+                })
+                return
+              }
+              setError(formatSaveError(err))
+            })
+            .finally(() => {
+              savingRef.current = false
+              setBusy(false)
+              setBusyLabel('')
+            })
+        }}
+      />
+      <ConfirmPublishDespublicadaModal
+        open={Boolean(publishDespublicadaGuard)}
+        entradaRotulo={publishDespublicadaGuard?.entradaRotulo}
+        confirming={busy}
+        onCancelar={() => setPublishDespublicadaGuard(null)}
+        onReativarEPublicar={() => {
+          const item =
+            fila.find((i) => i.id === publishDespublicadaGuard?.itemId) || ativo
+          if (!item) return
+          savingRef.current = true
+          setBusy(true)
+          setBusyLabel('Publicando no acervo…')
+          void salvarItem(item, {
+            openEditor: true,
+            reativarDespublicada: true,
+            confirmarMesmoLink: true,
+          })
             .catch((err) => setError(formatSaveError(err)))
             .finally(() => {
               savingRef.current = false

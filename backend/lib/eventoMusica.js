@@ -1,6 +1,8 @@
 import { normalizeAcervoText } from '@crash-cifras/shared/acervo'
+import { unpackCifraToSecoes } from '@crash-cifras/shared'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
-import { buscarAcervoMusica, unpackCifraToSecoes } from './acervo.js'
+import { buscarAcervoMusica } from './acervo.js'
+import { estaNoCatalogoPublico } from './acervoBusca.js'
 
 function extractVideoId(url) {
   if (!url) return null
@@ -70,7 +72,7 @@ async function buscarMusicaProntaNoMinistro(
 async function buscarAcervoHitPronto({ titulo, artista, fonteUrl }) {
   try {
     const existente = await buscarAcervoMusica({ titulo, artista, fonteUrl })
-    if (existente?.status !== 'ready' || !existente.versao_top) return null
+    if (!estaNoCatalogoPublico(existente) || !existente.versao_top) return null
 
     const versao = existente.versao_top
     return {

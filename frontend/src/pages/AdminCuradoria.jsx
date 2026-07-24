@@ -7,15 +7,17 @@ import {
   inputClassName,
 } from '../components/ui/inputClasses'
 import {
-  buscarAcervoCatalogo,
+  buscarAcervoAdminCatalogo,
   corrigirMetadadosAcervo,
+  despublicarAcervo,
   impactoMetadadosAcervo,
   isFonteUrlEmUsoError,
+  republicarAcervo,
 } from '../services/acervo'
 
 /**
  * Área admin: Word/ODT + YouTube → acervo global (atalho comunitário).
- * + correção de metadados (fonte_url / título / artista) com propagação do link.
+ * + correção de metadados + soft-unpublish / republicar.
  * Acesso: Conta → Curadoria do acervo (só administrador).
  */
 export function AdminCuradoria() {
@@ -28,6 +30,7 @@ export function AdminCuradoria() {
   const [resultados, setResultados] = useState([])
 
   const [selecionadaId, setSelecionadaId] = useState(null)
+  const [selecionadaPublicado, setSelecionadaPublicado] = useState(true)
   const [tituloDraft, setTituloDraft] = useState('')
   const [artistaDraft, setArtistaDraft] = useState('')
   const [fonteUrlDraft, setFonteUrlDraft] = useState('')
@@ -38,6 +41,7 @@ export function AdminCuradoria() {
   const [impactoErro, setImpactoErro] = useState(null)
 
   const [salvando, setSalvando] = useState(false)
+  const [visibilidadeBusy, setVisibilidadeBusy] = useState(false)
   const [salvarMsg, setSalvarMsg] = useState(null)
   const [salvarErro, setSalvarErro] = useState(null)
 
@@ -77,7 +81,7 @@ export function AdminCuradoria() {
     setSalvarMsg(null)
     setSalvarErro(null)
     try {
-      const data = await buscarAcervoCatalogo({ q, limit: 20 })
+      const data = await buscarAcervoAdminCatalogo({ q, limit: 20 })
       setResultados(data?.resultados || [])
     } catch (err) {
       setResultados([])
@@ -89,6 +93,7 @@ export function AdminCuradoria() {
 
   function selecionarEntrada(item) {
     setSelecionadaId(item.id)
+    setSelecionadaPublicado(item.publicado !== false)
     setTituloDraft(item.titulo || '')
     setArtistaDraft(item.artista || '')
     setFonteUrlDraft(item.fonte_url || '')
@@ -98,10 +103,31 @@ export function AdminCuradoria() {
     setImpacto(null)
   }
 
+  function atualizarResultadoLocal(musica) {
+    if (!musica?.id) return
+    setResultados((prev) =>
+      prev.map((r) =>
+        r.id === musica.id
+          ? {
+              ...r,
+              titulo: musica.titulo,
+              artista: musica.artista,
+              fonte_url: musica.fonte_url,
+              publicado: musica.publicado,
+              despublicado_em: musica.despublicado_em,
+              despublicado_por: musica.despublicado_por,
+              republicado_em: musica.republicado_em,
+              republicado_por: musica.republicado_por,
+            }
+          : r,
+      ),
+    )
+    setSelecionadaPublicado(musica.publicado !== false)
+  }
+
   async function salvarMetadados(e) {
     e?.preventDefault?.()
     if (!selecionadaId) return
-    // Snapshot no clique — não depende de re-render / debounce do impacto.
     const enviado = {
       titulo: tituloDraft,
       artista: artistaDraft,
@@ -119,23 +145,11 @@ export function AdminCuradoria() {
           ? `Metadados salvos.${propagarYoutube ? ` YouTube propagado para ${n} cópia(s).` : ''} Cifra intacta: ${result?.prova?.cifra_intacta ? 'sim' : 'não'}.`
           : `Nenhuma alteração detectada. Enviado: ${enviado.fonteUrl || '(vazio)'} · Salvo: ${result?.musica?.fonte_url || '(vazio)'}.`,
       )
-      // Só reescreve o form quando o servidor de fato alterou — no-op não cloba o draft.
       if (result.alterado && result?.musica) {
         setTituloDraft(result.musica.titulo || '')
         setArtistaDraft(result.musica.artista || '')
         setFonteUrlDraft(result.musica.fonte_url || '')
-        setResultados((prev) =>
-          prev.map((r) =>
-            r.id === selecionadaId
-              ? {
-                  ...r,
-                  titulo: result.musica.titulo,
-                  artista: result.musica.artista,
-                  fonte_url: result.musica.fonte_url,
-                }
-              : r,
-          ),
-        )
+        atualizarResultadoLocal(result.musica)
       }
       await carregarImpacto(
         selecionadaId,
@@ -149,6 +163,54 @@ export function AdminCuradoria() {
       }
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function handleDespublicar() {
+    if (!selecionadaId) return
+    const ok = window.confirm(
+      'Despublicar esta entrada?\n\n' +
+        '• Some da busca, do Explorar e do atalho por URL para todo mundo.\n' +
+        '• Cópias que ministros já levaram para a pasta continuam funcionando.\n' +
+        '• Não apaga histórico nem cifra.\n' +
+        '• Você pode republicar depois.',
+    )
+    if (!ok) return
+    setVisibilidadeBusy(true)
+    setSalvarMsg(null)
+    setSalvarErro(null)
+    try {
+      const result = await despublicarAcervo(selecionadaId)
+      atualizarResultadoLocal(result.musica)
+      setSalvarMsg(
+        result.alterado
+          ? `Despublicada. ${result.efeito || ''}`
+          : result.mensagem || 'Já estava despublicada.',
+      )
+    } catch (err) {
+      setSalvarErro(err?.message || 'Falha ao despublicar')
+    } finally {
+      setVisibilidadeBusy(false)
+    }
+  }
+
+  async function handleRepublicar() {
+    if (!selecionadaId) return
+    setVisibilidadeBusy(true)
+    setSalvarMsg(null)
+    setSalvarErro(null)
+    try {
+      const result = await republicarAcervo(selecionadaId)
+      atualizarResultadoLocal(result.musica)
+      setSalvarMsg(
+        result.alterado
+          ? `Republicada. ${result.efeito || ''}`
+          : result.mensagem || 'Já estava publicada.',
+      )
+    } catch (err) {
+      setSalvarErro(err?.message || 'Falha ao republicar')
+    } finally {
+      setVisibilidadeBusy(false)
     }
   }
 
@@ -213,10 +275,10 @@ export function AdminCuradoria() {
 
       <section className="space-y-4">
         <header className="space-y-1">
-          <h2 className="text-lg font-semibold text-white">Corrigir entrada publicada</h2>
+          <h2 className="text-lg font-semibold text-white">Corrigir / despublicar entrada</h2>
           <p className="text-sm text-[var(--crash-texto-sec)]">
-            Ajusta link do YouTube, título e artista. Não altera a cifra. Propaga só o link
-            para cópias que ainda têm o URL antigo.
+            Ajusta link, título e artista (cifra intacta). Despublicar tira do caminho de
+            todo mundo sem apagar cópias. A busca abaixo inclui despublicadas (só admin).
           </p>
         </header>
 
@@ -253,6 +315,11 @@ export function AdminCuradoria() {
                   {item.artista ? (
                     <span className="text-[var(--crash-texto-sec)]"> · {item.artista}</span>
                   ) : null}
+                  {item.publicado === false ? (
+                    <span className="ml-2 text-xs font-semibold text-amber-300">
+                      despublicada
+                    </span>
+                  ) : null}
                   {item.fonte_url ? (
                     <div className="mt-0.5 truncate text-xs text-[var(--crash-texto-sec)]">
                       {item.fonte_url}
@@ -266,6 +333,12 @@ export function AdminCuradoria() {
 
         {selecionadaId ? (
           <form onSubmit={salvarMetadados} className="space-y-3 rounded-lg border border-[var(--crash-borda)] p-4">
+            {!selecionadaPublicado ? (
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                Esta entrada está despublicada. Não aparece na busca pública nem no Explorar.
+              </p>
+            ) : null}
+
             <label className="block space-y-1 text-sm">
               <span className="text-[var(--crash-texto-sec)]">Título</span>
               <input
@@ -325,13 +398,34 @@ export function AdminCuradoria() {
               </span>
             </label>
 
-            <button
-              type="submit"
-              className={btnPrimaryClassName}
-              disabled={salvando || Boolean(conflito)}
-            >
-              {salvando ? 'Salvando…' : 'Salvar metadados'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className={btnPrimaryClassName}
+                disabled={salvando || visibilidadeBusy || Boolean(conflito)}
+              >
+                {salvando ? 'Salvando…' : 'Salvar metadados'}
+              </button>
+              {selecionadaPublicado ? (
+                <button
+                  type="button"
+                  className={btnSecondaryClassName}
+                  disabled={salvando || visibilidadeBusy}
+                  onClick={() => void handleDespublicar()}
+                >
+                  {visibilidadeBusy ? '…' : 'Despublicar'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={btnSecondaryClassName}
+                  disabled={salvando || visibilidadeBusy}
+                  onClick={() => void handleRepublicar()}
+                >
+                  {visibilidadeBusy ? '…' : 'Republicar'}
+                </button>
+              )}
+            </div>
 
             {salvarMsg ? (
               <p className="text-sm text-emerald-200">{salvarMsg}</p>

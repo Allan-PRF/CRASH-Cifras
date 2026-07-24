@@ -200,6 +200,12 @@ assert.throws(
   )
   assert.ok(
     calls.some(
+      (call) => call[0] === 'eq' && call[1] === 'publicado' && call[2] === true,
+    ),
+    'catálogo deve consultar somente publicado=true',
+  )
+  assert.ok(
+    calls.some(
       (call) =>
         call[0] === 'or' &&
         call[1] ===

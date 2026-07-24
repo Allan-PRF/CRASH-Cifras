@@ -11,10 +11,60 @@ import {
   unpackCifraToSecoes,
 } from '@crash-cifras/shared'
 import { validateYoutubeUrl } from '@crash-cifras/shared/validate-youtube-url'
+import { estaNoCatalogoPublico } from './acervoBusca.js'
 import { getSupabaseAdmin } from './supabase.js'
 
 function admin() {
   return getSupabaseAdmin()
+}
+
+/**
+ * Soft-unpublish: bloqueia reuso silencioso do link.
+ * Com reativarDespublicada=true, a publicação anexa versão e republica a mesma entrada.
+ */
+function assertNaoDespublicadaSemReativar(acervoMusica, { reativarDespublicada = false } = {}) {
+  if (!acervoMusica || acervoMusica.publicado !== false) return
+  if (reativarDespublicada) return
+
+  const rotulo = rotuloEntradaAcervo(acervoMusica)
+  const err = new Error(
+    `«${rotulo}» está despublicada no acervo — não aparece na busca, no Explorar nem no atalho por URL. ` +
+      `Para publicar a cifra corrigida com o mesmo link: confirme a reativação (anexa a nova versão nesta entrada e a republica). ` +
+      `Alternativa: na Curadoria, libere o YouTube desta entrada (metadados) e publique como nova.`,
+  )
+  err.status = 409
+  err.code = 'ACERVO_FONTE_DESPUBLICADA'
+  err.requer_reativacao = true
+  err.entrada_despublicada = {
+    id: acervoMusica.id,
+    titulo: acervoMusica.titulo,
+    artista: acervoMusica.artista,
+    fonte_url: acervoMusica.fonte_url,
+    rotulo,
+    despublicado_em: acervoMusica.despublicado_em || null,
+    despublicado_por: acervoMusica.despublicado_por || null,
+  }
+  err.saidas = {
+    recomendada: 'reativar_com_nova_versao',
+    descricao_recomendada:
+      'Confirme a reativação: anexa a cifra nova à mesma entrada e ela volta ao catálogo (publicado=true).',
+    alternativa:
+      'Na Curadoria, remova ou troque o fonte_url da despublicada e publique outra entrada com o link.',
+  }
+  throw err
+}
+
+async function aplicarRepublicacaoNaEntrada(acervoMusicaId, userId) {
+  const agora = new Date().toISOString()
+  const { error } = await admin()
+    .from('acervo_musicas')
+    .update({
+      publicado: true,
+      republicado_por: userId || null,
+      republicado_em: agora,
+    })
+    .eq('id', acervoMusicaId)
+  if (error) throw error
 }
 
 /** BPM válido no banco: null ou inteiro em (0, 400). Zero vira null. */
@@ -299,6 +349,7 @@ export async function registrarVersaoCuradoria({
   arquivoOrigem = null,
   youtubeUrl = null,
   confirmarMesmoLink = false,
+  reativarDespublicada = false,
 }) {
   const db = admin()
   const tituloTrim = String(titulo || '').trim()
@@ -316,6 +367,7 @@ export async function registrarVersaoCuradoria({
 
   let acervoMusica = canonicalUrl ? await buscarAcervoPorFonteUrl(canonicalUrl) : null
   if (acervoMusica) {
+    assertNaoDespublicadaSemReativar(acervoMusica, { reativarDespublicada })
     assertTituloCompativelComEntradaUrl({
       tituloCopia: tituloTrim,
       artistaCopia: artista,
@@ -370,11 +422,18 @@ export async function registrarVersaoCuradoria({
   await db.from('acervo_musicas').update({ status: 'ready' }).eq('id', acervoMusica.id)
   await recalcularVersaoTop(acervoMusica.id)
 
+  const estavaDespublicada = acervoMusica.publicado === false
+  if (estavaDespublicada && reativarDespublicada) {
+    await aplicarRepublicacaoNaEntrada(acervoMusica.id, criadoPor)
+    acervoMusica = { ...acervoMusica, publicado: true }
+  }
+
   return {
     versao,
     acervoMusica,
     fonte_url: canonicalUrl || acervoMusica.fonte_url || fonteUrl,
     youtube_url: canonicalUrl,
+    reativada: Boolean(estavaDespublicada && reativarDespublicada),
   }
 }
 
@@ -424,6 +483,7 @@ export async function publicarCopiaPessoalNoAcervo({
   youtubeUrl = null,
   cifra = null,
   confirmarMesmoLink = false,
+  reativarDespublicada = false,
 }) {
   const db = admin()
 
@@ -458,9 +518,10 @@ export async function publicarCopiaPessoalNoAcervo({
 
   const canonicalUrl = canonicalYoutubeUrlFromRaw(rawYoutube)
 
-  // Guarda ANTES de qualquer escrita: URL → entrada existente com título/artista divergente.
+  // Guarda ANTES de qualquer escrita: despublicada e título divergente.
   const acervoPorUrl = await buscarAcervoPorFonteUrl(canonicalUrl)
   if (acervoPorUrl) {
+    assertNaoDespublicadaSemReativar(acervoPorUrl, { reativarDespublicada })
     assertTituloCompativelComEntradaUrl({
       tituloCopia: musica.titulo,
       artistaCopia: musica.artista,
@@ -573,6 +634,11 @@ export async function publicarCopiaPessoalNoAcervo({
   await recalcularVersaoTop(acervoMusica.id)
   await garantirFonteUrlYoutube(acervoMusica.id, canonicalUrl)
 
+  const estavaDespublicada = acervoMusica.publicado === false
+  if (estavaDespublicada && reativarDespublicada) {
+    await aplicarRepublicacaoNaEntrada(acervoMusica.id, userId)
+  }
+
   const importStatus =
     musica.import_status === 'pending' || musica.import_status === 'processing'
       ? 'ready'
@@ -594,6 +660,7 @@ export async function publicarCopiaPessoalNoAcervo({
     acervo_musica_id: acervoMusica.id,
     fonte_url: canonicalUrl,
     youtube_url: canonicalUrl,
+    reativada: Boolean(estavaDespublicada && reativarDespublicada),
   }
 }
 
@@ -1047,7 +1114,11 @@ export async function corrigirTomVersaoMotor({
 export async function resolverPedidoAcervo({ titulo, artista, fonteUrl }) {
   const existente = await buscarAcervoMusica({ titulo, artista, fonteUrl })
 
-  if (existente?.status === 'ready' && existente.versao_top) {
+  if (existente && existente.publicado === false) {
+    assertNaoDespublicadaSemReativar(existente, { reativarDespublicada: false })
+  }
+
+  if (estaNoCatalogoPublico(existente) && existente.versao_top) {
     const versao = existente.versao_top
     return {
       tipo: 'hit',
@@ -1878,6 +1949,128 @@ export async function corrigirMetadadosAcervoMusica({
       ids: elegiveisIds,
     },
     prova,
+  }
+}
+
+/**
+ * Admin — soft-unpublish: some do catálogo (busca/Explorar/atalho).
+ * Não apaga versões, não toca cifras, não altera cópias pessoais.
+ */
+export async function despublicarAcervoMusica({ acervoMusicaId, userId }) {
+  if (!acervoMusicaId) {
+    const err = new Error('acervoMusicaId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+  if (!userId) {
+    const err = new Error('userId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+  const { data: row, error } = await db
+    .from('acervo_musicas')
+    .select(
+      'id, titulo, artista, fonte_url, status, publicado, despublicado_por, despublicado_em, republicado_por, republicado_em',
+    )
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (error) throw error
+  if (!row) {
+    const err = new Error('Entrada do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  if (row.publicado === false) {
+    return {
+      alterado: false,
+      musica: row,
+      mensagem: 'Entrada já estava despublicada.',
+    }
+  }
+
+  const agora = new Date().toISOString()
+  const { data: atualizada, error: upErr } = await db
+    .from('acervo_musicas')
+    .update({
+      publicado: false,
+      despublicado_por: userId,
+      despublicado_em: agora,
+    })
+    .eq('id', acervoMusicaId)
+    .select(
+      'id, titulo, artista, fonte_url, status, publicado, despublicado_por, despublicado_em, republicado_por, republicado_em',
+    )
+    .single()
+  if (upErr) throw upErr
+
+  return {
+    alterado: true,
+    musica: atualizada,
+    efeito:
+      'Sumiu da busca, do Explorar e do atalho por URL. Cópias nas pastas dos ministros continuam intactas.',
+  }
+}
+
+/**
+ * Admin — devolve a entrada ao catálogo (publicado=true). Cifra intacta.
+ */
+export async function republicarAcervoMusica({ acervoMusicaId, userId }) {
+  if (!acervoMusicaId) {
+    const err = new Error('acervoMusicaId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+  if (!userId) {
+    const err = new Error('userId é obrigatório.')
+    err.status = 400
+    throw err
+  }
+
+  const db = admin()
+  const { data: row, error } = await db
+    .from('acervo_musicas')
+    .select(
+      'id, titulo, artista, fonte_url, status, publicado, despublicado_por, despublicado_em, republicado_por, republicado_em',
+    )
+    .eq('id', acervoMusicaId)
+    .maybeSingle()
+  if (error) throw error
+  if (!row) {
+    const err = new Error('Entrada do acervo não encontrada.')
+    err.status = 404
+    throw err
+  }
+
+  if (row.publicado !== false) {
+    return {
+      alterado: false,
+      musica: row,
+      mensagem: 'Entrada já estava publicada no catálogo.',
+    }
+  }
+
+  const agora = new Date().toISOString()
+  const { data: atualizada, error: upErr } = await db
+    .from('acervo_musicas')
+    .update({
+      publicado: true,
+      republicado_por: userId,
+      republicado_em: agora,
+    })
+    .eq('id', acervoMusicaId)
+    .select(
+      'id, titulo, artista, fonte_url, status, publicado, despublicado_por, despublicado_em, republicado_por, republicado_em',
+    )
+    .single()
+  if (upErr) throw upErr
+
+  return {
+    alterado: true,
+    musica: atualizada,
+    efeito: 'Voltou à busca, ao Explorar e ao atalho por URL.',
   }
 }
 

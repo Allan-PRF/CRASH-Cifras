@@ -213,15 +213,22 @@ async function buscarYoutube(query) {
 }
 
 async function resolverAcervoObrigatorio({ titulo, artista, fonteUrl }) {
-  const acervoPedido = await resolverPedidoAcervo({ titulo, artista, fonteUrl })
-  const acervoMusicaId = acervoPedido?.acervoMusica?.id
-  if (!acervoMusicaId) {
-    throw new ImportFriendlyError(
-      'Não foi possível registrar a música no acervo compartilhado. Tente novamente em instantes.',
-    )
+  try {
+    const acervoPedido = await resolverPedidoAcervo({ titulo, artista, fonteUrl })
+    const acervoMusicaId = acervoPedido?.acervoMusica?.id
+    if (!acervoMusicaId) {
+      throw new ImportFriendlyError(
+        'Não foi possível registrar a música no acervo compartilhado. Tente novamente em instantes.',
+      )
+    }
+    logImport('acervo:', acervoPedido.tipo, acervoMusicaId)
+    return acervoPedido
+  } catch (err) {
+    if (err?.code === 'ACERVO_FONTE_DESPUBLICADA') {
+      throw new ImportFriendlyError(err.message)
+    }
+    throw err
   }
-  logImport('acervo:', acervoPedido.tipo, acervoMusicaId)
-  return acervoPedido
 }
 
 async function executarPipelineYoutube(

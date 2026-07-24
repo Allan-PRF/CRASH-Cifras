@@ -34,6 +34,15 @@ api.interceptors.response.use(
     if (error.response?.data?.copia) {
       err.copia = error.response.data.copia
     }
+    if (error.response?.data?.requer_reativacao) {
+      err.requer_reativacao = true
+    }
+    if (error.response?.data?.entrada_despublicada) {
+      err.entrada_despublicada = error.response.data.entrada_despublicada
+    }
+    if (error.response?.data?.saidas) {
+      err.saidas = error.response.data.saidas
+    }
     return Promise.reject(err)
   },
 )
